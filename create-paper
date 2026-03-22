@@ -27,6 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/template"
 VENUES_DIR="$TEMPLATE_DIR/venues"
 SKILLS_REPO="https://github.com/K-Dense-AI/claude-scientific-skills.git"
+PRAXIS_REPO="https://github.com/zmtsikriteas/praxis.git"
 
 # ── Colors ────────────────────────────────────────────────────
 bold='\033[1m'
@@ -227,6 +228,22 @@ if command -v codex-bridge &>/dev/null; then
     ok "Codex Bridge configured (adversarial AI reviewer)"
 else
     info "codex-bridge not found — skipping (install for adversarial AI review)"
+fi
+
+# Set up Praxis scientific analysis toolkit (optional)
+info "Setting up Praxis scientific analysis toolkit..."
+git submodule add --depth 1 "$PRAXIS_REPO" vendor/praxis 2>&1 | grep -v "^$"
+if [[ -d vendor/praxis ]]; then
+    # Symlink Praxis as a skill
+    ln -s "$(pwd)/vendor/praxis" .claude/skills/praxis
+    # Install Praxis Python dependencies
+    if python3 -m pip install -q numpy scipy pandas matplotlib lmfit peakutils openpyxl uncertainties 2>/dev/null; then
+        ok "Praxis installed (50+ characterisation techniques, 9 journal styles)"
+    else
+        ok "Praxis linked (run 'pip install -r vendor/praxis/requirements.txt' to enable analysis)"
+    fi
+else
+    warn "Praxis clone failed — skipping (figures and analysis still work via matplotlib)"
 fi
 
 # Initial commit (skip GPG signing for bootstrap — it's local-only)

@@ -67,6 +67,7 @@ For interactive, step-by-step work:
 
 ### Data & Figures
 - `/analyze-data` — Statistical analysis on datasets, generate publication figures
+- `/praxis-analyze` — Technique-specific analysis via Praxis (XRD, DSC, EIS, mechanical, spectroscopy, etc.) with venue-matched journal figures
 
 ### Quality & Build
 - `/review` — Comprehensive manuscript quality review
@@ -97,6 +98,19 @@ If `codex-bridge` is installed (`npm i -g codex-bridge`), it provides adversaria
 All codex integration is **graceful** — if codex-bridge is not installed or configured, every step that uses it is silently skipped. The pipeline works fine without it.
 
 **Disagreement protocol**: If Codex disagrees with Claude's assessment, both perspectives are presented. Neither side silently wins.
+
+## Praxis Integration
+
+If Praxis is installed (cloned to `vendor/praxis/`), it provides domain-specific scientific data analysis:
+
+- **50+ characterisation techniques**: XRD, DSC, TGA, FTIR, Raman, XPS, EIS, mechanical testing, AFM, SEM, VSM, BET, etc.
+- **9 journal figure styles**: Nature, Science, ACS, Elsevier, Wiley, RSC, Springer, IEEE, MDPI — auto-matched to venue
+- **Colourblind-safe palettes** by default
+- **Technique-aware analysis**: returns domain-specific metrics (crystallite size, Tg, modulus, coercivity, etc.)
+
+**Usage**: Read `.claude/skills/praxis/SKILL.md` for the API. Use `vendor/praxis/references/cookbook.md` for worked examples. Import via `sys.path.insert(0, "vendor/praxis/scripts")`.
+
+**In the pipeline**: Stage 4 auto-detects data files in `attachments/` and uses Praxis for technique-specific analysis with venue-matched figures. Falls back to generic matplotlib if Praxis is not installed.
 
 ## Agent Usage Guidelines
 

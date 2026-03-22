@@ -83,6 +83,7 @@ create-paper my-paper "topic" --venue <venue>
 | Command | Description |
 |-|-|
 | `/analyze-data <file>` | Statistical analysis + figure generation |
+| `/praxis-analyze` | Technique-specific analysis (XRD, DSC, EIS, etc.) with venue-matched figures |
 
 ### Quality & Build
 | Command | Description |
@@ -183,6 +184,23 @@ When installed, `create-paper` auto-configures it. Codex provides:
 - **`/codex-review`** for on-demand second-opinion critique
 
 All Codex integration is graceful — if not installed, every step is silently skipped.
+
+### Optional: Praxis (scientific data analysis)
+
+[Praxis](https://github.com/zmtsikriteas/praxis) is auto-cloned as a submodule by `create-paper`. It provides:
+
+- **50+ characterisation techniques**: XRD, DSC, TGA, FTIR, Raman, XPS, EIS, mechanical testing, and more
+- **9 journal figure styles**: Nature, Science, ACS, Elsevier, Wiley, RSC, Springer, IEEE, MDPI
+- **Venue-matched figures**: Praxis auto-selects the journal style matching your `--venue` flag
+- **Domain-specific metrics**: Crystallite size, glass transition, Young's modulus, coercivity, etc.
+
+Put your data files in `attachments/`. The pipeline auto-detects the technique and generates publication-ready figures.
+
+```bash
+# Manual use
+claude
+/praxis-analyze attachments/xrd_scan.csv
+```
 
 ## Skills
 

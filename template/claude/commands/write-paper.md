@@ -309,13 +309,42 @@ Edit main.tex directly.
 
 ### Stage 4: Figures, Tables & Visual Elements
 
+**Step 4a: Data-driven figures with Praxis (if available)**
+
+If `vendor/praxis/scripts/` exists AND `attachments/` contains data files, spawn a **data analysis agent** (model: sonnet):
+```
+You are a scientific data analyst. Read .claude/skills/praxis/SKILL.md for the Praxis toolkit API.
+Read vendor/praxis/references/cookbook.md for worked examples.
+Read .venue.json for the target venue — map to Praxis journal style (nature, ieee, acs, science, elsevier, springer, rsc, wiley, mdpi).
+
+Scan attachments/ for data files. For each file:
+1. Auto-detect the characterisation technique from the data structure
+2. Write a Python analysis script using Praxis (sys.path.insert(0, "vendor/praxis/scripts"))
+3. Apply the venue-matched journal style: apply_style("<style>")
+4. Use colourblind-safe palette: set_palette("okabe_ito")
+5. Run technique-specific analysis (XRD → crystallite size, DSC → Tg/Tm, mechanical → modulus, etc.)
+6. Export figures as PDF to figures/
+7. Save scripts to figures/scripts/ for reproducibility
+
+After generating figures:
+- Add \includegraphics{} to Results section of main.tex with descriptive captions
+- Add quantitative results to the Results text
+- Add methodology to the Methods section
+- Write analysis summary to research/praxis_analysis.md
+
+If no data files exist in attachments/, skip this step.
+```
+
+If Praxis is not available but data files exist, fall back to generic matplotlib (use the `matplotlib` skill from `.claude/skills/matplotlib/SKILL.md`).
+
+**Step 4b: Structural figures and tables**
+
 Spawn an agent (model: sonnet):
 ```
 You are a scientific visualization specialist.
 Read main.tex completely.
 
-Invoke the `scientific-visualization` skill for publication-quality figure guidance.
-Use `matplotlib` or `plotly` skills for generating figures if applicable.
+Invoke the `scientific-visualization` skill (read .claude/skills/scientific-visualization/SKILL.md).
 
 Ensure the paper has:
 1. At least 1 overview/architecture/framework figure (use TikZ or describe in a figure environment)
@@ -325,7 +354,7 @@ Ensure the paper has:
 5. Consistent figure/table numbering and labeling
 6. Float placement uses [htbp]
 
-If creating figures programmatically, save scripts to figures/ and output to figures/.
+If Praxis already generated data figures (check figures/ directory), don't duplicate them — focus on structural/conceptual figures.
 Add any new figures to main.tex with proper \includegraphics{} and \caption{}.
 Edit main.tex directly.
 ```
