@@ -4,6 +4,10 @@ You are an autonomous research paper writing system. You will produce a publicat
 
 ## Setup
 
+**IMPORTANT — Sister Projects**: This pipeline uses two external tools that you MUST call directly (not via agents) at specific stages:
+- **Codex Bridge** (`mcp__codex-bridge__codex_plan`, `mcp__codex-bridge__codex_review`): Call at Stage 2 (thesis stress-test) and Stage 5 (adversarial review). These are MCP tools — call them directly in your session.
+- **Praxis** (`vendor/praxis/`): Use at Stage 4 if data files exist in `attachments/`. Import via `sys.path.insert(0, "vendor/praxis/scripts")`.
+
 1. Read `.paper.json` for topic, venue, model, and config. If it doesn't exist, create it from the topic in $ARGUMENTS.
 2. Read `.venue.json` if present for venue-specific formatting rules (sections, citation style, page limits).
 3. Read `main.tex` and `references.bib` to understand current state.
@@ -260,13 +264,16 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
-**Codex stress-test (if available)**: If `mcp__codex-bridge__codex_plan` is available, call it now:
+**MANDATORY — Codex Thesis Stress-Test**: You MUST call `mcp__codex-bridge__codex_plan` here. Do NOT skip this step. Read `research/thesis.md` and the outline from `main.tex`, then call:
+
 ```
-Call mcp__codex-bridge__codex_plan with:
-- prompt: "Stress-test this research paper plan. The thesis is: [thesis from research/thesis.md]. The sections are: [list sections from outline]. Challenge: (1) Is the contribution genuinely novel given the related work? (2) Is the argument structure sound — does evidence flow logically? (3) What will reviewers attack? (4) Are there missing sections or weak links?"
-- context: [paste research/thesis.md + outline from main.tex]
+mcp__codex-bridge__codex_plan({
+  prompt: "Stress-test this research paper plan. The thesis is: [paste thesis]. The sections are: [list sections]. Challenge: (1) Is the contribution genuinely novel given the related work? (2) Is the argument structure sound — does evidence flow logically? (3) What will reviewers attack? (4) Are there missing sections or weak links?",
+  context: "[paste content of research/thesis.md and the outline sections from main.tex]"
+})
 ```
-If Codex identifies structural problems, address them in the outline before proceeding to writing. If codex-bridge is not available, skip this step.
+
+If Codex identifies structural problems, fix them in the outline BEFORE proceeding to writing. Surface any disagreements between your assessment and Codex's to the user.
 
 ---
 
@@ -426,14 +433,17 @@ Verify:
 Write review to reviews/completeness.md with every issue found.
 ```
 
-**Codex Adversarial Reviewer (if available):** In parallel with the 3 agents above, if `mcp__codex-bridge__codex_review` is available:
+**MANDATORY — Codex Adversarial Review**: While the 3 review agents above are running, you MUST also call `mcp__codex-bridge__codex_review` directly (not via an agent — call the MCP tool yourself in the main session). Read `main.tex` first, then call:
+
 ```
-Call mcp__codex-bridge__codex_review with:
-- prompt: "You are an adversarial peer reviewer. Find the weakest points in this manuscript: (1) Claims that exceed the evidence (2) Logical gaps in the argument chain (3) Methodological shortcuts (4) Missing baselines or unfair comparisons (5) Conclusions that don't follow from results. Be specific — cite sections and sentences."
-- context: [read main.tex and pass its content]
-- evidence_mode: true
+mcp__codex-bridge__codex_review({
+  prompt: "You are an adversarial peer reviewer. Find the weakest points in this manuscript: (1) Claims that exceed the evidence (2) Logical gaps in the argument chain (3) Methodological shortcuts (4) Missing baselines or unfair comparisons (5) Conclusions that don't follow from results. Be specific — cite sections and sentences.",
+  context: "[paste the full content of main.tex]",
+  evidence_mode: true
+})
 ```
-Write Codex findings to `reviews/codex_adversarial.md`. If codex-bridge is not available, skip — the 3 agent reviewers are sufficient.
+
+Write the Codex response to `reviews/codex_adversarial.md`.
 
 #### Step 5b: Synthesize Reviews
 
