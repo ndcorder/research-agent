@@ -424,7 +424,44 @@ After revision, check ALL criteria from the table below. If any fail, loop back 
 
 ---
 
-### Stage 5e: Reference Validation (mandatory before finalization)
+### Stage 5e: Consistency & Claims Audit
+
+After the QA loop passes word count and structural checks, run two final audits **in parallel** (model: sonnet):
+
+**Consistency Checker:**
+```
+Read main.tex completely. Check for:
+- Notation inconsistencies (same concept, different symbols)
+- Terminology drift (same thing called different names)
+- Abbreviations used before definition or defined twice
+- Tense inconsistencies within sections
+- Reference format inconsistencies (Figure vs Fig., Section vs Sec.)
+Fix all issues directly in main.tex.
+Write report to reviews/consistency.md.
+```
+
+**Claims Auditor:**
+```
+Read main.tex completely. For every claim, check:
+- "novel"/"first" — is it actually, given the Related Work?
+- "significantly" — is there a statistical test?
+- "prove"/"demonstrate" — is there formal proof or only experiments?
+- Unsupported factual claims missing citations
+- Overclaims from limited experiments ("generalizes" from 2 datasets)
+Fix Critical and Major overclaims in main.tex (soften language, add hedging, note missing tests).
+Write report to reviews/claims_audit.md.
+```
+
+After both complete, also spawn a **reproducibility checker** (model: sonnet):
+```
+Read main.tex. Check if Methods section includes: all hyperparameters, training details, compute resources, dataset descriptions, evaluation metric definitions, random seed/variance info.
+For each missing item, add it to the appropriate section in main.tex.
+Write checklist to research/reproducibility_checklist.md.
+```
+
+---
+
+### Stage 5f: Reference Validation (mandatory before finalization)
 
 Spawn a **reference validation agent** (model: sonnet):
 ```
@@ -466,7 +503,16 @@ Report: word count per section, total words, citation count, page count.
 Edit main.tex directly.
 ```
 
-After polish, do one final compile and report results.
+After polish, generate a **lay summary** (model: sonnet):
+```
+Read main.tex completely. Generate:
+1. A 200-300 word plain-language summary (no jargon, high school reading level)
+2. A 2-3 sentence elevator pitch
+Write both to research/summaries.md.
+If .venue.json indicates the venue requires a lay summary (Nature, medical journals), add it to main.tex after the abstract.
+```
+
+Then do one final compile and report results.
 
 ---
 

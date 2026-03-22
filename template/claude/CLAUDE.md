@@ -70,7 +70,11 @@ For interactive, step-by-step work:
 
 ### Quality & Build
 - `/review` — Comprehensive manuscript quality review
+- `/check-consistency` — Find notation, terminology, abbreviation, and tense inconsistencies
+- `/audit-claims` — Flag overclaims, unsupported statements, missing significance tests
 - `/validate-references` — Verify every citation is real (CrossRef, search). Critical before submission.
+- `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)
+- `/lay-summary` — Generate plain-language summary, tweet thread, elevator pitch
 - `/compile` — Compile LaTeX to PDF and report errors
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)
