@@ -88,6 +88,7 @@ create-paper my-paper "topic" --venue <venue>
 | Command | Description |
 |-|-|
 | `/review` | Comprehensive manuscript review |
+| `/codex-review` | Adversarial AI review via Codex Bridge (optional) |
 | `/compile` | Build PDF, fix errors |
 | `/clean` | Remove build artifacts |
 
@@ -167,6 +168,21 @@ ls my-paper/reviews/
 - LaTeX distribution with `pdflatex` and `latexmk`
 - Python 3.10+
 - Git
+
+### Optional: Codex Bridge (adversarial AI review)
+
+Install [codex-bridge](https://github.com/kexxt/claude-codex-team) for adversarial review from OpenAI Codex:
+
+```bash
+npm i -g codex-bridge
+```
+
+When installed, `create-paper` auto-configures it. Codex provides:
+- **Thesis stress-testing** before writing begins
+- **Adversarial peer review** alongside Claude's reviewers in the QA loop
+- **`/codex-review`** for on-demand second-opinion critique
+
+All Codex integration is graceful — if not installed, every step is silently skipped.
 
 ## Skills
 

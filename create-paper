@@ -220,6 +220,15 @@ ok "Skills submodule added"
 ln -s "$(pwd)/vendor/claude-scientific-skills/scientific-skills" .claude/skills
 ok "Skills linked to .claude/skills"
 
+# Set up codex-bridge if available (optional sister project)
+if command -v codex-bridge &>/dev/null; then
+    codex-bridge init &>/dev/null
+    # Merge the codex .mcp.json into our project (it creates its own)
+    ok "Codex Bridge configured (adversarial AI reviewer)"
+else
+    info "codex-bridge not found — skipping (install for adversarial AI review)"
+fi
+
 # Initial commit (skip GPG signing for bootstrap — it's local-only)
 git add -A
 git -c commit.gpgsign=false commit -q -m "Initial paper project ($VENUE_NAME format)"

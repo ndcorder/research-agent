@@ -260,6 +260,14 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
+**Codex stress-test (if available)**: If `mcp__codex-bridge__codex_plan` is available, call it now:
+```
+Call mcp__codex-bridge__codex_plan with:
+- prompt: "Stress-test this research paper plan. The thesis is: [thesis from research/thesis.md]. The sections are: [list sections from outline]. Challenge: (1) Is the contribution genuinely novel given the related work? (2) Is the argument structure sound — does evidence flow logically? (3) What will reviewers attack? (4) Are there missing sections or weak links?"
+- context: [paste research/thesis.md + outline from main.tex]
+```
+If Codex identifies structural problems, address them in the outline before proceeding to writing. If codex-bridge is not available, skip this step.
+
 ---
 
 ### Stage 3: Section-by-Section Writing
@@ -389,9 +397,18 @@ Verify:
 Write review to reviews/completeness.md with every issue found.
 ```
 
+**Codex Adversarial Reviewer (if available):** In parallel with the 3 agents above, if `mcp__codex-bridge__codex_review` is available:
+```
+Call mcp__codex-bridge__codex_review with:
+- prompt: "You are an adversarial peer reviewer. Find the weakest points in this manuscript: (1) Claims that exceed the evidence (2) Logical gaps in the argument chain (3) Methodological shortcuts (4) Missing baselines or unfair comparisons (5) Conclusions that don't follow from results. Be specific — cite sections and sentences."
+- context: [read main.tex and pass its content]
+- evidence_mode: true
+```
+Write Codex findings to `reviews/codex_adversarial.md`. If codex-bridge is not available, skip — the 3 agent reviewers are sufficient.
+
 #### Step 5b: Synthesize Reviews
 
-Read all files in `reviews/`. Build a prioritized fix list:
+Read all files in `reviews/` (including `codex_adversarial.md` if it exists). Build a prioritized fix list:
 1. All CRITICAL issues (must fix)
 2. All MAJOR issues (should fix)
 3. Word count shortfalls

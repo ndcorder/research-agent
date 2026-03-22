@@ -29,7 +29,12 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "mcp__firecrawl__firecrawl_search",
-      "mcp__firecrawl__firecrawl_scrape"
+      "mcp__firecrawl__firecrawl_scrape",
+      "mcp__codex-bridge__codex_ask",
+      "mcp__codex-bridge__codex_review",
+      "mcp__codex-bridge__codex_plan",
+      "mcp__codex-bridge__codex_risk_radar",
+      "mcp__codex-bridge__codex_stats"
     ]
   }
 }

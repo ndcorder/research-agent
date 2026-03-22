@@ -79,9 +79,24 @@ For interactive, step-by-step work:
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)
 
+### Codex Bridge (optional — adversarial AI review)
+- `/codex-review` — Get a second-opinion review from OpenAI Codex (challenges assumptions, finds logical gaps)
+
 ### Submission
 - `/prepare-submission` — Generate submission package (anonymized, cover letter, supplementary)
 - `/clean` — Remove build artifacts and working directories
+
+## Codex Bridge Integration
+
+If `codex-bridge` is installed (`npm i -g codex-bridge`), it provides adversarial AI review via OpenAI Codex:
+
+- **Thesis stress-testing** (Stage 2): `codex_plan` challenges your contribution statement before you write
+- **Adversarial review** (Stage 5): `codex_review` runs alongside the 3 agent reviewers as a 4th perspective
+- **On-demand critique**: `/codex-review` for manual review of any section
+
+All codex integration is **graceful** — if codex-bridge is not installed or configured, every step that uses it is silently skipped. The pipeline works fine without it.
+
+**Disagreement protocol**: If Codex disagrees with Claude's assessment, both perspectives are presented. Neither side silently wins.
 
 ## Agent Usage Guidelines
 
