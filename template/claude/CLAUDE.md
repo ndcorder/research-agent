@@ -70,6 +70,7 @@ For interactive, step-by-step work:
 
 ### Quality & Build
 - `/review` — Comprehensive manuscript quality review
+- `/validate-references` — Verify every citation is real (CrossRef, search). Critical before submission.
 - `/compile` — Compile LaTeX to PDF and report errors
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)

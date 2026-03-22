@@ -424,6 +424,26 @@ After revision, check ALL criteria from the table below. If any fail, loop back 
 
 ---
 
+### Stage 5e: Reference Validation (mandatory before finalization)
+
+Spawn a **reference validation agent** (model: sonnet):
+```
+You are a reference verification specialist. Your job is to ensure every citation is real.
+Read references.bib. For EACH entry:
+1. If DOI present: verify via CrossRef API (curl -s "https://api.crossref.org/works/DOI")
+2. If no DOI: search for exact title using Perplexity or web search
+3. Classify: VERIFIED, METADATA MISMATCH, SUSPICIOUS, or FABRICATED
+4. Fix metadata mismatches directly in references.bib
+5. REMOVE fabricated entries from references.bib AND their citations from main.tex
+
+Write validation report to research/reference_validation.md.
+After fixes, compile: latexmk -pdf -interaction=nonstopmode main.tex
+```
+
+**This is non-negotiable.** Fabricated references are the #1 risk in AI-assisted writing. Every reference must be verified before the paper is finalized. Update `.paper-state.json` with validation results.
+
+---
+
 ### Stage 6: Finalization
 
 Spawn a **final polish agent** (model: opus):
