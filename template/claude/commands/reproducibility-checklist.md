@@ -1,66 +1,53 @@
 # Reproducibility Checklist — Verify Methods Are Complete and Reproducible
 
-Generate and populate a reproducibility checklist based on the paper's content. Covers ML reproducibility (NeurIPS/ICML style) and general scientific reproducibility.
+Generate and populate a reproducibility checklist based on the paper's content.
 
 ## Instructions
 
 Read `main.tex` completely. Evaluate each checklist item against the paper's content.
 
 ### For each item, mark:
-- **YES** — Addressed in the paper (cite the section/line)
-- **NO** — Not addressed but should be (suggest where to add it)
-- **N/A** — Not applicable to this paper type
-
----
+- **YES** — Addressed in the paper (cite the section and line)
+- **NO** — Not addressed but should be
+- **N/A** — Not applicable (explain why)
 
 ### General Scientific Reproducibility
 
-1. [ ] **Research question clearly stated** — Is the problem formulation unambiguous?
-2. [ ] **Hypotheses stated** — Are the hypotheses or research questions explicit?
-3. [ ] **Data sources described** — Where does the data come from? Can someone else get it?
-4. [ ] **Data preprocessing documented** — Cleaning, filtering, normalization steps?
-5. [ ] **Sample sizes reported** — Training/validation/test split sizes?
-6. [ ] **Evaluation metrics defined** — Are all metrics mathematically defined?
-7. [ ] **Baselines described** — Can someone reproduce the baseline results?
-8. [ ] **Statistical tests identified** — Which tests, what significance level?
-9. [ ] **Effect sizes reported** — Not just p-values?
-10. [ ] **Limitations acknowledged** — Are methodological limitations discussed?
+1. Research question clearly stated
+2. Hypotheses or research questions explicit
+3. Data sources described (where does data come from, can others get it)
+4. Data preprocessing documented (cleaning, filtering, normalization)
+5. Sample sizes reported (train/val/test splits)
+6. Evaluation metrics mathematically defined
+7. Baselines described with enough detail to reproduce
+8. Statistical tests identified (which tests, significance level)
+9. Effect sizes reported (not just p-values)
+10. Limitations acknowledged
 
-### ML-Specific Reproducibility (if applicable)
+### ML-Specific (apply if paper involves machine learning — check for keywords like "model", "training", "neural", "learning" in main.tex)
 
-11. [ ] **Model architecture fully specified** — Layer types, sizes, activation functions?
-12. [ ] **Hyperparameters listed** — Learning rate, batch size, optimizer, scheduler?
-13. [ ] **Hyperparameter search described** — How were hyperparameters chosen? Search space?
-14. [ ] **Training details** — Number of epochs, convergence criteria, early stopping?
-15. [ ] **Compute resources** — GPU type, training time, number of runs?
-16. [ ] **Random seeds** — Are experiments run with multiple seeds? Variance reported?
-17. [ ] **Code availability** — Is code provided or will be released?
-18. [ ] **Dataset availability** — Are datasets public? Licensing?
-19. [ ] **Pre-trained models** — If used, which ones? Version/checkpoint?
-20. [ ] **Data augmentation** — What augmentations, if any?
+11. Model architecture fully specified (layers, sizes, activations)
+12. Hyperparameters listed (learning rate, batch size, optimizer)
+13. Hyperparameter search described (method, search space)
+14. Training details (epochs, convergence, early stopping)
+15. Compute resources (GPU type, training time, number of runs)
+16. Random seeds and variance reported
+17. Code availability stated
+18. Dataset availability and licensing stated
+19. Pre-trained models identified (which, version)
 
-### Ethical Considerations (if applicable)
+### Ethical Considerations (apply if paper involves human subjects, sensitive data, or large compute)
 
-21. [ ] **IRB/Ethics approval** — For human subjects research?
-22. [ ] **Informed consent** — If human participants involved?
-23. [ ] **Data privacy** — Personally identifiable information handled?
-24. [ ] **Bias discussion** — Potential biases in data or model?
-25. [ ] **Environmental impact** — Carbon footprint of compute (for large-scale)?
-
----
+20. IRB/Ethics approval (for human subjects)
+21. Data privacy handling
+22. Bias discussion
+23. Environmental impact (for large-scale compute)
 
 ## Output
 
-1. **Generate the filled checklist** with YES/NO/N/A and specific references to paper sections
-2. **Write to `research/reproducibility_checklist.md`**
-3. **For every NO item**: Suggest specific text to add and where in `main.tex` to add it
-4. **Add missing information** directly to `main.tex`:
-   - Missing hyperparameters → add to Methods or Appendix
-   - Missing compute details → add to Experiments
-   - Missing data descriptions → add to Experiments setup
-   - Missing code/data availability → add statement before References
-5. **Compile** to verify additions don't break formatting
-
-Report: how many items were YES, NO, and N/A. Flag critical gaps.
+1. **Write the filled checklist** to `research/reproducibility_checklist.md` with YES/NO/N/A and section references
+2. **For every NO item**: suggest specific text to add and where
+3. **Offer to add missing information** to `main.tex` — list what would be added and where, but only edit if the user confirms or if this command was invoked by `/write-paper` (autonomous mode)
+4. Report summary: X/Y items addressed
 
 $ARGUMENTS

@@ -4,20 +4,27 @@ Clean up LaTeX build artifacts and optionally remove working directories.
 
 ## Instructions
 
-1. **Always clean LaTeX artifacts**: Run `latexmk -c` to remove .aux, .bbl, .blg, .fdb_latexmk, .fls, .log, .out, .synctex.gz, .toc
-2. **Report what was cleaned** and disk space freed
-3. **If `--all` or `all` is in arguments**, also:
-   - Remove `research/` directory (research notes — these are intermediate, not the final paper)
-   - Remove `reviews/` directory (review feedback — already incorporated)
-   - Remove `.paper-state.json` (pipeline state — allows fresh restart)
-   - Remove `.paper-progress.txt` (progress file)
-   - **Ask for confirmation before deleting these** — they represent work that may be useful
+1. **Always clean LaTeX artifacts**:
+   - If `latexmk` is available: run `latexmk -c`
+   - Otherwise: `rm -f *.aux *.bbl *.blg *.fdb_latexmk *.fls *.log *.out *.synctex.gz *.toc`
+2. **Report** what was cleaned
+
+3. **If `all` is in arguments**, also remove working directories:
+   - `research/` — intermediate research notes (not the final paper)
+   - `reviews/` — review feedback (already incorporated into revisions)
+   - `.paper-state.json` — pipeline state (allows fresh restart)
+   - `.paper-progress.txt` — progress file
+   - `figures/scripts/` — figure generation scripts (figures themselves are kept)
+   - **IMPORTANT**: Before deleting, list what will be removed and warn the user. Proceed with deletion — if they didn't want this, they should not have passed `all`.
+
 4. **Never delete**:
-   - `main.tex`, `references.bib`, `.paper.json` (the actual paper)
-   - `figures/` (generated figures are part of the paper)
-   - `attachments/` (user-provided reference materials)
-   - `vendor/` (skills submodule)
-   - `.claude/` (project configuration)
-   - `.git/` (version history)
+   - `main.tex`, `references.bib`, `.paper.json`, `.venue.json`
+   - `figures/*.pdf` (generated figures are part of the paper)
+   - `attachments/` (user-provided materials)
+   - `vendor/`, `.claude/`, `.git/`
+
+## Arguments
 
 $ARGUMENTS
+
+Usage: `/clean` (artifacts only) or `/clean all` (artifacts + working dirs)

@@ -4,67 +4,54 @@ Prepare the paper for journal/conference submission with all required materials.
 
 ## Instructions
 
-1. **Read `.paper.json`** for venue and author information
-2. **Create submission directory**: `mkdir -p submission/`
-3. **Generate the following**:
+1. **Read `.paper.json`** for author and venue information
+2. **Read `.venue.json`** if it exists — check the `blind_review` field to determine if anonymization is needed
+3. **Create submission directory**: `mkdir -p submission/`
+4. **Generate the following**:
 
-### Anonymized Version (if venue requires double-blind)
+### Anonymized Version (if `blind_review` is true in `.venue.json`)
 - Copy `main.tex` to `submission/main-anonymous.tex`
-- Remove all author names, affiliations, emails
-- Replace self-citations with "Anonymous" or "[removed for review]"
-- Remove acknowledgments section
-- Remove any identifying information in text (e.g., "our lab at Stanford")
+- Remove all author names, affiliations, emails from the author block
+- Replace `\author{...}` with `\author{Anonymous}`
+- Comment out acknowledgments section
+- Scan text for institution names, lab names, or other identifying info — flag them for manual review (do NOT auto-remove from body text as this is error-prone)
 - Compile the anonymous version
 
 ### Camera-Ready Version
 - Copy `main.tex` to `submission/main-camera-ready.tex`
-- Ensure all metadata is complete (authors, affiliations, ORCIDs)
-- Apply venue-specific formatting if `venue` is set in `.paper.json`
+- Ensure all metadata is complete (authors, affiliations from `.paper.json`)
 - Compile the camera-ready version
 
-### Supplementary Materials
-- Create `submission/supplementary.tex` with:
-  - Extended results tables
-  - Additional figures
-  - Detailed proofs (if applicable)
-  - Hyperparameter details
-  - Dataset descriptions
-  - Compute resources used
-- Compile to `submission/supplementary.pdf`
+### Supplementary Materials (if applicable)
+- Only generate if the paper has content that belongs in supplementary (extended proofs, extra experiments, detailed hyperparameters)
+- Read `main.tex` to identify candidates for supplementary material
+- If nothing qualifies, skip this step
+- If content exists: create `submission/supplementary.tex`, compile to PDF
 
 ### Cover Letter
 - Create `submission/cover-letter.tex` with:
-  - Dear Editor/Program Chair salutation
   - Paper title and brief summary (2-3 sentences)
   - Key contribution and significance (1 paragraph)
   - Why this venue is appropriate (1 paragraph)
   - Statement of originality and no concurrent submission
-  - Author contact information
+  - Author contact information from `.paper.json`
 - Compile to `submission/cover-letter.pdf`
 
-### Response to Reviewers (if revising)
-- If `reviews/` directory has review files, create `submission/response-to-reviewers.tex`:
+### Response to Reviewers (only if `reviews/` directory has review files)
+- Create `submission/response-to-reviewers.tex`:
   - Quote each reviewer comment
   - Provide point-by-point response
   - Reference specific changes made (page, section)
-- Compile to `submission/response-to-reviewers.pdf`
+- Compile to PDF
 
 ### Checklist
-- Create `submission/checklist.md`:
-  - [ ] All figures are high-resolution (300+ DPI for raster, vector preferred)
-  - [ ] References formatted per venue style
-  - [ ] Page limit met
-  - [ ] Abstract within word limit
-  - [ ] Author information complete
-  - [ ] Acknowledgments included (or removed for blind review)
-  - [ ] Data availability statement
-  - [ ] Code availability statement
-  - [ ] Ethics statement (if applicable)
-  - [ ] Conflict of interest declaration
+- Create `submission/checklist.md` with all items checked against the actual paper state
 
-4. **Final compilation** of all documents
-5. **Report** contents of `submission/` directory
+5. **Final compilation** of all documents
+6. **Report** contents of `submission/` directory with file sizes
 
 ## Target Venue
 
 $ARGUMENTS
+
+If no arguments, use venue from `.paper.json`.

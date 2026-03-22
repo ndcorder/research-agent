@@ -4,48 +4,40 @@ Show the current state of the paper writing pipeline.
 
 ## Instructions
 
-1. **Read `.paper-state.json`** if it exists for pipeline stage tracking
-2. **Analyze `main.tex`**:
-   - Count words per section (strip LaTeX commands for approximate count)
-   - List all `\section{}` and `\subsection{}` headings
+1. **Read `.paper-state.json`** if it exists for pipeline stage tracking. If not, report "No pipeline state found."
+2. **Read `.paper.json`** for topic and target_words. If not found, use defaults (topic: "unknown", target: 8000).
+3. **Read `.venue.json`** for venue name. If not found, use "generic".
+4. **Analyze `main.tex`**:
+   - Find all `\section{}` headings
+   - Count words per section (strip LaTeX commands: remove `\command{...}`, `\command`, `{}`, `\\`, `%` comments, then count remaining words). This is approximate — that's fine.
    - Check for placeholder text (TODO, TBD, FIXME, \lipsum, \mbox{})
    - Count `\citep{}` and `\citet{}` usage
-   - Count `\ref{}` cross-references
-   - Check for unresolved references (compile and check log)
-3. **Analyze `references.bib`**:
-   - Count total entries
-   - List entry types breakdown (@article, @inproceedings, etc.)
-   - Check for entries not cited in main.tex
-   - Check for citation keys used in main.tex but missing from .bib
-4. **Check research files**: List files in `research/` with sizes
-5. **Check review files**: List files in `reviews/` with sizes
-6. **Check figures**: List files in `figures/`
-7. **Compile check**: Run `latexmk -pdf -interaction=nonstopmode main.tex` and report errors/warnings
-8. **Get page count**: `pdfinfo main.pdf 2>/dev/null | grep Pages`
+5. **Analyze `references.bib`**: Count total entries
+6. **Check directories**: Report if `research/`, `reviews/`, `figures/` exist and their file counts
+7. **Compile check**: Run `latexmk -pdf -interaction=nonstopmode main.tex 2>&1 | tail -5` and report success/failure. If `pdfinfo` available, report page count.
 
-**Output format:**
+**Output format** (use plain text, no box-drawing characters):
 
 ```
-Paper: [topic from .paper.json]
-Venue: [venue or "generic"]
+Paper: [topic]
+Venue: [venue]
 
 SECTIONS                    Words    Target   Status
-─────────────────────────────────────────────────
-Introduction                1205     1000     ✓
-Related Work                 843     1500     ▸ needs 657 more
-Methods                        0     2000     ○ not started
+Introduction                1205     1000     ok
+Related Work                 843     1500     needs 657 more
+Methods                        0     2000     not started
 ...
-─────────────────────────────────────────────────
 Total                       2048     8000
 
-REFERENCES: 32 entries (28 cited, 4 orphaned)
-FIGURES:    3 files in figures/
-REVIEWS:    2 files in reviews/
-COMPILES:   ✓ clean (12 pages)
-
-PIPELINE STAGE: Stage 3 — Writing (Methods next)
+REFERENCES: 32 entries
+FIGURES:    3 files
+REVIEWS:    2 files
+COMPILES:   ok (12 pages)
+PIPELINE:   Stage 3 - Writing (Methods next)
 ```
 
-Also write this status to `.paper-progress.txt` so it can be monitored from another terminal via `cat .paper-progress.txt`.
+Word count targets per section: Introduction=1000, Related Work=1500, Methods=2000, Results=1500, Discussion=1200, Conclusion=500, Abstract=300. Scale proportionally if `.paper.json` `target_words` differs from 8000.
+
+Also write this output to `.paper-progress.txt` so it can be monitored from another terminal.
 
 $ARGUMENTS

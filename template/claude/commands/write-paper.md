@@ -169,6 +169,7 @@ Use these skills where relevant:
 - `sympy` for mathematical formulations
 - Domain theory skills from: [LIST from DOMAIN_SKILLS]
 - `scientific-critical-thinking` for evaluating theoretical claims
+TOOL FALLBACK: If any tool fails, try the next: domain databases → Perplexity → WebSearch → Firecrawl. Try at least 3 tools.
 
 Your task:
 1. Identify foundational theories and frameworks underlying this field
@@ -204,7 +205,7 @@ This will directly inform the paper's contribution statement.
 
 **Note:** Run agents 1-4 in parallel (they're independent). Run agent 5 AFTER 1-4 complete (it reads their outputs).
 
-**After all research agents complete, spawn a Bibliography Builder agent:**
+**After all research agents complete, spawn a Bibliography Builder agent** (model: sonnet)**:**
 ```
 You are a meticulous bibliographer.
 Read ALL files in research/ directory. Extract every paper cited.
@@ -284,7 +285,7 @@ Each section gets its own dedicated agent. **Run sequentially** — each section
 | 4 | Results/Experiments | 2000+ | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. |
 | 5 | Discussion | 1500+ | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. |
 | 6 | Conclusion | 600+ | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. |
-| 7 | Abstract | 250-350 | Written LAST. Self-contained. Specific quantitative claims. Read the ENTIRE paper first. |
+| 7 | Abstract | 250+ | Written LAST. Self-contained. Specific quantitative claims. Read the ENTIRE paper first. |
 
 **After each writing agent completes**, check the word count of that section inline. If under 70% of target, immediately spawn an expansion agent:
 ```
@@ -424,9 +425,11 @@ After revision, check ALL criteria from the table below. If any fail, loop back 
 
 ---
 
-### Stage 5e: Consistency & Claims Audit
+### Post-QA: Consistency & Claims Audit
 
-After the QA loop passes word count and structural checks, run two final audits **in parallel** (model: sonnet):
+**These steps run ONCE after the QA loop exits (all quality criteria met).** They are NOT inside the loop.
+
+Run two final audits **in parallel** (model: sonnet):
 
 **Consistency Checker:**
 ```
@@ -461,7 +464,7 @@ Write checklist to research/reproducibility_checklist.md.
 
 ---
 
-### Stage 5f: Reference Validation (mandatory before finalization)
+### Post-QA: Reference Validation (mandatory before finalization)
 
 Spawn a **reference validation agent** (model: sonnet):
 ```
@@ -506,7 +509,7 @@ Edit main.tex directly.
 After polish, generate a **lay summary** (model: sonnet):
 ```
 Read main.tex completely. Generate:
-1. A 200-300 word plain-language summary (no jargon, high school reading level)
+1. A 200+ word plain-language summary (no jargon, high school reading level)
 2. A 2-3 sentence elevator pitch
 Write both to research/summaries.md.
 If .venue.json indicates the venue requires a lay summary (Nature, medical journals), add it to main.tex after the abstract.
@@ -518,7 +521,7 @@ Then do one final compile and report results.
 
 ## Quality Criteria
 
-ALL must pass to exit Stage 5:
+ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionally higher than these minimums — aim high, gate at the floor. Scale all targets proportionally if venue has page limits (Rule 12).
 
 | Criterion | Requirement |
 |-|-|
@@ -529,7 +532,7 @@ ALL must pass to exit Stage 5:
 | Results / Experiments | 1500+ words |
 | Discussion | 1200+ words |
 | Conclusion | 500+ words |
-| Abstract | 200-350 words |
+| Abstract | 200+ words |
 | References in .bib | 25+ verified entries |
 | Placeholder text | 0 (no TODO/TBD/FIXME/lipsum/mbox{}) |
 | LaTeX compilation | No errors |
@@ -554,13 +557,15 @@ ALL must pass to exit Stage 5:
 1. **Never fabricate references.** Every BibTeX entry must be a real, verifiable publication.
 2. **Never leave bullet points in manuscript body.** All content must be flowing paragraphs.
 3. **Write exhaustively.** More depth is always better. 2000 thorough words beats 500 concise ones.
-4. **Use skills.** Every agent should invoke relevant skills from `.claude/skills/`. Skills contain expert knowledge that dramatically improves output quality. The `scientific-writing` skill is mandatory for all writing agents.
+4. **How to use skills.** When an agent prompt says "use the `scientific-writing` skill", the agent should read the file `.claude/skills/scientific-writing/SKILL.md` and follow its guidance. Skills are markdown files at `.claude/skills/<skill-name>/SKILL.md`. The `scientific-writing` skill is mandatory for all writing agents.
 5. **Sequential writing, parallel research/review.** Writing agents one at a time. Research and review agents in parallel.
-6. **Check word counts after every writing agent.** Expand immediately if under target.
-7. **Model selection.** Writing and revision agents: `model: "opus"`. Research and review agents: `model: "sonnet"`.
-8. **Track progress.** Use TaskCreate/TaskUpdate for every stage.
+6. **Check word counts after every writing agent.** Expand immediately if under 70% of target. The expansion agent should use `model: "opus"`.
+7. **Model selection.** Writing and revision agents: `model: "opus"`. Research, review, and utility agents: `model: "sonnet"`.
+8. **Track progress.** Use TaskCreate/TaskUpdate for every stage. Naming: `"Stage 1: Research"`, `"Stage 3: Write Introduction"`, etc. Set status to `in_progress` when starting, `completed` when done.
 9. **Be patient.** This pipeline runs 1-4+ hours. Every stage matters. Do not rush or skip.
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.
+11. **Clear stale reviews.** Before each QA loop iteration (Stage 5a), delete old review files: `rm -f reviews/technical.md reviews/writing.md reviews/completeness.md` so reviewers evaluate the latest version.
+12. **Venue-aware word targets.** If `.venue.json` has a `page_limit`, scale section word targets proportionally. An 8-page IEEE paper needs ~6000 words total, not 8000+. Read the venue config and adjust.
 
 ## Topic
 

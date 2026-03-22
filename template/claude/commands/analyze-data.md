@@ -4,51 +4,47 @@ Analyze datasets, run statistical tests, generate publication-quality figures, a
 
 ## Instructions
 
-1. **Locate data files** in `attachments/` or a path specified by the user. Supported formats: CSV, TSV, JSON, Excel (.xlsx), Parquet, NumPy (.npy/.npz)
-2. **Read and profile the data**:
-   - Use the `exploratory-data-analysis` skill for systematic profiling
+1. **Check Python environment first**:
+   ```bash
+   python3 -c "import pandas, numpy, scipy, matplotlib, seaborn" 2>&1
+   ```
+   If any are missing, install them: `python3 -m pip install pandas numpy scipy matplotlib seaborn scikit-learn statsmodels openpyxl`
+   If `python3` itself is unavailable, report the issue and stop.
+
+2. **Locate data files** in `attachments/` or a path specified by the user. Supported formats: CSV, TSV, JSON, Excel (.xlsx), Parquet, NumPy (.npy/.npz).
+   - If no data files are found, report and stop.
+   - For files over 100MB, use chunked reading (`pandas.read_csv(..., chunksize=10000)`) or sample.
+
+3. **Read and profile the data**:
    - Report: dimensions, column types, missing values, basic statistics
    - Identify the dependent/independent variables
-3. **Run appropriate statistical analyses**:
-   - Use the `statistical-analysis` skill for test selection
-   - Normality tests (Shapiro-Wilk) → parametric vs non-parametric
+
+4. **Run appropriate statistical analyses**:
+   - Use the `statistical-analysis` skill from `.claude/skills/statistical-analysis/SKILL.md` if available (read it first)
+   - Normality tests (Shapiro-Wilk) to determine parametric vs non-parametric
    - Descriptive statistics (mean, SD, median, IQR, range)
    - Inferential tests as appropriate (t-test, ANOVA, Mann-Whitney, chi-squared, etc.)
    - Effect sizes (Cohen's d, eta-squared, odds ratios)
    - Confidence intervals
    - Correlation analyses where relevant
-   - Regression if applicable
-4. **Generate figures** using Python scripts:
-   - Use `matplotlib` and `seaborn` skills for publication-quality plots
+
+5. **Generate figures** using Python scripts:
    - Save all figures to `figures/` as PDF (vector format)
    - Save generating scripts to `figures/scripts/` for reproducibility
-   - Figure types to consider:
-     - Distribution plots (histogram, violin, box)
-     - Comparison plots (bar with error bars, grouped)
-     - Correlation plots (scatter with regression line, heatmap)
-     - Time series (line plots with confidence bands)
-   - Apply publication styling: no gridlines, serif fonts, appropriate DPI
-5. **Generate results tables**:
-   - Create LaTeX table code with booktabs formatting
-   - Include statistical test results (test statistic, df, p-value, effect size)
-   - Insert into `main.tex` in the Results section
-6. **Write analysis report** to `research/data_analysis.md`:
-   - Dataset description
-   - Statistical test results with interpretation
-   - Figure descriptions and file paths
-   - Key findings summary
+   - Apply publication styling: no gridlines, readable fonts, appropriate sizing
+   - Run each script and verify the output file exists
+
+6. **Generate results tables** as LaTeX code with booktabs formatting
+
 7. **Integrate into paper**:
-   - Add `\includegraphics{}` for each figure in Results section of `main.tex`
-   - Add results tables to Results section
-   - Ensure all figures/tables are referenced in text with `\ref{}`
+   - Read `main.tex` and find the Results section (check for `\section{Results}`, `\section{Experiments}`, or similar)
+   - If no Results section exists, add one
+   - Add `\includegraphics{}` and tables with proper `\label{}`, `\caption{}`, and `\ref{}` in text
 
-## Python Environment
-
-Run analysis scripts with `python3`. Install packages if needed:
-```bash
-python3 -m pip install pandas numpy scipy matplotlib seaborn scikit-learn statsmodels
-```
+8. **Write analysis report** to `research/data_analysis.md`
 
 ## Data Source
 
 $ARGUMENTS
+
+If no arguments given, scan `attachments/` for data files.
