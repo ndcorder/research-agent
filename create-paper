@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ──────────────────────────────────────────────────────────────
+# create-paper — Stamp out a new research paper project and
+#                optionally launch Claude Code to write it.
+#
+# Usage:
+#   create-paper <directory> [topic] [--venue <venue>]
+#
+# Examples:
+#   create-paper my-survey "A survey on LLM reasoning"
+#   create-paper my-paper "Protein folding" --venue nature
+#   create-paper ieee-paper --venue ieee
+#
+# Venues: generic, ieee, acm, neurips, nature, arxiv, apa
+# ──────────────────────────────────────────────────────────────
+
+# Resolve symlinks to find the real script location
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+    DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/template"
+VENUES_DIR="$TEMPLATE_DIR/venues"
+SKILLS_REPO="https://github.com/K-Dense-AI/claude-scientific-skills.git"
+
+# ── Colors ────────────────────────────────────────────────────
+bold='\033[1m'
+green='\033[0;32m'
+blue='\033[0;34m'
+yellow='\033[0;33m'
+red='\033[0;31m'
+reset='\033[0m'
+
+info()  { echo -e "${blue}→${reset} $*"; }
+ok()    { echo -e "${green}✓${reset} $*"; }
+warn()  { echo -e "${yellow}!${reset} $*"; }
+
+# ── Parse arguments ──────────────────────────────────────────
+if [[ $# -lt 1 ]]; then
+    echo -e "${bold}Usage:${reset} create-paper <directory> [topic] [--venue <venue>]"
+    echo ""
+    echo "  <directory>  Name/path for the new paper project"
+    echo "  [topic]      Paper topic — starts the writing pipeline"
+    echo "  --venue      Target venue format (default: generic)"
+    echo ""
+    echo -e "${bold}Available venues:${reset}"
+    echo "  generic   Standard journal article (default)"
+    echo "  ieee      IEEE conference/journal (IEEEtran, numeric citations)"
+    echo "  acm       ACM conference (acmart sigconf, double-blind)"
+    echo "  neurips   NeurIPS/ICML/ICLR (neurips style, 9-page limit)"
+    echo "  nature    Nature family journals (Results before Methods)"
+    echo "  arxiv     arXiv preprint (no limits, extended format)"
+    echo "  apa       APA 7th edition (psychology/social sciences)"
+    echo ""
+    echo "Examples:"
+    echo "  create-paper my-survey \"A survey on LLM reasoning\""
+    echo "  create-paper my-paper \"Protein folding\" --venue nature"
+    exit 1
+fi
+
+TARGET="$1"
+shift
+
+TOPIC=""
+VENUE="generic"
+
+# Parse remaining args
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --venue|-v)
+            VENUE="$2"
+            shift 2
+            ;;
+        *)
+            TOPIC="$1"
+            shift
+            ;;
+    esac
+done
+
+if [[ -e "$TARGET" ]]; then
+    echo -e "${red}✗${reset} '$TARGET' already exists." >&2
+    exit 1
+fi
+
+# Validate venue
+if [[ ! -f "$VENUES_DIR/$VENUE.json" ]]; then
+    echo -e "${red}✗${reset} Unknown venue '$VENUE'. Available: generic, ieee, acm, neurips, nature, arxiv, apa" >&2
+    exit 1
+fi
+
+# Check dependencies
+for cmd in git pdflatex claude; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo -e "${red}✗${reset} '$cmd' is required but not found in PATH." >&2
+        exit 1
+    fi
+done
+
+# ── Read venue config ─────────────────────────────────────────
+VENUE_NAME=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['name'])")
+VENUE_DOCCLASS=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['documentclass'])")
+VENUE_BIBSTYLE=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['bibliography_style'])")
+VENUE_ABSTRACT_LIMIT=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['abstract_word_limit'])")
+VENUE_SECTIONS=$(python3 -c "import json; v=json.load(open('$VENUES_DIR/$VENUE.json')); print('\n'.join(v['sections']))")
+
+info "Creating ${bold}$VENUE_NAME${reset} paper in ${bold}$TARGET${reset}"
+
+# ── Create project ────────────────────────────────────────────
+mkdir -p "$TARGET"
+cd "$TARGET"
+
+# Generate main.tex from venue config
+python3 - "$VENUES_DIR/$VENUE.json" <<'PYEOF'
+import json, sys
+
+with open(sys.argv[1]) as f:
+    v = json.load(f)
+
+lines = [v["documentclass"]]
+for pkg in v["packages"]:
+    lines.append(pkg)
+
+lines.append("")
+lines.append("\\hypersetup{")
+lines.append("  colorlinks=true,")
+lines.append("  linkcolor=blue!70!black,")
+lines.append("  citecolor=green!50!black,")
+lines.append("  urlcolor=blue!80!black")
+lines.append("}")
+lines.append("")
+lines.append("\\title{Your Paper Title Here}")
+lines.append("\\author{")
+lines.append("  First Author\\textsuperscript{1} \\and")
+lines.append("  Second Author\\textsuperscript{2} \\\\\\\\")
+lines.append("  \\textsuperscript{1}Department, University \\\\\\\\")
+lines.append("  \\textsuperscript{2}Department, University \\\\\\\\")
+lines.append("  \\texttt{email@example.com}")
+lines.append("}")
+lines.append("\\date{\\today}")
+lines.append("")
+lines.append("\\begin{document}")
+lines.append("")
+lines.append("\\maketitle")
+lines.append("")
+lines.append("\\begin{abstract}")
+lines.append("% TODO: Write abstract (limit: " + str(v["abstract_word_limit"]) + " words)")
+lines.append("\\end{abstract}")
+lines.append("")
+
+for section in v["sections"]:
+    lines.append("\\section{" + section + "}")
+    lines.append("% TODO: Write " + section + " section")
+    lines.append("")
+
+lines.append("\\bibliographystyle{" + v["bibliography_style"] + "}")
+lines.append("\\bibliography{references}")
+lines.append("")
+lines.append("\\end{document}")
+
+with open("main.tex", "w") as f:
+    f.write("\n".join(lines) + "\n")
+PYEOF
+ok "main.tex generated ($VENUE_NAME format)"
+
+# Copy other template files
+cp "$TEMPLATE_DIR/references.bib" .
+cp "$TEMPLATE_DIR/gitignore" .gitignore
+mkdir -p .claude/commands figures attachments
+cp "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/
+cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
+cp "$TEMPLATE_DIR/claude/commands/"*.md .claude/commands/
+
+# Copy venue config for reference
+cp "$VENUES_DIR/$VENUE.json" .venue.json
+ok "Template files copied"
+
+# Generate .paper.json config
+python3 -c "
+import json
+config = {
+    'topic': '''${TOPIC}''' if '''${TOPIC}''' else '',
+    'venue': '$VENUE',
+    'model': 'claude-sonnet-4-6',
+    'target_words': 8000,
+    'max_revisions': 3,
+    'authors': [
+        {
+            'name': 'First Author',
+            'affiliation': 'Department, University',
+            'email': 'author@example.com',
+            'orcid': ''
+        }
+    ],
+    'keywords': [],
+    'funding': '',
+    'conflicts': '',
+    'data_availability': '',
+    'code_availability': ''
+}
+json.dump(config, open('.paper.json', 'w'), indent=2)
+"
+ok "Paper config written (.paper.json)"
+
+# Initialize git
+git init -q
+ok "Git initialized"
+
+# Add scientific skills submodule (shallow clone for speed)
+info "Cloning 177 scientific skills (shallow)..."
+git submodule add --depth 1 "$SKILLS_REPO" vendor/claude-scientific-skills 2>&1 | grep -v "^$"
+ok "Skills submodule added"
+
+# Symlink skills into .claude/skills
+ln -s "$(pwd)/vendor/claude-scientific-skills/scientific-skills" .claude/skills
+ok "Skills linked to .claude/skills"
+
+# Initial commit (skip GPG signing for bootstrap — it's local-only)
+git add -A
+git -c commit.gpgsign=false commit -q -m "Initial paper project ($VENUE_NAME format)"
+ok "Initial commit created"
+
+# Verify LaTeX compiles
+info "Verifying LaTeX compilation..."
+if latexmk -pdf -interaction=nonstopmode main.tex &>/dev/null; then
+    ok "LaTeX compiles successfully"
+    latexmk -c &>/dev/null
+else
+    warn "LaTeX compilation had issues (you can fix them with /compile)"
+fi
+
+# ── Summary ───────────────────────────────────────────────────
+echo ""
+echo -e "${bold}Paper project ready!${reset}"
+echo ""
+echo "  Project:  $(pwd)"
+echo "  Venue:    $VENUE_NAME"
+echo "  Skills:   177 scientific skills available"
+echo ""
+echo -e "${bold}Commands:${reset}"
+echo "  /write-paper <topic>   Autonomous pipeline (1-4 hrs, journal quality)"
+echo "  /preview-pipeline      Show what the pipeline will do (dry run)"
+echo "  /init <topic>          Quick single-pass generation"
+echo "  /ingest-papers         Import PDFs from attachments/"
+echo "  /search-literature     Find relevant papers"
+echo "  /add-citation          Add a BibTeX reference"
+echo "  /analyze-data          Statistical analysis and figure generation"
+echo "  /outline <section>     Draft section outline"
+echo "  /compile               Build PDF"
+echo "  /review                Manuscript quality review"
+echo "  /revise-section        Rewrite with feedback"
+echo "  /status                Progress dashboard"
+echo "  /cite-network          Citation coverage analysis"
+echo "  /prepare-submission    Generate submission package"
+echo "  /clean                 Remove build artifacts"
+echo ""
+
+# ── Launch ────────────────────────────────────────────────────
+if [[ -n "$TOPIC" ]]; then
+    echo -e "${bold}Ready to write!${reset}"
+    echo ""
+    echo "  ${bold}Autonomous${reset} (recommended — agent-based, runs for hours):"
+    echo "    cd $(pwd) && write-paper"
+    echo ""
+    echo "  ${bold}Interactive${reset} (you guide each step manually):"
+    echo "    cd $(pwd) && claude"
+    echo ""
+    read -p "Launch autonomous pipeline now? [Y/n] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        exec "$SCRIPT_DIR/write-paper"
+    fi
+else
+    info "Launch when ready:"
+    echo ""
+    echo "  ${bold}Autonomous:${reset}  cd $(pwd) && write-paper \"your topic\""
+    echo "  ${bold}Interactive:${reset} cd $(pwd) && claude"
+fi

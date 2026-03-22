@@ -1,0 +1,33 @@
+{
+  "name": "arXiv Preprint",
+  "id": "arxiv",
+  "documentclass": "\\documentclass[11pt]{article}",
+  "packages": [
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{lmodern}",
+    "\\usepackage{amsmath,amssymb,amsthm}",
+    "\\usepackage{graphicx}",
+    "\\usepackage[margin=1in]{geometry}",
+    "\\usepackage{hyperref}",
+    "\\usepackage{booktabs}",
+    "\\usepackage{natbib}",
+    "\\usepackage{float}",
+    "\\usepackage{caption}",
+    "\\usepackage{subcaption}",
+    "\\usepackage{enumitem}",
+    "\\usepackage{microtype}",
+    "\\usepackage{algorithm}",
+    "\\usepackage{algpseudocode}",
+    "\\usepackage{xcolor}",
+    "\\usepackage{tcolorbox}"
+  ],
+  "bibliography_style": "plainnat",
+  "citation_style": "natbib",
+  "citation_commands": ["\\citep{}", "\\citet{}"],
+  "page_limit": null,
+  "abstract_word_limit": 500,
+  "blind_review": false,
+  "sections": ["Introduction", "Related Work", "Methods", "Experiments", "Results", "Discussion", "Conclusion"],
+  "notes": "arXiv preprint format. No page limit. No blind review. Include all supplementary material inline. Longer abstract OK (up to 500 words). Can be more detailed than camera-ready versions. Include appendices freely."
+}

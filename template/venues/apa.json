@@ -1,0 +1,21 @@
+{
+  "name": "APA 7th Edition (Psychology/Social Sciences)",
+  "id": "apa",
+  "documentclass": "\\documentclass[man,12pt]{apa7}",
+  "packages": [
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{amsmath}",
+    "\\usepackage{graphicx}",
+    "\\usepackage{booktabs}",
+    "\\usepackage{microtype}"
+  ],
+  "bibliography_style": "apacite",
+  "citation_style": "apa",
+  "citation_commands": ["\\citep{}", "\\citet{}"],
+  "page_limit": null,
+  "abstract_word_limit": 250,
+  "blind_review": false,
+  "sections": ["Introduction", "Literature Review", "Method", "Results", "Discussion"],
+  "notes": "APA 7th edition format. Uses apa7 document class. Requires apacite for references. Running head required. Level headings: centered bold (1), left-aligned bold (2), indented bold italic (3). Tables and figures at end or inline. Include keywords after abstract."
+}

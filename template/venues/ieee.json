@@ -1,0 +1,28 @@
+{
+  "name": "IEEE Conference/Journal",
+  "id": "ieee",
+  "documentclass": "\\documentclass[conference]{IEEEtran}",
+  "packages": [
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{amsmath,amssymb}",
+    "\\usepackage{graphicx}",
+    "\\usepackage{booktabs}",
+    "\\usepackage{hyperref}",
+    "\\usepackage{cite}",
+    "\\usepackage{algorithm}",
+    "\\usepackage{algpseudocode}",
+    "\\usepackage{microtype}",
+    "\\usepackage{float}",
+    "\\usepackage{caption}",
+    "\\usepackage{subcaption}"
+  ],
+  "bibliography_style": "IEEEtran",
+  "citation_style": "numeric",
+  "citation_commands": ["\\cite{}"],
+  "page_limit": 8,
+  "abstract_word_limit": 200,
+  "blind_review": true,
+  "sections": ["Introduction", "Related Work", "Proposed Method", "Experiments", "Results and Discussion", "Conclusion"],
+  "notes": "IEEE two-column format. Use \\cite{} (numeric). 8-page limit for conferences (+ refs). Double-blind review. No author info in submission."
+}

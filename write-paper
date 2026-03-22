@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ──────────────────────────────────────────────────────────────
+# write-paper — Launch the autonomous paper writing pipeline.
+#
+# This is a thin launcher that starts Claude Code with the
+# /write-paper slash command. The real orchestration happens
+# inside Claude Code using agents.
+#
+# Usage:
+#   write-paper                    # Use topic from .paper.json
+#   write-paper "your topic"       # Start with a new topic
+# ──────────────────────────────────────────────────────────────
+
+bold='\033[1m'
+blue='\033[0;34m'
+red='\033[0;31m'
+reset='\033[0m'
+
+# Resolve topic
+TOPIC="${1:-}"
+
+if [[ -z "$TOPIC" ]] && [[ -f .paper.json ]]; then
+    TOPIC=$(python3 -c "import json; print(json.load(open('.paper.json')).get('topic', ''))" 2>/dev/null || true)
+fi
+
+if [[ -z "$TOPIC" ]]; then
+    echo -e "${red}✗${reset} No topic provided and no .paper.json found." >&2
+    echo "" >&2
+    echo "Usage: write-paper \"your paper topic\"" >&2
+    echo "   or: create a .paper.json with a \"topic\" field" >&2
+    exit 1
+fi
+
+# Update .paper.json
+python3 -c "
+import json, os
+config = json.load(open('.paper.json')) if os.path.exists('.paper.json') else {}
+config['topic'] = '''$TOPIC'''
+json.dump(config, open('.paper.json', 'w'), indent=2)
+" 2>/dev/null || true
+
+# Check dependencies
+if ! command -v claude &>/dev/null; then
+    echo -e "${red}✗${reset} 'claude' not found. Install Claude Code first." >&2
+    exit 1
+fi
+
+if [[ ! -f main.tex ]]; then
+    echo -e "${red}✗${reset} main.tex not found. Run create-paper first." >&2
+    exit 1
+fi
+
+echo -e "${blue}→${reset} Launching autonomous paper writing pipeline"
+echo -e "  Topic: ${bold}$TOPIC${reset}"
+echo -e "  This will take 1-4 hours for a journal-quality paper."
+echo ""
+
+exec claude --dangerously-skip-permissions "/write-paper $TOPIC"

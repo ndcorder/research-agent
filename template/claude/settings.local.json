@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Grep",
+      "Glob",
+      "Bash(latexmk*)",
+      "Bash(pdfinfo*)",
+      "Bash(wc*)",
+      "Bash(python3*)",
+      "Bash(curl*)",
+      "Bash(mkdir*)",
+      "Bash(rm research/*)",
+      "Bash(rm reviews/*)",
+      "Bash(cat*)",
+      "Bash(ls*)",
+      "Agent",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskList",
+      "WebSearch",
+      "WebFetch",
+      "Skill",
+      "mcp__perplexity__search",
+      "mcp__perplexity__reason",
+      "mcp__perplexity__deep_research",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__firecrawl__firecrawl_search",
+      "mcp__firecrawl__firecrawl_scrape"
+    ]
+  }
+}

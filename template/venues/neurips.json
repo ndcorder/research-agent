@@ -1,0 +1,27 @@
+{
+  "name": "NeurIPS / ICML / ICLR",
+  "id": "neurips",
+  "documentclass": "\\documentclass{article}",
+  "packages": [
+    "\\usepackage[final]{neurips_2024}",
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{amsmath,amssymb}",
+    "\\usepackage{graphicx}",
+    "\\usepackage{booktabs}",
+    "\\usepackage{hyperref}",
+    "\\usepackage{natbib}",
+    "\\usepackage{algorithm}",
+    "\\usepackage{algpseudocode}",
+    "\\usepackage{microtype}",
+    "\\usepackage{subcaption}"
+  ],
+  "bibliography_style": "plainnat",
+  "citation_style": "natbib",
+  "citation_commands": ["\\citep{}", "\\citet{}"],
+  "page_limit": 9,
+  "abstract_word_limit": 250,
+  "blind_review": true,
+  "sections": ["Introduction", "Related Work", "Method", "Experiments", "Results", "Discussion", "Conclusion"],
+  "notes": "NeurIPS single-column format. 9-page limit (main content, excluding refs/appendix). Requires neurips_2024.sty file. Double-blind review. Appendix allowed for supplementary proofs/experiments."
+}

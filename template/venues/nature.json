@@ -1,0 +1,30 @@
+{
+  "name": "Nature / Nature-family Journals",
+  "id": "nature",
+  "documentclass": "\\documentclass[12pt]{article}",
+  "packages": [
+    "\\usepackage[utf8]{inputenc}",
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{lmodern}",
+    "\\usepackage{amsmath,amssymb}",
+    "\\usepackage{graphicx}",
+    "\\usepackage[margin=1in]{geometry}",
+    "\\usepackage{hyperref}",
+    "\\usepackage{booktabs}",
+    "\\usepackage[numbers,sort&compress]{natbib}",
+    "\\usepackage{float}",
+    "\\usepackage{caption}",
+    "\\usepackage{subcaption}",
+    "\\usepackage{microtype}",
+    "\\usepackage{setspace}",
+    "\\doublespacing"
+  ],
+  "bibliography_style": "naturemag",
+  "citation_style": "numeric-superscript",
+  "citation_commands": ["\\cite{}"],
+  "page_limit": null,
+  "abstract_word_limit": 150,
+  "blind_review": false,
+  "sections": ["Introduction", "Results", "Discussion", "Methods"],
+  "notes": "Nature format: Results BEFORE Methods. Short abstract (150 words). Main text ~3000-5000 words. Methods section at end. Double-spaced. Numbered references. Up to 8 display items (figures + tables combined). Extended Data figures allowed. Online Methods section for detailed methodology."
+}
