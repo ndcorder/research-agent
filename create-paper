@@ -187,8 +187,8 @@ import json
 config = {
     'topic': '''${TOPIC}''' if '''${TOPIC}''' else '',
     'venue': '$VENUE',
+    'depth': 'standard',
     'model': 'claude-sonnet-4-6',
-    'target_words': 8000,
     'max_revisions': 3,
     'authors': [
         {
@@ -260,54 +260,206 @@ else
     warn "LaTeX compilation had issues (you can fix them with /compile)"
 fi
 
-# ── Summary ───────────────────────────────────────────────────
-echo ""
+# ── Configuration TUI ────────────────────────────────────────
+CFG_TOPIC="$TOPIC"
+CFG_VENUE="$VENUE"
+CFG_VENUE_NAME="$VENUE_NAME"
+CFG_DEPTH="standard"
+
+ALL_VENUES=("generic" "ieee" "acm" "neurips" "nature" "arxiv" "apa")
+ALL_VENUE_NAMES=("Standard journal article" "IEEE conference/journal" "ACM conference" "NeurIPS/ICML/ICLR" "Nature family" "arXiv preprint" "APA 7th edition")
+
+# What each depth level means (read-only display)
+std_agents="5"               ; deep_agents="12 (specialized)"
+std_refs="30-50"             ; deep_refs="60-80"
+std_second="no"              ; deep_second="yes — thesis-informed"
+std_seclit="no"              ; deep_seclit="yes — per-section deep-dives"
+std_qa="5"                   ; deep_qa="8"
+std_codex="1× per checkpoint"; deep_codex="2× at key checkpoints"
+
+SELECTED=0
+FIELDS=3  # topic, venue, depth
+
+get_venue_index() {
+    for i in "${!ALL_VENUES[@]}"; do
+        [[ "${ALL_VENUES[$i]}" == "$CFG_VENUE" ]] && echo "$i" && return
+    done
+    echo 0
+}
+
+draw_tui() {
+    local d="$CFG_DEPTH"
+    local vi
+    vi=$(get_venue_index)
+
+    tput cup 0 0
+    tput ed
+
+    local w=57
+    printf "${bold}┌─ Paper Configuration "
+    printf '─%.0s' $(seq 1 34)
+    printf "┐${reset}\n"
+    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
+
+    # Topic
+    if [[ $SELECTED -eq 0 ]]; then
+        printf "${bold}│${reset}  ${green}▸ Topic${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$CFG_TOPIC"
+    else
+        printf "${bold}│${reset}    Topic       %-44s${bold}│${reset}\n" "$CFG_TOPIC"
+    fi
+
+    # Venue
+    local venue_display="$CFG_VENUE  ·  ${ALL_VENUE_NAMES[$vi]}"
+    if [[ $SELECTED -eq 1 ]]; then
+        printf "${bold}│${reset}  ${green}▸ Venue${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$venue_display"
+    else
+        printf "${bold}│${reset}    Venue       %-44s${bold}│${reset}\n" "$venue_display"
+    fi
+
+    # Depth
+    local depth_display
+    if [[ "$d" == "standard" ]]; then
+        depth_display="● standard        ○ deep"
+    else
+        depth_display="○ standard        ● deep"
+    fi
+    if [[ $SELECTED -eq 2 ]]; then
+        printf "${bold}│${reset}  ${green}▸ Depth${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$depth_display"
+    else
+        printf "${bold}│${reset}    Depth       %-44s${bold}│${reset}\n" "$depth_display"
+    fi
+
+    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
+
+    # Info section
+    printf "${bold}│${reset}  ── What ${bold}%-47s${reset}${bold}│${reset}\n" "${d} means ──"
+
+    # Read-only stats
+    local agents refs second seclit qa codex
+    if [[ "$d" == "deep" ]]; then
+        agents="$deep_agents"; refs="$deep_refs"; second="$deep_second"
+        seclit="$deep_seclit"; qa="$deep_qa"; codex="$deep_codex"
+    else
+        agents="$std_agents"; refs="$std_refs"; second="$std_second"
+        seclit="$std_seclit"; qa="$std_qa"; codex="$std_codex"
+    fi
+
+    printf "${bold}│${reset}  Research agents:       %-32s${bold}│${reset}\n" "$agents"
+    printf "${bold}│${reset}  Reference target:      %-32s${bold}│${reset}\n" "$refs"
+    printf "${bold}│${reset}  Second research pass:  %-32s${bold}│${reset}\n" "$second"
+    printf "${bold}│${reset}  Section lit searches:  %-32s${bold}│${reset}\n" "$seclit"
+    printf "${bold}│${reset}  Max QA iterations:     %-32s${bold}│${reset}\n" "$qa"
+    printf "${bold}│${reset}  Codex rounds:          %-32s${bold}│${reset}\n" "$codex"
+
+    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
+    printf "${bold}│${reset}  ${blue}[↑↓]${reset} Navigate  ${blue}[←→]${reset} Change  ${blue}[Enter]${reset} Launch        ${bold}│${reset}\n"
+    printf "${bold}│${reset}  ${blue}[e]${reset}  Edit topic  ${blue}[q]${reset}  Quit                       ${bold}│${reset}\n"
+    printf "${bold}└"
+    printf '─%.0s' $(seq 1 $w)
+    printf "┘${reset}\n"
+}
+
+cycle_field() {
+    local dir=$1
+    case $SELECTED in
+        1)  # Venue
+            local vi
+            vi=$(get_venue_index)
+            local len=${#ALL_VENUES[@]}
+            vi=$(( (vi + dir + len) % len ))
+            CFG_VENUE="${ALL_VENUES[$vi]}"
+            CFG_VENUE_NAME="${ALL_VENUE_NAMES[$vi]}"
+            ;;
+        2)  # Depth
+            if [[ "$CFG_DEPTH" == "standard" ]]; then
+                CFG_DEPTH="deep"
+            else
+                CFG_DEPTH="standard"
+            fi
+            ;;
+    esac
+}
+
+run_tui() {
+    tput civis  # hide cursor
+    tput clear
+    trap 'tput cnorm; tput clear' EXIT INT TERM
+
+    draw_tui
+
+    while true; do
+        IFS= read -rsn1 key
+
+        case "$key" in
+            $'\x1b')  # Escape sequence (arrow keys)
+                read -rsn2 -t 0.1 seq
+                case "$seq" in
+                    '[A') ((SELECTED = SELECTED > 0 ? SELECTED - 1 : FIELDS - 1)) ;;
+                    '[B') ((SELECTED = SELECTED < FIELDS - 1 ? SELECTED + 1 : 0)) ;;
+                    '[C') cycle_field 1 ;;
+                    '[D') cycle_field -1 ;;
+                esac
+                ;;
+            '')  # Enter — launch
+                tput cnorm
+                tput clear
+                return 0
+                ;;
+            'q'|'Q')
+                tput cnorm
+                tput clear
+                echo "Aborted."
+                exit 0
+                ;;
+            'e'|'E')
+                if [[ $SELECTED -eq 0 ]]; then
+                    tput cnorm
+                    tput cup 20 0
+                    echo -ne "  New topic: "
+                    read -r new_topic
+                    if [[ -n "$new_topic" ]]; then
+                        CFG_TOPIC="$new_topic"
+                    fi
+                    tput civis
+                fi
+                ;;
+        esac
+
+        draw_tui
+    done
+}
+
+# ── Run TUI (only if interactive terminal) ────────────────────
+if [[ -t 0 ]]; then
+    run_tui
+fi
+
+# ── Write final config ────────────────────────────────────────
+python3 -c "
+import json, os
+config = json.load(open('.paper.json')) if os.path.exists('.paper.json') else {}
+config['topic'] = '''${CFG_TOPIC}'''
+config['venue'] = '${CFG_VENUE}'
+config['depth'] = '${CFG_DEPTH}'
+json.dump(config, open('.paper.json', 'w'), indent=2)
+"
+
+# Update venue config if changed
+if [[ "$CFG_VENUE" != "$VENUE" ]]; then
+    cp "$VENUES_DIR/$CFG_VENUE.json" .venue.json
+    ok "Venue updated to $CFG_VENUE_NAME"
+fi
+
+TOPIC="$CFG_TOPIC"
+
 echo -e "${bold}Paper project ready!${reset}"
 echo ""
 echo "  Project:  $(pwd)"
-echo "  Venue:    $VENUE_NAME"
-echo "  Skills:   177 scientific skills available"
-echo ""
-echo -e "${bold}Commands:${reset}"
-echo "  /write-paper <topic>   Autonomous pipeline (1-4 hrs, journal quality)"
-echo "  /preview-pipeline      Show what the pipeline will do (dry run)"
-echo "  /init <topic>          Quick single-pass generation"
-echo ""
-echo "  /search-literature     Find relevant papers"
-echo "  /add-citation          Add a BibTeX reference"
-echo "  /ingest-papers         Import PDFs from attachments/"
-echo "  /cite-network          Citation coverage analysis"
-echo "  /ask <question>        Query research artifacts for answers"
-echo ""
-echo "  /outline <section>     Draft section outline"
-echo "  /revise-section        Rewrite with feedback"
-echo "  /analyze-data          Statistical analysis and figure generation"
-echo "  /praxis-analyze        Domain-specific analysis via Praxis toolkit"
-echo ""
-echo "  /compile               Build PDF"
-echo "  /review                Manuscript quality review"
-echo "  /check-consistency     Find notation/terminology inconsistencies"
-echo "  /audit-claims          Flag overclaims and unsupported statements"
-echo "  /validate-references   Verify every citation is real"
-echo "  /codex-review          Adversarial AI review via Codex"
-echo "  /status                Progress dashboard"
-echo ""
-echo "  /archive               Bundle research artifacts for browsing"
-echo "  /prepare-submission    Generate submission package"
-echo "  /lay-summary           Plain-language summary and elevator pitch"
-echo "  /clean                 Remove build artifacts"
+echo "  Venue:    $CFG_VENUE_NAME"
+echo "  Depth:    $CFG_DEPTH"
 echo ""
 
-# ── Launch ────────────────────────────────────────────────────
 if [[ -n "$TOPIC" ]]; then
-    echo -e "${bold}Ready to write!${reset}"
-    echo ""
-    echo "  ${bold}Autonomous${reset} (recommended — agent-based, runs for hours):"
-    echo "    cd $(pwd) && write-paper"
-    echo ""
-    echo "  ${bold}Interactive${reset} (you guide each step manually):"
-    echo "    cd $(pwd) && claude"
-    echo ""
     read -p "Launch autonomous pipeline now? [Y/n] " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then

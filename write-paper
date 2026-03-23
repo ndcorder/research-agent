@@ -52,9 +52,15 @@ if [[ ! -f main.tex ]]; then
     exit 1
 fi
 
+DEPTH=$(python3 -c "import json; print(json.load(open('.paper.json')).get('depth', 'standard'))" 2>/dev/null || echo "standard")
 echo -e "${blue}→${reset} Launching autonomous paper writing pipeline"
 echo -e "  Topic: ${bold}$TOPIC${reset}"
-echo -e "  This will take 1-4 hours for a journal-quality paper."
+echo -e "  Depth: ${bold}$DEPTH${reset}"
+if [[ "$DEPTH" == "deep" ]]; then
+    echo -e "  This will take 3-8 hours for a deeply researched paper."
+else
+    echo -e "  This will take 1-4 hours for a journal-quality paper."
+fi
 echo ""
 
 exec claude --dangerously-skip-permissions "/write-paper $TOPIC"

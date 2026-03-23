@@ -8,7 +8,9 @@ You are an autonomous research paper writing system. You will produce a publicat
 - **Codex Bridge** (`codex_plan`, `codex_review`, `codex_ask`, `codex_risk_radar`, `codex_stats`): Used throughout the pipeline as a second AI perspective. Call these MCP tools (`mcp__codex-bridge__*`) directly in your session — NOT via agents. Integration points: Stage 1c (research cross-check), Stage 2b (thesis stress-test), Stage 3 (section spot-checks), Stage 4c (figure/claims audit), Stage 5 (adversarial review), Post-QA (risk radar), Stage 6 (collaboration stats).
 - **Praxis** (`vendor/praxis/`): Use at Stage 4 if data files exist in `attachments/`. Import via `sys.path.insert(0, "vendor/praxis/scripts")`.
 
-1. Read `.paper.json` for topic, venue, model, and config. If it doesn't exist, create it from the topic in $ARGUMENTS.
+1. Read `.paper.json` for topic, venue, depth, and config. If it doesn't exist, create it from the topic in $ARGUMENTS with `depth: "standard"`.
+   - **depth** controls research intensity: `"standard"` (default) or `"deep"` (3× research effort).
+   - Store the depth value — it determines behavior at every stage below.
 2. Read `.venue.json` if present for venue-specific formatting rules (sections, citation style, page limits).
 3. Read `main.tex` and `references.bib` to understand current state.
 4. Run: `mkdir -p research research/sources reviews figures`
@@ -57,6 +59,22 @@ After completing EACH stage or section, update `.paper-state.json`:
 ```
 
 Write this file using the Write tool after every stage completion. On resume, read it first and skip completed work. Also write current progress to `.paper-progress.txt` (human-readable summary) so users can monitor from another terminal via `cat .paper-progress.txt`.
+
+## Depth Mode
+
+Read `depth` from `.paper.json` (default: `"standard"`). This controls research intensity across all stages.
+
+| Setting | standard | deep |
+|-|-|-|
+| Stage 1 research agents | 5 | 12 (7 additional specialized agents) |
+| Reference target | 30-50 | 60-80 |
+| Stage 2c targeted research | skip | thesis-informed second pass (3-4 agents) |
+| Stage 3 per-section lit search | skip | research agent before each writing agent |
+| Stage 3 Codex expansion | fix critical issues only | also ask "what's missing?" and expand |
+| Max QA iterations | 5 | 8 |
+| Codex rounds per checkpoint | 1 | 2 (early + late in QA loop) |
+
+When `depth` is `"deep"`, follow ALL deep-mode instructions marked with **[DEEP]** below. When `depth` is `"standard"`, skip them.
 
 ## Domain Detection & Skill Routing
 
@@ -257,7 +275,139 @@ This will directly inform the paper's contribution statement.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Note:** Run agents 1-4 in parallel (they're independent). Run agent 5 AFTER 1-4 complete (it reads their outputs).
+**[DEEP] Agents 6-12 — Additional Specialized Research** (model: sonnet)
+
+If `depth` is `"deep"`, spawn 7 additional research agents IN PARALLEL alongside agents 1-4. Each gets the same TOOL FALLBACK, RESEARCH LOG, and SOURCE EXTRACTS instructions as agents 1-5.
+
+**Agent 6 — "Recent Frontiers (2024-2026)"**
+```
+You are a research scientist focused exclusively on the MOST RECENT work.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Search ONLY for papers published 2024-2026
+2. Identify emerging trends, new methods, and paradigm shifts in the last 2 years
+3. Note any papers that challenge established findings from earlier work
+4. Identify preprints and work-in-progress that hasn't been peer-reviewed yet
+
+Write to research/recent_frontiers.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 7 — "Negative Results & Failed Approaches"**
+```
+You are a research scientist studying what DIDN'T work.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Find papers reporting negative results, null findings, or failed approaches
+2. Document approaches that were tried and abandoned — and WHY
+3. Identify common pitfalls and known failure modes
+4. Note any replication failures or controversial findings
+
+Write to research/negative_results.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 8 — "Cross-Disciplinary Insights"**
+```
+You are a cross-disciplinary researcher looking for insights from ADJACENT fields.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Identify related techniques or approaches from other fields that could apply
+2. Find analogous problems solved in different domains
+3. Note any interdisciplinary collaborations or hybrid methods
+4. Look for theoretical frameworks from other fields that might provide insight
+
+Write to research/cross_disciplinary.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 9 — "Datasets, Benchmarks & Reproducibility"**
+```
+You are a research engineer focused on data and reproducibility.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Catalog ALL standard datasets and benchmarks used in this field
+2. Document data availability, licensing, and access methods
+3. Find open-source implementations and code repositories
+4. Note reproducibility studies — which results have been independently verified?
+5. Identify gaps in available data or benchmarks
+
+Write to research/datasets_reproducibility.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 10 — "Industry & Applied Work"**
+```
+You are a research analyst tracking industry and applied implementations.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Find industry applications, deployed systems, and commercial use of these methods
+2. Identify patents, technical reports, and white papers from companies
+3. Note the gap between academic benchmarks and real-world performance
+4. Document any industry-specific constraints or requirements
+
+Write to research/industry_applied.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 11 — "Competing Hypotheses & Debates"**
+```
+You are a research scientist mapping the intellectual landscape of active debates.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Identify active scientific debates and competing hypotheses
+2. Map the different "camps" or schools of thought and their key proponents
+3. Document the strongest arguments on each side
+4. Note any emerging consensus or unresolved tensions
+
+Write to research/competing_hypotheses.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**Agent 12 — "Intellectual Lineage"**
+```
+You are a research historian tracing the intellectual roots of this field.
+TOPIC: [TOPIC]
+DOMAIN: [DETECTED_DOMAIN]
+TOOL FALLBACK: [same chain as above]
+
+Your task:
+1. Identify the 5-10 most foundational papers that shaped this field
+2. Trace how ideas evolved from those seminal works to current approaches
+3. Map the citation lineage — which breakthroughs enabled which subsequent work?
+4. Identify any paradigm shifts and what caused them
+
+Write to research/intellectual_lineage.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same as above]
+```
+
+**In standard mode**, run agents 1-4 in parallel. Run agent 5 AFTER 1-4 complete.
+**In deep mode**, run agents 1-4 AND 6-12 in parallel. Run agent 5 AFTER ALL complete (it reads all research files, including the 7 deep-mode files).
 
 **After all research agents complete, spawn a Bibliography Builder agent** (model: sonnet)**:**
 ```
@@ -280,7 +430,7 @@ After writing references.bib, count the entries and report the total.
 RESEARCH LOG: For every verification search, append an entry to research/log.md recording: the paper being verified, tool used, query, and result (VERIFIED/SUSPICIOUS/FABRICATED). Include the verification URL or DOI.
 ```
 
-**Checkpoint**: Count entries in `references.bib`. If fewer than 25, report which research areas are underrepresented and spawn additional targeted research agents for those areas.
+**Checkpoint**: Count entries in `references.bib`. In standard mode, if fewer than 25 — or in deep mode, if fewer than 50 — report which research areas are underrepresented and spawn additional targeted research agents for those areas.
 
 ---
 
@@ -369,9 +519,99 @@ Update `.paper-state.json`: mark `codex_thesis` as done.
 
 ---
 
+### Stage 2c: Thesis-Informed Targeted Research [DEEP]
+
+**Skip this stage if depth is `"standard"`.** This stage only runs in deep mode.
+
+Now that the thesis, contribution statement, and outline are finalized, run a SECOND targeted research pass. The first pass (Stage 1) was broad. This pass is surgical — searching for literature that directly supports, challenges, or contextualizes the specific claims this paper will make.
+
+Read `research/thesis.md` and the outline in `main.tex`. For each major claim or section, spawn a targeted research agent.
+
+Spawn **3 agents in parallel** (model: sonnet):
+
+**Agent A — "Supporting Evidence"**
+```
+You are a research scientist gathering evidence to SUPPORT a specific thesis.
+THESIS: [paste from research/thesis.md]
+KEY CLAIMS: [list the 3-5 main claims from the thesis]
+TOOL FALLBACK: [same chain as Stage 1]
+
+Your task:
+1. For EACH key claim, find 3-5 papers that provide direct supporting evidence
+2. Find experimental results, datasets, or case studies that validate the approach
+3. Look for meta-analyses or systematic reviews that corroborate the position
+4. Ensure the evidence is strong enough to withstand peer review scrutiny
+
+Write findings to research/targeted_support.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same format]
+```
+
+**Agent B — "Counterarguments & Rebuttals"**
+```
+You are a devil's advocate researcher looking for evidence AGAINST a thesis.
+THESIS: [paste from research/thesis.md]
+KEY CLAIMS: [list the 3-5 main claims]
+TOOL FALLBACK: [same chain as Stage 1]
+
+Your task:
+1. Find papers that contradict or challenge each key claim
+2. Identify the strongest counterarguments a reviewer would raise
+3. Search for alternative explanations for any claimed results
+4. Find evidence for competing approaches that might outperform this one
+
+Write findings to research/targeted_counter.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same format]
+```
+
+**Agent C — "Methodological Precedents"**
+```
+You are a methods specialist finding precedents for the proposed approach.
+PROPOSED METHOD: [paste Methods outline from main.tex]
+TOOL FALLBACK: [same chain as Stage 1]
+
+Your task:
+1. Find papers that used similar methods — especially in different contexts
+2. Document known limitations and failure modes of the proposed techniques
+3. Find best practices, recommended parameters, and implementation guidance
+4. Identify any methodological innovations that should be incorporated
+
+Write findings to research/targeted_methods.md.
+Full citation details. Do NOT fabricate references.
+RESEARCH LOG: [same format]
+```
+
+After all agents complete, run the bibliography builder again to add new references to `references.bib`.
+
+**Checkpoint**: Verify targeted research files exist. Update `.paper-state.json`: mark `targeted_research` as done.
+
+---
+
 ### Stage 3: Section-by-Section Writing
 
 Each section gets its own dedicated agent. **Run sequentially** — each section builds on prior ones.
+
+**[DEEP] Per-Section Literature Deep-Dives**
+
+If depth is `"deep"`, BEFORE each writing agent starts, spawn a quick **section research agent** (model: sonnet) to find literature specific to that section's topic:
+
+```
+You are a focused research assistant. You have 1 task: find papers relevant to the [SECTION] section of a paper about [TOPIC].
+The section outline says: [paste the % OUTLINE: comments for this section from main.tex]
+TOOL FALLBACK: [same chain as Stage 1]
+
+Search for:
+1. Papers directly relevant to what this section will discuss
+2. Specific data points, statistics, or results this section should cite
+3. Recent work (2024-2026) on this specific subtopic
+
+Write a concise list of 5-10 relevant papers with key findings to research/section_lit_[SECTION].md.
+Full citation details. Add new references to references.bib.
+RESEARCH LOG: [same format]
+```
+
+The writing agent for that section should then ALSO read `research/section_lit_[SECTION].md` for fresh, section-specific references.
 
 **Every writing agent prompt MUST include:**
 - The paper topic and contribution statement (from research/thesis.md)
@@ -384,23 +624,23 @@ Each section gets its own dedicated agent. **Run sequentially** — each section
 
 **Section writing order and targets:**
 
-| Order | Section | Target Words | Key instruction |
+| Order | Section | Guidance | Key instruction |
 |-|-|-|-|
-| 1 | Introduction | 1200+ | Broad context → specific problem → contribution → findings preview → paper organization. Cite 8-12 works. |
-| 2 | Related Work | 2000+ | Organize THEMATICALLY in 3-5 subsections. Discuss 3-5 papers per theme. Position this work explicitly. Cite 15-20 works. |
-| 3 | Methods/Approach | 2500+ | Full detail for reproduction. Math in equation/align environments. Pseudocode if applicable. Design rationale. Use `sympy` skill for formulations if appropriate. |
-| 4 | Results/Experiments | 2000+ | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. |
-| 5 | Discussion | 1500+ | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. |
-| 6 | Conclusion | 600+ | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. |
-| 7 | Abstract | 250+ | Written LAST. Self-contained. Specific quantitative claims. Read the ENTIRE paper first. |
+| 1 | Introduction | Comprehensive | Broad context → specific problem → contribution → findings preview → paper organization. Cite 8-12 works. Write until the reader fully understands the problem and why this work matters. |
+| 2 | Related Work | Thorough | Organize THEMATICALLY in 3-5 subsections. Discuss 3-5 papers per theme. Position this work explicitly. Cite 15-20 works. Cover the field completely — don't leave gaps a reviewer would notice. |
+| 3 | Methods/Approach | Exhaustive | Full detail for reproduction. Math in equation/align environments. Pseudocode if applicable. Design rationale. Use `sympy` skill for formulations if appropriate. Another researcher should be able to reproduce this from your description alone. |
+| 4 | Results/Experiments | Data-driven | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. Present all results needed to support your claims. |
+| 5 | Discussion | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. |
+| 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
+| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. |
 
-**After each writing agent completes**, check the word count of that section inline. If under 70% of target, immediately spawn an expansion agent:
+**After each writing agent completes**, assess whether the section is substantively complete. If the section feels thin — missing depth, lacking citations, skipping over important points, or leaving obvious gaps — spawn an expansion agent:
 ```
-The [SECTION] section in main.tex is currently [N] words. Target: [TARGET]+.
+The [SECTION] section in main.tex needs more depth.
 Read main.tex. Invoke the `scientific-writing` skill.
 EXPAND the section by adding depth, subsections, citations, analysis, and formal detail.
-Do NOT delete existing content. Only ADD.
-Target: [TARGET]+ words total for this section.
+Do NOT delete existing content. Only ADD substantive content — not filler.
+Write until the section is comprehensive. A domain expert should not feel anything important was left unsaid.
 Edit main.tex directly.
 ```
 
@@ -415,6 +655,27 @@ mcp__codex-bridge__codex_review({
 ```
 
 Write each spot-check to `reviews/codex_section_[SECTION].md` (e.g., `reviews/codex_section_introduction.md`). If Codex finds CRITICAL issues, fix them in main.tex before moving to the next section. MAJOR issues can wait for Stage 5.
+
+**[DEEP] Codex-Assisted Expansion**
+
+If depth is `"deep"`, after the spot-check, also call Codex to identify content gaps:
+
+```
+mcp__codex-bridge__codex_ask({
+  prompt: "You are a domain expert reviewing the [SECTION] section. What substantive content is MISSING that a knowledgeable reviewer would expect to see? Don't focus on writing quality — focus on intellectual completeness. What arguments, evidence, comparisons, or nuances are absent? Be specific.",
+  context: "[paste the section content from main.tex]"
+})
+```
+
+If Codex identifies substantive gaps, spawn an **expansion agent** (model: opus) to address them:
+```
+Read main.tex. The [SECTION] section has been reviewed and these content gaps were identified:
+[paste Codex response]
+
+Address each gap by adding substantive content — new paragraphs, additional citations from references.bib, deeper analysis. Do NOT pad with filler. Only add content that addresses the identified gaps.
+Invoke the `scientific-writing` skill.
+Edit main.tex directly.
+```
 
 ---
 
@@ -487,7 +748,7 @@ Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatc
 
 ### Stage 5: Quality Assurance Loop
 
-**This stage LOOPS until all quality criteria pass.** Maximum 5 iterations.
+**This stage LOOPS until all quality criteria pass.** Maximum 5 iterations (or 8 if depth is `"deep"`).
 
 #### Step 5a: Parallel Review
 
@@ -610,6 +871,18 @@ Edit main.tex and references.bib directly.
 #### Step 5d: Quality Gate Check
 
 After revision, check ALL criteria from the table below. If any fail, loop back to Step 5a with fresh reviewers. If all pass, proceed to Stage 6.
+
+**[DEEP]** If depth is `"deep"` and this is the FINAL QA iteration (all criteria pass), run one additional Codex review before exiting:
+
+```
+mcp__codex-bridge__codex_review({
+  prompt: "Final deep review of this manuscript. This paper has already passed multiple rounds of QA. Look for subtle issues that earlier reviews missed: (1) Implicit assumptions never made explicit (2) Logical leaps that seem fine on first read but don't hold up (3) Claims that are technically true but misleading (4) Missing qualifications or edge cases (5) Opportunities to strengthen the argument that were overlooked.",
+  context: "[paste the full content of main.tex]",
+  evidence_mode: true
+})
+```
+
+Write to `reviews/codex_final_deep.md`. If this surfaces CRITICAL issues, do one more fix-and-review cycle. Otherwise, proceed.
 
 ---
 
@@ -749,14 +1022,14 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 
 | Criterion | Requirement |
 |-|-|
-| Total word count | 8000+ (or .paper.json target_words) |
-| Introduction | 1000+ words |
-| Related Work / Background | 1500+ words |
-| Methods / Approach | 2000+ words |
-| Results / Experiments | 1500+ words |
-| Discussion | 1200+ words |
-| Conclusion | 500+ words |
-| Abstract | 200+ words |
+| Sections substantively complete | No obvious gaps, thin arguments, or missing depth |
+| Introduction | Sets up the problem, contribution, and paper structure clearly |
+| Related Work / Background | Covers the field thoroughly — no major omissions a reviewer would flag |
+| Methods / Approach | Detailed enough for reproduction by an independent researcher |
+| Results / Experiments | All claims supported by presented evidence |
+| Discussion | Honest limitations, meaningful comparisons with prior work |
+| Conclusion | Concise summary with specific results |
+| Abstract | Self-contained, specific, quantitative where possible |
 | References in .bib | 25+ verified entries |
 | Placeholder text | 0 (no TODO/TBD/FIXME/lipsum/mbox{}) |
 | LaTeX compilation | No errors |
@@ -783,13 +1056,13 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 3. **Write exhaustively.** More depth is always better. 2000 thorough words beats 500 concise ones.
 4. **How to use skills.** When an agent prompt says "use the `scientific-writing` skill", the agent should read the file `.claude/skills/scientific-writing/SKILL.md` and follow its guidance. Skills are markdown files at `.claude/skills/<skill-name>/SKILL.md`. The `scientific-writing` skill is mandatory for all writing agents.
 5. **Sequential writing, parallel research/review.** Writing agents one at a time. Research and review agents in parallel.
-6. **Check word counts after every writing agent.** Expand immediately if under 70% of target. The expansion agent should use `model: "opus"`.
+6. **Assess completeness after every writing agent.** If the section lacks depth, is missing citations, or leaves obvious gaps, expand immediately. The expansion agent should use `model: "opus"`.
 7. **Model selection.** Writing and revision agents: `model: "opus"`. Research, review, and utility agents: `model: "sonnet"`.
 8. **Track progress.** Use TaskCreate/TaskUpdate for every stage. Naming: `"Stage 1: Research"`, `"Stage 3: Write Introduction"`, etc. Set status to `in_progress` when starting, `completed` when done.
 9. **Be patient.** This pipeline runs 1-4+ hours. Every stage matters. Do not rush or skip.
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.
 11. **Clear stale reviews.** Before each QA loop iteration (Stage 5a), delete old review files: `rm -f reviews/technical.md reviews/writing.md reviews/completeness.md` so reviewers evaluate the latest version.
-12. **Venue-aware word targets.** If `.venue.json` has a `page_limit`, scale section word targets proportionally. An 8-page IEEE paper needs ~6000 words total, not 8000+. Read the venue config and adjust.
+12. **Venue-aware length.** If `.venue.json` has a `page_limit`, respect it. An 8-page IEEE paper must be concise — prioritize depth over breadth and cut less critical content. Read the venue config and adjust scope accordingly.
 
 ## Topic
 
