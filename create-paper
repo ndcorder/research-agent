@@ -381,9 +381,13 @@ cycle_field() {
 }
 
 run_tui() {
+    # Disable set -e for the TUI — interactive read loops return non-zero
+    # on timeouts, escape sequences, and empty input, which kills the script
+    set +e
+
     tput civis  # hide cursor
     tput clear
-    trap 'tput cnorm; tput clear' EXIT INT TERM
+    trap 'tput cnorm; tput clear; set -e' EXIT INT TERM
 
     draw_tui
 
@@ -403,6 +407,7 @@ run_tui() {
             '')  # Enter — launch
                 tput cnorm
                 tput clear
+                set -e
                 return 0
                 ;;
             'q'|'Q')
