@@ -380,41 +380,59 @@ cycle_field() {
     esac
 }
 
+read_key() {
+    # Read a single keypress, handling arrow key escape sequences.
+    # Sets KEYPRESS to: "UP", "DOWN", "LEFT", "RIGHT", "ENTER", or the literal char.
+    local c1="" c2="" c3=""
+    KEYPRESS=""
+
+    # Read one byte
+    IFS= read -rsn1 c1 || { KEYPRESS="ENTER"; return; }
+
+    if [[ "$c1" == $'\x1b' ]]; then
+        # Escape byte — read 2 more for arrow sequence
+        IFS= read -rsn1 -t 0.5 c2 || return
+        IFS= read -rsn1 -t 0.5 c3 || return
+        case "$c3" in
+            A) KEYPRESS="UP" ;;
+            B) KEYPRESS="DOWN" ;;
+            C) KEYPRESS="RIGHT" ;;
+            D) KEYPRESS="LEFT" ;;
+            *) KEYPRESS="" ;;
+        esac
+    elif [[ "$c1" == "" ]]; then
+        KEYPRESS="ENTER"
+    else
+        KEYPRESS="$c1"
+    fi
+}
+
 run_tui() {
     tput civis  # hide cursor
     tput clear
-
     draw_tui
 
-    local key seq
     while true; do
-        key=""
-        seq=""
-        IFS= read -rsn1 key 2>/dev/null || true
+        read_key
 
-        case "$key" in
-            $'\x1b')  # Escape sequence (arrow keys)
-                IFS= read -rsn2 -t 0.2 seq 2>/dev/null || true
-                case "$seq" in
-                    '[A') # Up
-                        if [[ $SELECTED -gt 0 ]]; then
-                            SELECTED=$((SELECTED - 1))
-                        else
-                            SELECTED=$((FIELDS - 1))
-                        fi
-                        ;;
-                    '[B') # Down
-                        if [[ $SELECTED -lt $((FIELDS - 1)) ]]; then
-                            SELECTED=$((SELECTED + 1))
-                        else
-                            SELECTED=0
-                        fi
-                        ;;
-                    '[C') cycle_field 1 ;;   # Right
-                    '[D') cycle_field -1 ;;  # Left
-                esac
+        case "$KEYPRESS" in
+            UP)
+                if [[ $SELECTED -gt 0 ]]; then
+                    SELECTED=$((SELECTED - 1))
+                else
+                    SELECTED=$((FIELDS - 1))
+                fi
                 ;;
-            '')  # Enter — launch
+            DOWN)
+                if [[ $SELECTED -lt $((FIELDS - 1)) ]]; then
+                    SELECTED=$((SELECTED + 1))
+                else
+                    SELECTED=0
+                fi
+                ;;
+            RIGHT) cycle_field 1 ;;
+            LEFT)  cycle_field -1 ;;
+            ENTER)
                 tput cnorm
                 tput clear
                 return 0
@@ -430,7 +448,7 @@ run_tui() {
                     tput cnorm
                     tput cup 20 0
                     echo -ne "  New topic: "
-                    read -r new_topic 2>/dev/null || true
+                    read -r new_topic || true
                     if [[ -n "$new_topic" ]]; then
                         CFG_TOPIC="$new_topic"
                     fi
