@@ -94,10 +94,15 @@ For interactive, step-by-step work:
 
 ## Codex Bridge Integration
 
-If `codex-bridge` is installed (`npm i -g codex-bridge`), it provides adversarial AI review via OpenAI Codex:
+If `codex-bridge` is installed (`npm i -g codex-bridge`), it provides a second AI perspective throughout the pipeline via OpenAI Codex:
 
-- **Thesis stress-testing** (Stage 2): `codex_plan` challenges your contribution statement before you write
+- **Research cross-check** (Stage 1c): `codex_ask` validates key findings and flags missing perspectives
+- **Thesis stress-testing** (Stage 2b): `codex_plan` challenges your contribution statement before you write
+- **Section spot-checks** (Stage 3): `codex_review` catches issues in each core section as it's written
+- **Figure/claims audit** (Stage 4c): `codex_ask` verifies figures match their claims
 - **Adversarial review** (Stage 5): `codex_review` runs alongside the 3 agent reviewers as a 4th perspective
+- **Risk radar** (Post-QA): `codex_risk_radar` assesses scientific, ethical, reproducibility, and novelty risks
+- **Collaboration stats** (Stage 6): `codex_stats` reports how the two AI systems worked together
 - **On-demand critique**: `/codex-review` for manual review of any section
 
 All codex integration is **graceful** — if codex-bridge is not installed or configured, every step that uses it is silently skipped. The pipeline works fine without it.

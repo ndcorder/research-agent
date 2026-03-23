@@ -5,7 +5,7 @@ You are an autonomous research paper writing system. You will produce a publicat
 ## Setup
 
 **IMPORTANT — Sister Projects**: This pipeline uses two external tools that you MUST call directly (not via agents) at specific stages:
-- **Codex Bridge** (`mcp__codex-bridge__codex_plan`, `mcp__codex-bridge__codex_review`): Call at Stage 2 (thesis stress-test) and Stage 5 (adversarial review). These are MCP tools — call them directly in your session.
+- **Codex Bridge** (`codex_plan`, `codex_review`, `codex_ask`, `codex_risk_radar`, `codex_stats`): Used throughout the pipeline as a second AI perspective. Call these MCP tools (`mcp__codex-bridge__*`) directly in your session — NOT via agents. Integration points: Stage 1c (research cross-check), Stage 2b (thesis stress-test), Stage 3 (section spot-checks), Stage 4c (figure/claims audit), Stage 5 (adversarial review), Post-QA (risk radar), Stage 6 (collaboration stats).
 - **Praxis** (`vendor/praxis/`): Use at Stage 4 if data files exist in `attachments/`. Import via `sys.path.insert(0, "vendor/praxis/scripts")`.
 
 1. Read `.paper.json` for topic, venue, model, and config. If it doesn't exist, create it from the topic in $ARGUMENTS.
@@ -37,6 +37,7 @@ After completing EACH stage or section, update `.paper-state.json`:
   "stages": {
     "research":     { "done": true,  "completed_at": "...", "notes": "45 refs found" },
     "outline":      { "done": true,  "completed_at": "..." },
+    "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
     "writing": {
       "done": false,
@@ -49,6 +50,7 @@ After completing EACH stage or section, update `.paper-state.json`:
     "figures":      { "done": false },
     "qa_iteration": 0,
     "qa":           { "done": false },
+    "codex_risk_radar": { "done": false },
     "finalization": { "done": false }
   }
 }
@@ -282,6 +284,31 @@ RESEARCH LOG: For every verification search, append an entry to research/log.md 
 
 ---
 
+### Stage 1c: Codex Research Cross-Check
+
+**This is a standalone stage. Do NOT skip it. Do NOT merge it into another stage.**
+
+After all research agents and bibliography building are complete, use Codex to cross-check the key findings.
+
+1. Read `research/survey.md` and `research/gaps.md` for the main claims and findings
+2. Call Codex directly:
+
+```
+mcp__codex-bridge__codex_ask({
+  prompt: "Cross-check these research findings. For each major claim below, assess: (1) Is it accurately represented based on your knowledge? (2) Are there important contradicting studies or nuances missing? (3) Are there key papers or perspectives that were overlooked? (4) Flag any claims that seem exaggerated or out of context.\n\nResearch findings:\n[paste key claims from survey.md and gaps.md]",
+  context: "[paste content of research/survey.md and research/gaps.md]"
+})
+```
+
+3. Write the Codex response to `research/codex_cross_check.md`
+4. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: sonnet) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
+
+**Checkpoint**: Verify `research/codex_cross_check.md` exists. If it does not exist, you skipped this stage — go back and do it.
+
+Update `.paper-state.json`: mark `codex_cross_check` as done.
+
+---
+
 ### Stage 2: Thesis, Contribution & Outline
 
 Read ALL files in `research/`, especially `research/gaps.md`. Then:
@@ -377,6 +404,18 @@ Target: [TARGET]+ words total for this section.
 Edit main.tex directly.
 ```
 
+**After each major section completes (Introduction, Methods, Results, Discussion)**, also call Codex for a quick spot-check. Do NOT do this for Related Work, Conclusion, or Abstract — only the 4 core argument sections.
+
+```
+mcp__codex-bridge__codex_review({
+  prompt: "Quick review of the [SECTION] section of a research paper. Check: (1) Are the claims proportionate to the evidence presented? (2) Is the logic sound — does each paragraph follow from the previous? (3) Are there any obvious gaps a reviewer would flag? (4) Is the technical depth appropriate? Keep your review focused and concise — this is a section check, not a full paper review.",
+  context: "[paste the section content from main.tex]",
+  evidence_mode: true
+})
+```
+
+Write each spot-check to `reviews/codex_section_[SECTION].md` (e.g., `reviews/codex_section_introduction.md`). If Codex finds CRITICAL issues, fix them in main.tex before moving to the next section. MAJOR issues can wait for Stage 5.
+
 ---
 
 ### Stage 4: Figures, Tables & Visual Elements
@@ -430,6 +469,19 @@ If Praxis already generated data figures (check figures/ directory), don't dupli
 Add any new figures to main.tex with proper \includegraphics{} and \caption{}.
 Edit main.tex directly.
 ```
+
+**Step 4c: Codex Figure & Claims Audit**
+
+After figures and tables are in place, call Codex to sanity-check the visual claims:
+
+```
+mcp__codex-bridge__codex_ask({
+  prompt: "Audit the figures, tables, and their associated claims in this manuscript. For each figure/table: (1) Does the caption accurately describe what is shown? (2) Do the claims in the surrounding text match what the data actually shows? (3) Are there misleading axis scales, cherry-picked comparisons, or missing error bars/confidence intervals? (4) Are any figures redundant or better presented as tables (or vice versa)?",
+  context: "[paste the Results and Discussion sections from main.tex, including all figure/table environments]"
+})
+```
+
+Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatches between figures and claims in main.tex immediately.
 
 ---
 
@@ -620,6 +672,32 @@ After fixes, compile: latexmk -pdf -interaction=nonstopmode main.tex
 
 ---
 
+### Post-QA: Codex Risk Radar
+
+**Run this ONCE after reference validation, before finalization.**
+
+Use Codex's risk radar tool to get a final risk assessment of the complete manuscript:
+
+```
+mcp__codex-bridge__codex_risk_radar({
+  prompt: "Final risk assessment of this research manuscript before submission. Evaluate across these dimensions: (1) SCIENTIFIC RISK — are there claims that could be proven wrong or are unfalsifiable? (2) ETHICAL RISK — any issues with data handling, consent, bias, or dual-use concerns? (3) REPUTATIONAL RISK — anything that could embarrass the authors if scrutinized? (4) REPRODUCIBILITY RISK — could an independent team reproduce these results from the description? (5) NOVELTY RISK — is the contribution incremental enough that reviewers might desk-reject? Rate each dimension: LOW / MEDIUM / HIGH with specific evidence.",
+  context: "[paste the full content of main.tex]"
+})
+```
+
+Write the response to `reviews/codex_risk_radar.md`.
+
+**Action on results:**
+- Any HIGH risk item → must be addressed before finalization. Edit main.tex to mitigate (add caveats, strengthen methods, etc.)
+- MEDIUM risk items → flag for the user's attention in the final report but don't block finalization
+- LOW risk items → note and move on
+
+**Checkpoint**: Verify `reviews/codex_risk_radar.md` exists.
+
+Update `.paper-state.json`: mark `codex_risk_radar` as done.
+
+---
+
 ### Stage 6: Finalization
 
 Spawn a **final polish agent** (model: opus):
@@ -654,6 +732,14 @@ If .venue.json indicates the venue requires a lay summary (Nature, medical journ
 Then do one final compile and report results.
 
 Finally, **archive all research artifacts** by running the `/archive` command. This creates a self-contained `archive/` directory with all research notes, reviews, figures, data, and metadata organized for easy browsing, with a README index. This allows the user to browse through all research findings, downloaded materials, and intermediate outputs after the pipeline completes.
+
+**Report Codex collaboration metrics:**
+
+```
+mcp__codex-bridge__codex_stats({})
+```
+
+Include the Codex stats in the final completion report to show how the two AI systems collaborated throughout the pipeline.
 
 ---
 
