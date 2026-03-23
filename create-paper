@@ -366,7 +366,7 @@ cycle_field() {
             local vi
             vi=$(get_venue_index)
             local len=${#ALL_VENUES[@]}
-            vi=$(( (vi + dir + len) % len ))
+            vi=$(( (vi + dir + len) % len )) || true
             CFG_VENUE="${ALL_VENUES[$vi]}"
             CFG_VENUE_NAME="${ALL_VENUE_NAMES[$vi]}"
             ;;
@@ -394,8 +394,8 @@ run_tui() {
             $'\x1b')  # Escape sequence (arrow keys)
                 read -rsn2 -t 0.1 seq
                 case "$seq" in
-                    '[A') ((SELECTED = SELECTED > 0 ? SELECTED - 1 : FIELDS - 1)) ;;
-                    '[B') ((SELECTED = SELECTED < FIELDS - 1 ? SELECTED + 1 : 0)) ;;
+                    '[A') SELECTED=$(( SELECTED > 0 ? SELECTED - 1 : FIELDS - 1 )) ;;
+                    '[B') SELECTED=$(( SELECTED < FIELDS - 1 ? SELECTED + 1 : 0 )) ;;
                     '[C') cycle_field 1 ;;
                     '[D') cycle_field -1 ;;
                 esac

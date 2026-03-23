@@ -39,13 +39,14 @@ archive/          # Browsable research archive with index (created at end of /wr
 7. **Cross-references**: Use `\label{}` and `\ref{}` consistently
 8. **No placeholder text**: Remove all `\lipsum`, TODO, TBD, FIXME before finalizing
 9. **No fabricated references**: Every BibTeX entry must be a real, verifiable publication
+10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`
 
 ## Autonomous Pipeline: /write-paper
 
 The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 1. **Deep Research** — Parallel agents search literature across all available sources
-2. **Planning** — Thesis statement, contribution, detailed outline
+2. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
 3. **Writing** — Sequential agents write each section (1000-2500 words each)
 4. **Figures & Tables** — Ensure adequate visual elements
 5. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
@@ -78,6 +79,8 @@ For interactive, step-by-step work:
 - `/check-consistency` — Find notation, terminology, abbreviation, and tense inconsistencies
 - `/audit-claims` — Flag overclaims, unsupported statements, missing significance tests
 - `/validate-references` — Verify every citation is real (CrossRef, search). Critical before submission.
+- `/novelty-check` — Verify the paper's contribution hasn't already been published
+- `/de-ai-polish` — Remove AI writing patterns from the manuscript
 - `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)
 - `/lay-summary` — Generate plain-language summary, tweet thread, elevator pitch
 - `/compile` — Compile LaTeX to PDF and report errors

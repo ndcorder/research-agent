@@ -41,6 +41,7 @@ After completing EACH stage or section, update `.paper-state.json`:
     "outline":      { "done": true,  "completed_at": "..." },
     "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
+    "novelty_check": { "done": true, "completed_at": "...", "file": "research/novelty_check.md", "status": "NOVEL" },
     "writing": {
       "done": false,
       "sections": {
@@ -485,8 +486,22 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - Add `\bibliographystyle{plainnat}` and `\bibliography{references}`
    - Update title and authors — derive an appropriate academic title from the topic
 
-4. Use the `scientific-writing` skill for IMRAD structure guidance.
-5. Use the `venue-templates` skill if targeting a specific venue.
+4. **Build a Claims-Evidence Matrix** — create `research/claims_matrix.md`:
+   - List every major claim the paper will make (from thesis.md)
+   - For each claim, identify: what evidence supports it (experiment, citation, formal proof, data)
+   - For each claim, note: which section will present this evidence
+   - Flag any claims that lack evidence — these must be either supported or removed before writing begins
+   - Format as a markdown table:
+     ```
+     | # | Claim | Evidence Type | Evidence Source | Section | Status |
+     |-|-|-|-|-|-|
+     | 1 | Our method improves X by Y% | Experiment | Table 2, results on benchmark Z | Results | Planned |
+     | 2 | Prior approaches fail because... | Citation | smith2024, jones2025 | Related Work | Supported |
+     ```
+   - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA
+
+5. Use the `scientific-writing` skill for IMRAD structure guidance.
+6. Use the `venue-templates` skill if targeting a specific venue.
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
@@ -585,6 +600,40 @@ RESEARCH LOG: [same format]
 After all agents complete, run the bibliography builder again to add new references to `references.bib`.
 
 **Checkpoint**: Verify targeted research files exist. Update `.paper-state.json`: mark `targeted_research` as done.
+
+---
+
+### Stage 2d: Novelty Verification
+
+**This is a standalone stage. Do NOT skip it. Do NOT merge it into another stage.**
+
+Before investing hours in writing, verify the contribution hasn't already been published. This catches the worst-case scenario: writing a complete paper about something that already exists.
+
+1. Read `research/thesis.md` for the contribution statement and key claims
+2. Search for existing work that makes the SAME contribution:
+
+**Search strategy** — use ALL available tools in parallel:
+- Search arXiv for papers with similar titles and abstracts (use `mcp__perplexity__search` or domain database skills)
+- Search Semantic Scholar / Google Scholar for the specific method or approach name
+- Search DBLP for the exact technique combination
+- If Codex is available, also ask:
+  ```
+  mcp__codex-bridge__codex_ask({
+    prompt: "Has this specific contribution already been published? The claimed contribution is: [paste thesis]. Search your knowledge for any existing work that makes the same or very similar claims. Be thorough — check not just the exact method name but also equivalent approaches under different names.",
+    context: "[paste content of research/thesis.md]"
+  })
+  ```
+
+3. Write the results to `research/novelty_check.md`:
+   - **NOVEL**: No existing work makes the same contribution → proceed
+   - **PARTIALLY NOVEL**: Similar work exists but our angle/approach differs → document how we differentiate, update thesis.md to clarify the distinction
+   - **NOT NOVEL**: Existing work already covers this → STOP. Report to user with the conflicting papers. Do NOT proceed to writing.
+
+4. If partially novel, update `research/thesis.md` and the outline in `main.tex` to explicitly differentiate from the similar work. Add the similar papers to `references.bib` and plan to discuss them in Related Work.
+
+**Checkpoint**: Verify `research/novelty_check.md` exists and status is NOVEL or PARTIALLY NOVEL. If NOT NOVEL, halt the pipeline and report to the user.
+
+Update `.paper-state.json`: mark `novelty_check` as done.
 
 ---
 
@@ -1002,6 +1051,29 @@ Write both to research/summaries.md.
 If .venue.json indicates the venue requires a lay summary (Nature, medical journals), add it to main.tex after the abstract.
 ```
 
+**De-AI Polish** — remove AI writing patterns (model: sonnet):
+```
+You are an expert editor removing AI-generated writing patterns.
+Read main.tex completely.
+
+Search for and replace these common AI writing tells:
+1. **Hedging overuse**: "it is worth noting that", "it should be noted", "it is important to mention" → remove or rephrase directly
+2. **AI vocabulary**: "delve", "realm", "landscape", "tapestry", "multifaceted", "furthermore", "moreover" at sentence starts → use simpler transitions or remove
+3. **Formulaic structures**: "In this section, we..." openers on every section → vary openings
+4. **Repetitive connectors**: "Additionally", "Furthermore", "Moreover" used repeatedly → diversify or remove
+5. **Passive hedging**: "it can be observed that", "it is evident that" → state the observation directly
+6. **Empty emphasis**: "significantly", "notably", "remarkably" without quantification → remove or add numbers
+7. **Redundant phrasing**: "in order to" → "to", "a total of" → remove, "the fact that" → remove
+8. **Flowery conclusions**: "In conclusion, this groundbreaking work..." → tone down to academic neutral
+9. **List-to-prose artifacts**: Sentences that read like expanded bullet points → rewrite as flowing prose
+10. **Uniform paragraph length**: If all paragraphs are ~same length, vary them for natural rhythm
+
+Do NOT change technical content, citations, or mathematical notation.
+Do NOT remove necessary hedging (e.g., "may" when results are genuinely uncertain).
+Focus on making the paper read like a human domain expert wrote it.
+Edit main.tex directly.
+```
+
 Then do one final compile and report results.
 
 Finally, **archive all research artifacts** by running the `/archive` command. This creates a self-contained `archive/` directory with all research notes, reviews, figures, data, and metadata organized for easy browsing, with a README index. This allows the user to browse through all research findings, downloaded materials, and intermediate outputs after the pipeline completes.
@@ -1030,6 +1102,7 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 | Discussion | Honest limitations, meaningful comparisons with prior work |
 | Conclusion | Concise summary with specific results |
 | Abstract | Self-contained, specific, quantitative where possible |
+| Claims-Evidence Matrix | Every claim in research/claims_matrix.md has status "Supported" |
 | References in .bib | 25+ verified entries |
 | Placeholder text | 0 (no TODO/TBD/FIXME/lipsum/mbox{}) |
 | LaTeX compilation | No errors |
