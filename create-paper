@@ -43,11 +43,12 @@ warn()  { echo -e "${yellow}!${reset} $*"; }
 
 # ── Parse arguments ──────────────────────────────────────────
 if [[ $# -lt 1 ]]; then
-    echo -e "${bold}Usage:${reset} create-paper <directory> [topic] [--venue <venue>]"
+    echo -e "${bold}Usage:${reset} create-paper <directory> [topic] [--venue <venue>] [--deep]"
     echo ""
     echo "  <directory>  Name/path for the new paper project"
     echo "  [topic]      Paper topic — starts the writing pipeline"
     echo "  --venue      Target venue format (default: generic)"
+    echo "  --deep       3× research effort: 12 agents, targeted passes, more QA"
     echo ""
     echo -e "${bold}Available venues:${reset}"
     echo "  generic   Standard journal article (default)"
@@ -58,9 +59,16 @@ if [[ $# -lt 1 ]]; then
     echo "  arxiv     arXiv preprint (no limits, extended format)"
     echo "  apa       APA 7th edition (psychology/social sciences)"
     echo ""
+    echo -e "${bold}Depth modes:${reset}"
+    echo "  standard  5 research agents, 30-50 refs, ~\$50 (~1-4 hrs)"
+    echo "  deep      12 specialized agents, 60-80 refs, targeted second"
+    echo "            pass, per-section lit searches, extra Codex rounds,"
+    echo "            8 QA iterations (~\$150, ~3-8 hrs)"
+    echo ""
     echo "Examples:"
     echo "  create-paper my-survey \"A survey on LLM reasoning\""
     echo "  create-paper my-paper \"Protein folding\" --venue nature"
+    echo "  create-paper my-paper \"Protein folding\" --venue nature --deep"
     exit 1
 fi
 
@@ -69,6 +77,7 @@ shift
 
 TOPIC=""
 VENUE="generic"
+DEPTH="standard"
 
 # Parse remaining args
 while [[ $# -gt 0 ]]; do
@@ -76,6 +85,14 @@ while [[ $# -gt 0 ]]; do
         --venue|-v)
             VENUE="$2"
             shift 2
+            ;;
+        --deep)
+            DEPTH="deep"
+            shift
+            ;;
+        --standard)
+            DEPTH="standard"
+            shift
             ;;
         *)
             TOPIC="$1"
@@ -187,7 +204,7 @@ import json
 config = {
     'topic': '''${TOPIC}''' if '''${TOPIC}''' else '',
     'venue': '$VENUE',
-    'depth': 'standard',
+    'depth': '$DEPTH',
     'model': 'claude-sonnet-4-6',
     'max_revisions': 3,
     'authors': [
@@ -260,242 +277,71 @@ else
     warn "LaTeX compilation had issues (you can fix them with /compile)"
 fi
 
-# ── Configuration TUI ────────────────────────────────────────
-CFG_TOPIC="$TOPIC"
-CFG_VENUE="$VENUE"
-CFG_VENUE_NAME="$VENUE_NAME"
-CFG_DEPTH="standard"
-
-ALL_VENUES=("generic" "ieee" "acm" "neurips" "nature" "arxiv" "apa")
-ALL_VENUE_NAMES=("Standard journal article" "IEEE conference/journal" "ACM conference" "NeurIPS/ICML/ICLR" "Nature family" "arXiv preprint" "APA 7th edition")
-
-# What each depth level means (read-only display)
-std_agents="5"               ; deep_agents="12 (specialized)"
-std_refs="30-50"             ; deep_refs="60-80"
-std_second="no"              ; deep_second="yes — thesis-informed"
-std_seclit="no"              ; deep_seclit="yes — per-section deep-dives"
-std_qa="5"                   ; deep_qa="8"
-std_codex="1× per checkpoint"; deep_codex="2× at key checkpoints"
-
-SELECTED=0
-FIELDS=3  # topic, venue, depth
-
-get_venue_index() {
-    for i in "${!ALL_VENUES[@]}"; do
-        [[ "${ALL_VENUES[$i]}" == "$CFG_VENUE" ]] && echo "$i" && return
-    done
-    echo 0
-}
-
-draw_tui() {
-    local d="$CFG_DEPTH"
-    local vi
-    vi=$(get_venue_index)
-
-    tput cup 0 0
-    tput ed
-
-    local w=57
-    printf "${bold}┌─ Paper Configuration "
-    printf '─%.0s' $(seq 1 34)
-    printf "┐${reset}\n"
-    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
-
-    # Topic
-    if [[ $SELECTED -eq 0 ]]; then
-        printf "${bold}│${reset}  ${green}▸ Topic${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$CFG_TOPIC"
-    else
-        printf "${bold}│${reset}    Topic       %-44s${bold}│${reset}\n" "$CFG_TOPIC"
-    fi
-
-    # Venue
-    local venue_display="$CFG_VENUE  ·  ${ALL_VENUE_NAMES[$vi]}"
-    if [[ $SELECTED -eq 1 ]]; then
-        printf "${bold}│${reset}  ${green}▸ Venue${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$venue_display"
-    else
-        printf "${bold}│${reset}    Venue       %-44s${bold}│${reset}\n" "$venue_display"
-    fi
-
-    # Depth
-    local depth_display
-    if [[ "$d" == "standard" ]]; then
-        depth_display="● standard        ○ deep"
-    else
-        depth_display="○ standard        ● deep"
-    fi
-    if [[ $SELECTED -eq 2 ]]; then
-        printf "${bold}│${reset}  ${green}▸ Depth${reset}       ${bold}%-44s${reset}${bold}│${reset}\n" "$depth_display"
-    else
-        printf "${bold}│${reset}    Depth       %-44s${bold}│${reset}\n" "$depth_display"
-    fi
-
-    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
-
-    # Info section
-    printf "${bold}│${reset}  ── What ${bold}%-47s${reset}${bold}│${reset}\n" "${d} means ──"
-
-    # Read-only stats
-    local agents refs second seclit qa codex
-    if [[ "$d" == "deep" ]]; then
-        agents="$deep_agents"; refs="$deep_refs"; second="$deep_second"
-        seclit="$deep_seclit"; qa="$deep_qa"; codex="$deep_codex"
-    else
-        agents="$std_agents"; refs="$std_refs"; second="$std_second"
-        seclit="$std_seclit"; qa="$std_qa"; codex="$std_codex"
-    fi
-
-    printf "${bold}│${reset}  Research agents:       %-32s${bold}│${reset}\n" "$agents"
-    printf "${bold}│${reset}  Reference target:      %-32s${bold}│${reset}\n" "$refs"
-    printf "${bold}│${reset}  Second research pass:  %-32s${bold}│${reset}\n" "$second"
-    printf "${bold}│${reset}  Section lit searches:  %-32s${bold}│${reset}\n" "$seclit"
-    printf "${bold}│${reset}  Max QA iterations:     %-32s${bold}│${reset}\n" "$qa"
-    printf "${bold}│${reset}  Codex rounds:          %-32s${bold}│${reset}\n" "$codex"
-
-    printf "${bold}│${reset}%${w}s${bold}│${reset}\n" ""
-    printf "${bold}│${reset}  ${blue}[↑↓]${reset} Navigate  ${blue}[←→]${reset} Change  ${blue}[Enter]${reset} Launch        ${bold}│${reset}\n"
-    printf "${bold}│${reset}  ${blue}[e]${reset}  Edit topic  ${blue}[q]${reset}  Quit                       ${bold}│${reset}\n"
-    printf "${bold}└"
-    printf '─%.0s' $(seq 1 $w)
-    printf "┘${reset}\n"
-}
-
-cycle_field() {
-    local dir=$1
-    case $SELECTED in
-        1)  # Venue
-            local vi
-            vi=$(get_venue_index)
-            local len=${#ALL_VENUES[@]}
-            vi=$(( (vi + dir + len) % len )) || true
-            CFG_VENUE="${ALL_VENUES[$vi]}"
-            CFG_VENUE_NAME="${ALL_VENUE_NAMES[$vi]}"
-            ;;
-        2)  # Depth
-            if [[ "$CFG_DEPTH" == "standard" ]]; then
-                CFG_DEPTH="deep"
-            else
-                CFG_DEPTH="standard"
-            fi
-            ;;
-    esac
-}
-
-read_key() {
-    # Read a single keypress, handling arrow key escape sequences.
-    # Sets KEYPRESS to: "UP", "DOWN", "LEFT", "RIGHT", "ENTER", or the literal char.
-    local c1="" c2="" c3=""
-    KEYPRESS=""
-
-    # Read one byte
-    IFS= read -rsn1 c1 || { KEYPRESS="ENTER"; return; }
-
-    if [[ "$c1" == $'\x1b' ]]; then
-        # Escape byte — read 2 more for arrow sequence
-        IFS= read -rsn1 -t 0.5 c2 || return
-        IFS= read -rsn1 -t 0.5 c3 || return
-        case "$c3" in
-            A) KEYPRESS="UP" ;;
-            B) KEYPRESS="DOWN" ;;
-            C) KEYPRESS="RIGHT" ;;
-            D) KEYPRESS="LEFT" ;;
-            *) KEYPRESS="" ;;
-        esac
-    elif [[ "$c1" == "" ]]; then
-        KEYPRESS="ENTER"
-    else
-        KEYPRESS="$c1"
-    fi
-}
-
-run_tui() {
-    tput civis  # hide cursor
-    tput clear
-    draw_tui
-
-    while true; do
-        read_key
-
-        case "$KEYPRESS" in
-            UP)
-                if [[ $SELECTED -gt 0 ]]; then
-                    SELECTED=$((SELECTED - 1))
-                else
-                    SELECTED=$((FIELDS - 1))
-                fi
-                ;;
-            DOWN)
-                if [[ $SELECTED -lt $((FIELDS - 1)) ]]; then
-                    SELECTED=$((SELECTED + 1))
-                else
-                    SELECTED=0
-                fi
-                ;;
-            RIGHT) cycle_field 1 ;;
-            LEFT)  cycle_field -1 ;;
-            ENTER)
-                tput cnorm
-                tput clear
-                return 0
-                ;;
-            q|Q)
-                tput cnorm
-                tput clear
-                echo "Aborted."
-                exit 0
-                ;;
-            e|E)
-                if [[ $SELECTED -eq 0 ]]; then
-                    tput cnorm
-                    tput cup 20 0
-                    echo -ne "  New topic: "
-                    read -r new_topic || true
-                    if [[ -n "$new_topic" ]]; then
-                        CFG_TOPIC="$new_topic"
-                    fi
-                    tput civis
-                fi
-                ;;
-        esac
-
-        draw_tui
-    done
-}
-
-# ── Run TUI (only if interactive terminal) ────────────────────
-if [[ -t 0 ]]; then
-    # Disable errexit for the TUI — interactive read returns non-zero
-    # on escape sequences, timeouts, and empty input
-    set +e
-    run_tui
-    set -e
-fi
-
-# ── Write final config ────────────────────────────────────────
-python3 -c "
-import json, os
-config = json.load(open('.paper.json')) if os.path.exists('.paper.json') else {}
-config['topic'] = '''${CFG_TOPIC}'''
-config['venue'] = '${CFG_VENUE}'
-config['depth'] = '${CFG_DEPTH}'
-json.dump(config, open('.paper.json', 'w'), indent=2)
-"
-
-# Update venue config if changed
-if [[ "$CFG_VENUE" != "$VENUE" ]]; then
-    cp "$VENUES_DIR/$CFG_VENUE.json" .venue.json
-    ok "Venue updated to $CFG_VENUE_NAME"
-fi
-
-TOPIC="$CFG_TOPIC"
-
+# ── Summary ───────────────────────────────────────────────────
+echo ""
 echo -e "${bold}Paper project ready!${reset}"
 echo ""
 echo "  Project:  $(pwd)"
-echo "  Venue:    $CFG_VENUE_NAME"
-echo "  Depth:    $CFG_DEPTH"
+echo "  Venue:    $VENUE_NAME"
+echo "  Depth:    $DEPTH"
 echo ""
 
+if [[ "$DEPTH" == "deep" ]]; then
+    echo -e "  ${bold}Deep mode enabled:${reset}"
+    echo "    12 specialized research agents (vs 5)"
+    echo "    60-80 reference target (vs 30-50)"
+    echo "    Thesis-informed second research pass"
+    echo "    Per-section literature deep-dives"
+    echo "    8 QA iterations with extra Codex rounds"
+    echo "    Estimated: 3-8 hours, ~\$150"
+else
+    echo "  Standard mode: 5 agents, 30-50 refs, ~1-4 hrs, ~\$50"
+    echo "  Add ${bold}--deep${reset} for 3x research effort"
+fi
+echo ""
+
+echo -e "${bold}Commands:${reset}"
+echo "  /write-paper <topic>   Autonomous pipeline (1-4 hrs, journal quality)"
+echo "  /preview-pipeline      Show what the pipeline will do (dry run)"
+echo "  /init <topic>          Quick single-pass generation"
+echo ""
+echo "  /search-literature     Find relevant papers"
+echo "  /add-citation          Add a BibTeX reference"
+echo "  /ingest-papers         Import PDFs from attachments/"
+echo "  /cite-network          Citation coverage analysis"
+echo "  /ask <question>        Query research artifacts for answers"
+echo ""
+echo "  /outline <section>     Draft section outline"
+echo "  /revise-section        Rewrite with feedback"
+echo "  /analyze-data          Statistical analysis and figure generation"
+echo "  /praxis-analyze        Domain-specific analysis via Praxis toolkit"
+echo ""
+echo "  /compile               Build PDF"
+echo "  /review                Manuscript quality review"
+echo "  /check-consistency     Find notation/terminology inconsistencies"
+echo "  /audit-claims          Flag overclaims and unsupported statements"
+echo "  /validate-references   Verify every citation is real"
+echo "  /novelty-check         Verify contribution hasn't been published"
+echo "  /codex-review          Adversarial AI review via Codex"
+echo "  /de-ai-polish          Remove AI writing patterns"
+echo "  /status                Progress dashboard"
+echo ""
+echo "  /archive               Bundle research artifacts for browsing"
+echo "  /prepare-submission    Generate submission package"
+echo "  /lay-summary           Plain-language summary and elevator pitch"
+echo "  /clean                 Remove build artifacts"
+echo ""
+
+# ── Launch ────────────────────────────────────────────────────
 if [[ -n "$TOPIC" ]]; then
+    echo -e "${bold}Ready to write!${reset}"
+    echo ""
+    echo "  ${bold}Autonomous${reset} (recommended — agent-based, runs for hours):"
+    echo "    cd $(pwd) && write-paper"
+    echo ""
+    echo "  ${bold}Interactive${reset} (you guide each step manually):"
+    echo "    cd $(pwd) && claude"
+    echo ""
     read -p "Launch autonomous pipeline now? [Y/n] " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
