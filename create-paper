@@ -381,47 +381,56 @@ cycle_field() {
 }
 
 run_tui() {
-    # Disable set -e for the TUI — interactive read loops return non-zero
-    # on timeouts, escape sequences, and empty input, which kills the script
-    set +e
-
     tput civis  # hide cursor
     tput clear
-    trap 'tput cnorm; tput clear; set -e' EXIT INT TERM
 
     draw_tui
 
+    local key seq
     while true; do
-        IFS= read -rsn1 key
+        key=""
+        seq=""
+        IFS= read -rsn1 key 2>/dev/null || true
 
         case "$key" in
             $'\x1b')  # Escape sequence (arrow keys)
-                read -rsn2 -t 0.1 seq
+                IFS= read -rsn2 -t 0.2 seq 2>/dev/null || true
                 case "$seq" in
-                    '[A') SELECTED=$(( SELECTED > 0 ? SELECTED - 1 : FIELDS - 1 )) ;;
-                    '[B') SELECTED=$(( SELECTED < FIELDS - 1 ? SELECTED + 1 : 0 )) ;;
-                    '[C') cycle_field 1 ;;
-                    '[D') cycle_field -1 ;;
+                    '[A') # Up
+                        if [[ $SELECTED -gt 0 ]]; then
+                            SELECTED=$((SELECTED - 1))
+                        else
+                            SELECTED=$((FIELDS - 1))
+                        fi
+                        ;;
+                    '[B') # Down
+                        if [[ $SELECTED -lt $((FIELDS - 1)) ]]; then
+                            SELECTED=$((SELECTED + 1))
+                        else
+                            SELECTED=0
+                        fi
+                        ;;
+                    '[C') cycle_field 1 ;;   # Right
+                    '[D') cycle_field -1 ;;  # Left
                 esac
                 ;;
             '')  # Enter — launch
                 tput cnorm
                 tput clear
-                set -e
                 return 0
                 ;;
-            'q'|'Q')
+            q|Q)
                 tput cnorm
                 tput clear
                 echo "Aborted."
                 exit 0
                 ;;
-            'e'|'E')
+            e|E)
                 if [[ $SELECTED -eq 0 ]]; then
                     tput cnorm
                     tput cup 20 0
                     echo -ne "  New topic: "
-                    read -r new_topic
+                    read -r new_topic 2>/dev/null || true
                     if [[ -n "$new_topic" ]]; then
                         CFG_TOPIC="$new_topic"
                     fi
@@ -436,7 +445,11 @@ run_tui() {
 
 # ── Run TUI (only if interactive terminal) ────────────────────
 if [[ -t 0 ]]; then
+    # Disable errexit for the TUI — interactive read returns non-zero
+    # on escape sequences, timeouts, and empty input
+    set +e
     run_tui
+    set -e
 fi
 
 # ── Write final config ────────────────────────────────────────
