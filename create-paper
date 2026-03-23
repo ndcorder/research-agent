@@ -172,7 +172,7 @@ ok "main.tex generated ($VENUE_NAME format)"
 # Copy other template files
 cp "$TEMPLATE_DIR/references.bib" .
 cp "$TEMPLATE_DIR/gitignore" .gitignore
-mkdir -p .claude/commands figures attachments
+mkdir -p .claude/commands figures attachments research/sources
 cp "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/
 cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
 cp "$TEMPLATE_DIR/claude/commands/"*.md .claude/commands/

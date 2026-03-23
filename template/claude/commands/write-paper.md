@@ -11,9 +11,18 @@ You are an autonomous research paper writing system. You will produce a publicat
 1. Read `.paper.json` for topic, venue, model, and config. If it doesn't exist, create it from the topic in $ARGUMENTS.
 2. Read `.venue.json` if present for venue-specific formatting rules (sections, citation style, page limits).
 3. Read `main.tex` and `references.bib` to understand current state.
-4. Run: `mkdir -p research reviews figures`
-5. Create a task for each pipeline stage using TaskCreate.
-6. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
+4. Run: `mkdir -p research research/sources reviews figures`
+5. Initialize the research log: write a header to `research/log.md`:
+   ```markdown
+   # Research Log
+
+   Provenance trail of all searches, queries, and sources consulted during the research pipeline.
+   Each entry records: timestamp, agent, tool used, query, result summary, and URLs/DOIs found.
+
+   ---
+   ```
+6. Create a task for each pipeline stage using TaskCreate.
+7. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
 
 ## Checkpoint Persistence
 
@@ -94,6 +103,39 @@ TOOL FALLBACK CHAIN — try in this order, skip failures:
 If a tool returns an error or is unavailable, log it and move to the next.
 You MUST try at least 3 different tools. Do not stop at the first failure.
 If ALL tools fail for a query, note the gap and move on — other agents may cover it.
+
+RESEARCH LOG — After EACH tool call (success or failure), append an entry to research/log.md:
+```markdown
+### [TIMESTAMP] — [YOUR AGENT NAME]
+- **Tool**: [tool name, e.g., mcp__perplexity__search]
+- **Query**: [exact query string]
+- **Result**: [SUCCESS: N papers found / FAILURE: error message / EMPTY: no results]
+- **Key finds**: [1-2 sentence summary of what was found, or "N/A"]
+- **URLs/DOIs**: [list any URLs or DOIs discovered]
+```
+This log is critical for research provenance. Do not skip it.
+
+SOURCE EXTRACTS — When you find a paper that you cite in your output:
+1. Create a file: research/sources/<bibtexkey>.md (e.g., research/sources/smith2024.md)
+2. Include: full citation, abstract (if available), key excerpts or findings you're using, and the URL/DOI where you found it
+3. Format:
+```markdown
+# <Paper Title>
+
+**Citation**: <authors>, <title>, <venue>, <year>
+**DOI/URL**: <doi or url>
+**BibTeX Key**: <key>
+
+## Abstract
+<paste or summarize the abstract>
+
+## Key Findings Used
+<bullet points of specific findings, data, or claims you referenced from this paper>
+
+## Source
+<where this was found: which tool, which database, what query>
+```
+This ensures every cited claim is traceable to a specific source document.
 ```
 
 **Agent 1 — "Field Survey"** (model: sonnet)
@@ -119,6 +161,7 @@ Your task:
 Write a 2000+ word comprehensive survey to research/survey.md.
 For EVERY paper mentioned, include: authors, title, venue, year, DOI (if findable).
 Do NOT fabricate any references.
+RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
 **Agent 2 — "Methodology Deep Dive"** (model: sonnet)
@@ -141,6 +184,7 @@ Your task:
 
 Write a 1500+ word analysis to research/methods.md.
 Full citation details for every paper. Do NOT fabricate references.
+RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
 **Agent 3 — "Empirical Evidence & Benchmarks"** (model: sonnet)
@@ -163,6 +207,7 @@ Your task:
 Write a 1500+ word analysis to research/empirical.md.
 Include specific performance numbers where available.
 Full citation details. Do NOT fabricate references.
+RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
 **Agent 4 — "Theoretical Foundations"** (model: sonnet)
@@ -184,6 +229,7 @@ Your task:
 
 Write a 1200+ word analysis to research/theory.md.
 Full citation details. Do NOT fabricate references.
+RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
 **Agent 5 — "Gap Analysis & Positioning"** (model: sonnet)
@@ -206,6 +252,7 @@ Then analyze:
 
 Write a 1000+ word gap analysis to research/gaps.md.
 This will directly inform the paper's contribution statement.
+RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
 **Note:** Run agents 1-4 in parallel (they're independent). Run agent 5 AFTER 1-4 complete (it reads their outputs).
@@ -228,6 +275,7 @@ Remove duplicates. Target: 30-50 references minimum.
 
 CRITICAL: Do NOT fabricate or guess references. If you cannot verify a paper, omit it.
 After writing references.bib, count the entries and report the total.
+RESEARCH LOG: For every verification search, append an entry to research/log.md recording: the paper being verified, tool used, query, and result (VERIFIED/SUSPICIOUS/FABRICATED). Include the verification URL or DOI.
 ```
 
 **Checkpoint**: Count entries in `references.bib`. If fewer than 25, report which research areas are underrepresented and spawn additional targeted research agents for those areas.
@@ -604,6 +652,8 @@ If .venue.json indicates the venue requires a lay summary (Nature, medical journ
 ```
 
 Then do one final compile and report results.
+
+Finally, **archive all research artifacts** by running the `/archive` command. This creates a self-contained `archive/` directory with all research notes, reviews, figures, data, and metadata organized for easy browsing, with a README index. This allows the user to browse through all research findings, downloaded materials, and intermediate outputs after the pipeline completes.
 
 ---
 

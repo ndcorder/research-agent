@@ -10,7 +10,10 @@ references.bib    # BibTeX references
 figures/          # Generated and imported figures
 attachments/      # Reference PDFs, data files, supplementary materials
 research/         # Literature research outputs (created by /write-paper)
+  sources/        # Raw source extracts per cited paper (abstract, key findings, provenance)
+  log.md          # Research provenance log (all searches, queries, tools, results)
 reviews/          # Review feedback (created by /write-paper)
+archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/skills/   # -> vendor/claude-scientific-skills (177 scientific skills)
 ```
@@ -46,7 +49,7 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 3. **Writing** — Sequential agents write each section (1000-2500 words each)
 4. **Figures & Tables** — Ensure adequate visual elements
 5. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
-6. **Finalization** — Polish, compile, report
+6. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours. Agents use `model: "opus"` for writing, `model: "sonnet"` for research/review.
 
@@ -64,6 +67,7 @@ For interactive, step-by-step work:
 - `/add-citation` — Add a properly formatted BibTeX entry
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
+- `/ask` — Query research artifacts to answer questions about the research (searches sources, notes, reviews, log)
 
 ### Data & Figures
 - `/analyze-data` — Statistical analysis on datasets, generate publication figures
@@ -83,7 +87,8 @@ For interactive, step-by-step work:
 ### Codex Bridge (optional — adversarial AI review)
 - `/codex-review` — Get a second-opinion review from OpenAI Codex (challenges assumptions, finds logical gaps)
 
-### Submission
+### Submission & Archive
+- `/archive` — Bundle all research artifacts into a browsable `archive/` folder with README index (auto-runs at end of /write-paper)
 - `/prepare-submission` — Generate submission package (anonymized, cover letter, supplementary)
 - `/clean` — Remove build artifacts and working directories
 

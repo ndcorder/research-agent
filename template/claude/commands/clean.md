@@ -12,6 +12,7 @@ Clean up LaTeX build artifacts and optionally remove working directories.
 3. **If `all` is in arguments**, also remove working directories:
    - `research/` — intermediate research notes (not the final paper)
    - `reviews/` — review feedback (already incorporated into revisions)
+   - `archive/` — research archive (can be regenerated with `/archive`)
    - `.paper-state.json` — pipeline state (allows fresh restart)
    - `.paper-progress.txt` — progress file
    - `figures/scripts/` — figure generation scripts (figures themselves are kept)
