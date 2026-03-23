@@ -253,7 +253,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Agent 5 — "Gap Analysis & Positioning"** (model: sonnet)
+**Agent 5 — "Gap Analysis & Positioning"** (model: opus)
 ```
 You are a senior researcher identifying research gaps for: [TOPIC]
 DOMAIN: [DETECTED_DOMAIN]
@@ -410,7 +410,7 @@ RESEARCH LOG: [same as above]
 **In standard mode**, run agents 1-4 in parallel. Run agent 5 AFTER 1-4 complete.
 **In deep mode**, run agents 1-4 AND 6-12 in parallel. Run agent 5 AFTER ALL complete (it reads all research files, including the 7 deep-mode files).
 
-**After all research agents complete, spawn a Bibliography Builder agent** (model: sonnet)**:**
+**After all research agents complete, spawn a Bibliography Builder agent** (model: haiku)**:**
 ```
 You are a meticulous bibliographer.
 Read ALL files in research/ directory. Extract every paper cited.
@@ -643,7 +643,7 @@ Each section gets its own dedicated agent. **Run sequentially** — each section
 
 **[DEEP] Per-Section Literature Deep-Dives**
 
-If depth is `"deep"`, BEFORE each writing agent starts, spawn a quick **section research agent** (model: sonnet) to find literature specific to that section's topic:
+If depth is `"deep"`, BEFORE each writing agent starts, spawn a quick **section research agent** (model: haiku) to find literature specific to that section's topic:
 
 ```
 You are a focused research assistant. You have 1 task: find papers relevant to the [SECTION] section of a paper about [TOPIC].
@@ -965,7 +965,7 @@ Fix Critical and Major overclaims in main.tex (soften language, add hedging, not
 Write report to reviews/claims_audit.md.
 ```
 
-After both complete, also spawn a **reproducibility checker** (model: sonnet):
+After both complete, also spawn a **reproducibility checker** (model: haiku):
 ```
 Read main.tex. Check if Methods section includes: all hyperparameters, training details, compute resources, dataset descriptions, evaluation metric definitions, random seed/variance info.
 For each missing item, add it to the appropriate section in main.tex.
@@ -976,7 +976,7 @@ Write checklist to research/reproducibility_checklist.md.
 
 ### Post-QA: Reference Validation (mandatory before finalization)
 
-Spawn a **reference validation agent** (model: sonnet):
+Spawn a **reference validation agent** (model: haiku):
 ```
 You are a reference verification specialist. Your job is to ensure every citation is real.
 Read references.bib. For EACH entry:
@@ -1042,7 +1042,7 @@ Report: word count per section, total words, citation count, page count.
 Edit main.tex directly.
 ```
 
-After polish, generate a **lay summary** (model: sonnet):
+After polish, generate a **lay summary** (model: haiku):
 ```
 Read main.tex completely. Generate:
 1. A 200+ word plain-language summary (no jargon, high school reading level)
@@ -1051,7 +1051,7 @@ Write both to research/summaries.md.
 If .venue.json indicates the venue requires a lay summary (Nature, medical journals), add it to main.tex after the abstract.
 ```
 
-**De-AI Polish** — remove AI writing patterns (model: sonnet):
+**De-AI Polish** — remove AI writing patterns (model: opus):
 ```
 You are an expert editor removing AI-generated writing patterns.
 Read main.tex completely.
@@ -1130,7 +1130,10 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 4. **How to use skills.** When an agent prompt says "use the `scientific-writing` skill", the agent should read the file `.claude/skills/scientific-writing/SKILL.md` and follow its guidance. Skills are markdown files at `.claude/skills/<skill-name>/SKILL.md`. The `scientific-writing` skill is mandatory for all writing agents.
 5. **Sequential writing, parallel research/review.** Writing agents one at a time. Research and review agents in parallel.
 6. **Assess completeness after every writing agent.** If the section lacks depth, is missing citations, or leaves obvious gaps, expand immediately. The expansion agent should use `model: "opus"`.
-7. **Model selection.** Writing and revision agents: `model: "opus"`. Research, review, and utility agents: `model: "sonnet"`.
+7. **Model selection.** Three tiers:
+   - **Opus**: Writing, revision, expansion, final polish, gap analysis, de-AI polish — anything requiring deep reasoning, synthesis, or prose quality.
+   - **Sonnet**: Research agents, review agents, data analysis, figures — tasks requiring tool use, search, and structured evaluation.
+   - **Haiku**: Bibliography building, reference validation, lay summary, reproducibility checklist, section lit searches — mechanical tasks requiring lookup, pattern matching, or summarization.
 8. **Track progress.** Use TaskCreate/TaskUpdate for every stage. Naming: `"Stage 1: Research"`, `"Stage 3: Write Introduction"`, etc. Set status to `in_progress` when starting, `completed` when done.
 9. **Be patient.** This pipeline runs 1-4+ hours. Every stage matters. Do not rush or skip.
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.
