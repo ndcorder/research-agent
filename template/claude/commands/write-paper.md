@@ -28,6 +28,7 @@ After completing EACH stage or section, update `.paper-state.json`:
   "stages": {
     "research":     { "done": true,  "completed_at": "...", "notes": "45 refs found" },
     "outline":      { "done": true,  "completed_at": "..." },
+    "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
     "writing": {
       "done": false,
       "sections": {
@@ -264,7 +265,17 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
-**MANDATORY — Codex Thesis Stress-Test**: You MUST call `mcp__codex-bridge__codex_plan` here. Do NOT skip this step. Read `research/thesis.md` and the outline from `main.tex`, then call:
+Update `.paper-state.json`: mark `outline` as done.
+
+---
+
+### Stage 2b: Codex Thesis Stress-Test
+
+**This is a standalone stage. Do NOT skip it. Do NOT merge it into another stage.**
+
+1. Read `research/thesis.md` for the thesis/contribution statement
+2. Read `main.tex` for the outline structure
+3. Call the Codex MCP tool directly:
 
 ```
 mcp__codex-bridge__codex_plan({
@@ -273,7 +284,13 @@ mcp__codex-bridge__codex_plan({
 })
 ```
 
-If Codex identifies structural problems, fix them in the outline BEFORE proceeding to writing. Surface any disagreements between your assessment and Codex's to the user.
+4. Write the Codex response to `research/codex_thesis_review.md`
+5. If Codex identifies structural problems, fix them in the outline in `main.tex` before proceeding
+6. Surface any disagreements between your assessment and Codex's to the user
+
+**Checkpoint**: Verify `research/codex_thesis_review.md` exists. If it does not exist, you skipped this stage — go back and do it.
+
+Update `.paper-state.json`: mark `codex_thesis` as done.
 
 ---
 
@@ -433,7 +450,14 @@ Verify:
 Write review to reviews/completeness.md with every issue found.
 ```
 
-**MANDATORY — Codex Adversarial Review**: While the 3 review agents above are running, you MUST also call `mcp__codex-bridge__codex_review` directly (not via an agent — call the MCP tool yourself in the main session). Read `main.tex` first, then call:
+#### Step 5a-ii: Codex Adversarial Review
+
+**This is a separate step. Do NOT skip it. Do NOT merge it with the agent reviews above.**
+
+After spawning the 3 review agents, IMMEDIATELY call Codex directly in your main session (this runs in parallel while agents work):
+
+1. Read `main.tex` completely
+2. Call the Codex MCP tool:
 
 ```
 mcp__codex-bridge__codex_review({
@@ -443,11 +467,19 @@ mcp__codex-bridge__codex_review({
 })
 ```
 
-Write the Codex response to `reviews/codex_adversarial.md`.
+3. Write the Codex response to `reviews/codex_adversarial.md`
+
+**Checkpoint**: Before proceeding to Step 5b, verify ALL 4 review files exist:
+- `reviews/technical.md` (from agent)
+- `reviews/writing.md` (from agent)
+- `reviews/completeness.md` (from agent)
+- `reviews/codex_adversarial.md` (from Codex call above)
+
+If `reviews/codex_adversarial.md` is missing, you skipped the Codex review — go back and do it.
 
 #### Step 5b: Synthesize Reviews
 
-Read all files in `reviews/` (including `codex_adversarial.md` if it exists). Build a prioritized fix list:
+Read ALL files in `reviews/` including `codex_adversarial.md`. Build a prioritized fix list:
 1. All CRITICAL issues (must fix)
 2. All MAJOR issues (should fix)
 3. Word count shortfalls
