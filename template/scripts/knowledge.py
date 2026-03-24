@@ -67,7 +67,7 @@ def log_operation(operation: str, details: dict):
 def create_rag():
     """Create and return a LightRAG instance configured for OpenRouter."""
     from lightrag import LightRAG
-    from lightrag.llm.openai import openai_complete_if_cache, openai_embed
+    from lightrag.llm.openai import openai_complete, openai_embed
 
     api_key = get_api_key()
 
@@ -78,7 +78,9 @@ def create_rag():
 
     rag = LightRAG(
         working_dir=WORKING_DIR,
-        llm_model_func=openai_complete_if_cache,
+        # openai_complete (not openai_complete_if_cache) is the correct wrapper —
+        # it reads llm_model_name from global config and passes it to the cache layer
+        llm_model_func=openai_complete,
         llm_model_name=LLM_MODEL,
         llm_model_kwargs={
             "base_url": OPENROUTER_BASE_URL,
@@ -126,6 +128,8 @@ async def cmd_build(_args):
     os.makedirs(WORKING_DIR, exist_ok=True)
     rag = create_rag()
     await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
     await rag.ainsert(documents, ids=ids)
 
     entity_count = 0
@@ -161,6 +165,8 @@ async def cmd_query(args):
 
     rag = create_rag()
     await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
 
     result = await rag.aquery(
         args.question,
@@ -183,6 +189,8 @@ async def cmd_contradictions(_args):
 
     rag = create_rag()
     await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
 
     prompt = (
         "Identify contradictions, tensions, and conflicting claims across the source documents "
@@ -219,6 +227,8 @@ async def cmd_evidence_for(args):
 
     rag = create_rag()
     await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
 
     prompt = (
         f"Find all evidence in the source documents that SUPPORTS the following claim:\n\n"
@@ -248,6 +258,8 @@ async def cmd_evidence_against(args):
 
     rag = create_rag()
     await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
 
     prompt = (
         f"Find all evidence in the source documents that CONTRADICTS or CHALLENGES "
