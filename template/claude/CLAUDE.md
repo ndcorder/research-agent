@@ -52,7 +52,7 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 5. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
 6. **Finalization** — Polish, compile, archive all artifacts, report
 
-This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers: `"opus"` for writing/reasoning, `"sonnet"` for research/review, `"haiku"` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort — more agents, targeted second pass, per-section literature searches, and additional Codex rounds.
+This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context for opus/sonnet: `"opus"` for writing/reasoning, `"sonnet"` for research/review, `"haiku"` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort — more agents, targeted second pass, per-section literature searches, and additional Codex rounds.
 
 ## Manual Commands
 

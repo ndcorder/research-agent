@@ -1130,10 +1130,10 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 4. **How to use skills.** When an agent prompt says "use the `scientific-writing` skill", the agent should read the file `.claude/skills/scientific-writing/SKILL.md` and follow its guidance. Skills are markdown files at `.claude/skills/<skill-name>/SKILL.md`. The `scientific-writing` skill is mandatory for all writing agents.
 5. **Sequential writing, parallel research/review.** Writing agents one at a time. Research and review agents in parallel.
 6. **Assess completeness after every writing agent.** If the section lacks depth, is missing citations, or leaves obvious gaps, expand immediately. The expansion agent should use `model: "opus"`.
-7. **Model selection.** Three tiers:
-   - **Opus**: Writing, revision, expansion, final polish, gap analysis, de-AI polish — anything requiring deep reasoning, synthesis, or prose quality.
-   - **Sonnet**: Research agents, review agents, data analysis, figures — tasks requiring tool use, search, and structured evaluation.
-   - **Haiku**: Bibliography building, reference validation, lay summary, reproducibility checklist, section lit searches — mechanical tasks requiring lookup, pattern matching, or summarization.
+7. **Model selection.** Three tiers — always use 1M context variants for opus and sonnet (agents frequently read entire manuscripts + all research files + full bibliographies):
+   - **Opus** (`model: "opus"`): Writing, revision, expansion, final polish, gap analysis, de-AI polish — anything requiring deep reasoning, synthesis, or prose quality.
+   - **Sonnet** (`model: "sonnet"`): Research agents, review agents, data analysis, figures — tasks requiring tool use, search, and structured evaluation.
+   - **Haiku** (`model: "haiku"`): Bibliography building, reference validation, lay summary, reproducibility checklist, section lit searches — mechanical tasks requiring lookup, pattern matching, or summarization.
 8. **Track progress.** Use TaskCreate/TaskUpdate for every stage. Naming: `"Stage 1: Research"`, `"Stage 3: Write Introduction"`, etc. Set status to `in_progress` when starting, `completed` when done.
 9. **Be patient.** This pipeline runs 1-4+ hours. Every stage matters. Do not rush or skip.
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.

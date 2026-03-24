@@ -205,7 +205,7 @@ config = {
     'topic': '''${TOPIC}''' if '''${TOPIC}''' else '',
     'venue': '$VENUE',
     'depth': '$DEPTH',
-    'model': 'claude-sonnet-4-6',
+    'model': 'claude-opus-4-6',
     'max_revisions': 3,
     'authors': [
         {
