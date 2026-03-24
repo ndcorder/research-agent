@@ -102,7 +102,7 @@ def create_rag():
 # Commands
 # ---------------------------------------------------------------------------
 
-async def cmd_build(args):
+async def cmd_build(_args):
     """Build or update the knowledge graph from research/sources/*.md."""
     sources_path = Path(SOURCES_DIR)
     if not sources_path.exists():
@@ -177,7 +177,7 @@ async def cmd_query(args):
     })
 
 
-async def cmd_contradictions(args):
+async def cmd_contradictions(_args):
     """Find conflicting claims across source documents."""
     from lightrag import QueryParam
 
@@ -272,7 +272,7 @@ async def cmd_evidence_against(args):
     })
 
 
-async def cmd_entities(args):
+async def cmd_entities(_args):
     """List all extracted entities from the knowledge graph."""
     import networkx as nx
 
