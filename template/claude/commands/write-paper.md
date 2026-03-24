@@ -23,6 +23,14 @@ You are an autonomous research paper writing system. You will produce a publicat
 
    ---
    ```
+   Also initialize `reviews/codex_deliberation_log.md`:
+   ```markdown
+   # Codex Deliberation Log
+
+   Record of all Claude-Codex deliberations: agreements, disagreements, rebuttals, and resolutions.
+
+   ---
+   ```
 6. Create a task for each pipeline stage using TaskCreate.
 7. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
 
@@ -76,6 +84,40 @@ Read `depth` from `.paper.json` (default: `"standard"`). This controls research 
 | Codex rounds per checkpoint | 1 | 2 (early + late in QA loop) |
 
 When `depth` is `"deep"`, follow ALL deep-mode instructions marked with **[DEEP]** below. When `depth` is `"standard"`, skip them.
+
+## Codex Deliberation Protocol
+
+When Codex provides feedback at any stage, do NOT blindly accept it. Follow this deliberation process:
+
+1. **Evaluate** Codex's feedback point by point. For each point, classify as:
+   - **AGREE** — the feedback is valid and actionable → implement it
+   - **PARTIALLY AGREE** — some merit but overstated or misapplied → implement what makes sense, explain what doesn't
+   - **DISAGREE** — the feedback is wrong, irrelevant, or would make the paper worse → push back with specific reasoning
+
+2. **If you disagree**, send a rebuttal to Codex:
+   ```
+   mcp__codex-bridge__codex_ask({
+     prompt: "I disagree with your assessment on the following points. Here is my reasoning: [specific counterarguments]. Please reconsider — are you confident in your original position, or do my points change your assessment?",
+     context: "[paste the original Codex feedback + your counterarguments]"
+   })
+   ```
+
+3. **Codex gets one rebuttal.** After Codex responds:
+   - If Codex concedes → move on
+   - If Codex maintains its position with new reasoning → seriously consider it, implement if the new argument is compelling
+   - If still unresolved → log BOTH perspectives in the relevant review file and let the user decide
+
+4. **Log all deliberations** to `reviews/codex_deliberation_log.md`:
+   ```markdown
+   ### [Stage] — [Topic]
+   **Codex said**: [summary]
+   **Claude's assessment**: AGREE / PARTIALLY AGREE / DISAGREE
+   **Reasoning**: [why]
+   **Resolution**: [what was done]
+   **Rebuttal needed**: yes/no
+   ```
+
+This protocol applies to EVERY Codex interaction below — not just reviews, but research cross-checks, figure audits, risk radar, etc. The goal is genuine collaboration, not rubber-stamping.
 
 ## Domain Detection & Skill Routing
 
@@ -410,6 +452,19 @@ RESEARCH LOG: [same as above]
 **In standard mode**, run agents 1-4 in parallel. Run agent 5 AFTER 1-4 complete.
 **In deep mode**, run agents 1-4 AND 6-12 in parallel. Run agent 5 AFTER ALL complete (it reads all research files, including the 7 deep-mode files).
 
+**Codex Independent Literature Contribution**
+
+After all Claude research agents complete but BEFORE the bibliography builder, call Codex to contribute its own research findings. Different models have different training data — Codex may know papers Claude doesn't.
+
+```
+mcp__codex-bridge__codex_ask({
+  prompt: "You are an independent research contributor. The topic is: [TOPIC]. I have already gathered research on this topic. Now I need YOU to independently suggest papers and findings that I might have missed. Focus on: (1) Papers from the last 2 years that are highly relevant (2) Seminal older papers that are commonly cited but might be overlooked (3) Papers from adjacent fields that offer useful insights (4) Any well-known datasets or benchmarks I should reference. For each paper, provide: authors, title, venue, year, and a 1-2 sentence summary of relevance. Do NOT just confirm what I already found — add NEW information.",
+  context: "[paste a brief summary of what the research agents found — topic areas covered, key papers already identified]"
+})
+```
+
+Write Codex's contributions to `research/codex_independent_research.md`. Apply the **Codex Deliberation Protocol**: verify Codex's paper suggestions are real (search to confirm), push back on any that seem fabricated, and add verified ones to the research notes. Pass all verified new papers to the bibliography builder.
+
 **After all research agents complete, spawn a Bibliography Builder agent** (model: haiku)**:**
 ```
 You are a meticulous bibliographer.
@@ -441,18 +496,19 @@ RESEARCH LOG: For every verification search, append an entry to research/log.md 
 
 After all research agents and bibliography building are complete, use Codex to cross-check the key findings.
 
-1. Read `research/survey.md` and `research/gaps.md` for the main claims and findings
-2. Call Codex directly:
+1. Read ALL research files: `research/survey.md`, `research/methods.md`, `research/empirical.md`, `research/theory.md`, `research/gaps.md` (and in deep mode, also the 7 additional files).
+2. For EACH research file, call Codex to cross-check its claims:
 
 ```
 mcp__codex-bridge__codex_ask({
-  prompt: "Cross-check these research findings. For each major claim below, assess: (1) Is it accurately represented based on your knowledge? (2) Are there important contradicting studies or nuances missing? (3) Are there key papers or perspectives that were overlooked? (4) Flag any claims that seem exaggerated or out of context.\n\nResearch findings:\n[paste key claims from survey.md and gaps.md]",
-  context: "[paste content of research/survey.md and research/gaps.md]"
+  prompt: "Cross-check these research findings from [FILENAME]. For each major claim: (1) Is it accurately represented? (2) Are there contradicting studies or nuances missing? (3) Are key papers overlooked? (4) Are any claims exaggerated or out of context? Be specific — cite papers by name if you know of contradictions.",
+  context: "[paste content of the research file being checked]"
 })
 ```
 
-3. Write the Codex response to `research/codex_cross_check.md`
-4. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: claude-sonnet-4-6[1m]) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
+3. Write all Codex responses to `research/codex_cross_check.md` (append each file's review as a section)
+4. Apply the **Codex Deliberation Protocol**: evaluate each point, push back where you disagree, log the deliberation
+5. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: claude-sonnet-4-6[1m]) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
 
 **Checkpoint**: Verify `research/codex_cross_check.md` exists. If it does not exist, you skipped this stage — go back and do it.
 
@@ -500,8 +556,17 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      ```
    - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA
 
-5. Use the `scientific-writing` skill for IMRAD structure guidance.
-6. Use the `venue-templates` skill if targeting a specific venue.
+5. **Codex reviews the Claims-Evidence Matrix**:
+   ```
+   mcp__codex-bridge__codex_ask({
+     prompt: "Review this claims-evidence matrix for a research paper. For each claim, assess: (1) Is the proposed evidence actually sufficient to support this claim? (2) Are there claims that are too strong for the evidence type? (e.g., claiming 'proves' based on empirical results) (3) Are there obvious missing claims that the paper should make but doesn't? (4) Are any claims redundant or overlapping?",
+     context: "[paste content of research/claims_matrix.md]"
+   })
+   ```
+   Apply the **Codex Deliberation Protocol**. Update the matrix based on agreed feedback. Log deliberation.
+
+6. Use the `scientific-writing` skill for IMRAD structure guidance.
+7. Use the `venue-templates` skill if targeting a specific venue.
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
@@ -683,6 +748,20 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 | 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
 | 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. |
 
+**Codex-Authored Limitations Draft**
+
+After the Discussion section is written (Order 5), have Codex draft the Limitations subsection. Codex brings a genuinely different perspective on weaknesses — this is where adversarial thinking is most valuable.
+
+```
+mcp__codex-bridge__codex_review({
+  prompt: "Read this research paper's Methods and Results sections. Write a thorough Limitations subsection (as LaTeX) covering: (1) Methodological limitations — what assumptions might not hold? (2) Data/evaluation limitations — are the benchmarks sufficient? Could results look different on other data? (3) Scope limitations — what does this NOT address? (4) Threats to validity — what could invalidate the conclusions? Be honest but fair — the goal is to preempt reviewer criticism, not sabotage the paper. Write in academic prose, not bullet points.",
+  context: "[paste Methods and Results sections from main.tex]",
+  evidence_mode: true
+})
+```
+
+Apply the **Codex Deliberation Protocol**: evaluate Codex's limitations. You may push back if Codex overstates weaknesses or misunderstands the method. Then have the Discussion writing agent (model: claude-opus-4-6[1m]) integrate the agreed-upon limitations into the Discussion section's limitations subsection, blending them with Claude's own identified limitations.
+
 **After each writing agent completes**, assess whether the section is substantively complete. If the section feels thin — missing depth, lacking citations, skipping over important points, or leaving obvious gaps — spawn an expansion agent:
 ```
 The [SECTION] section in main.tex needs more depth.
@@ -693,7 +772,7 @@ Write until the section is comprehensive. A domain expert should not feel anythi
 Edit main.tex directly.
 ```
 
-**After each major section completes (Introduction, Methods, Results, Discussion)**, also call Codex for a quick spot-check. Do NOT do this for Related Work, Conclusion, or Abstract — only the 4 core argument sections.
+**After each section completes**, call Codex for a spot-check. This applies to ALL sections: Introduction, Related Work, Methods, Results, Discussion, Conclusion, and Abstract.
 
 ```
 mcp__codex-bridge__codex_review({
@@ -991,6 +1070,19 @@ After fixes, compile: latexmk -pdf -interaction=nonstopmode main.tex
 ```
 
 **This is non-negotiable.** Fabricated references are the #1 risk in AI-assisted writing. Every reference must be verified before the paper is finalized. Update `.paper-state.json` with validation results.
+
+**Codex Independent Reference Verification**
+
+In parallel with Claude's reference validation, have Codex independently verify a random sample of 10-15 references:
+
+```
+mcp__codex-bridge__codex_ask({
+  prompt: "Verify these bibliographic references. For each one, confirm: (1) Is this a real publication? (2) Are the authors, title, venue, and year correct? (3) Does the DOI (if present) match? Flag any that seem fabricated, have wrong metadata, or that you cannot confirm exist.\n\nReferences to verify:\n[paste 10-15 randomly selected BibTeX entries from references.bib]",
+  context: "[paste the selected BibTeX entries]"
+})
+```
+
+Apply the **Codex Deliberation Protocol**: if Codex flags a reference that Claude's validator marked as verified, investigate further — one of them is wrong. If Codex confirms references Claude flagged as suspicious, that's stronger evidence for removal. Write results to `reviews/codex_ref_verification.md`.
 
 ---
 

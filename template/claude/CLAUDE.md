@@ -99,18 +99,22 @@ For interactive, step-by-step work:
 
 If `codex-bridge` is installed (`npm i -g codex-bridge`), it provides a second AI perspective throughout the pipeline via OpenAI Codex:
 
-- **Research cross-check** (Stage 1c): `codex_ask` validates key findings and flags missing perspectives
+- **Independent research** (Stage 1): `codex_ask` contributes papers and findings from its own training data
+- **Research cross-check** (Stage 1c): `codex_ask` validates ALL research files, not just the summary
+- **Claims-evidence review** (Stage 2): `codex_ask` challenges whether evidence actually supports each claim
 - **Thesis stress-testing** (Stage 2b): `codex_plan` challenges your contribution statement before you write
-- **Section spot-checks** (Stage 3): `codex_review` catches issues in each core section as it's written
+- **Section spot-checks** (Stage 3): `codex_review` reviews ALL sections as they're written
+- **Limitations authoring** (Stage 3): `codex_review` drafts the limitations subsection from an adversarial perspective
 - **Figure/claims audit** (Stage 4c): `codex_ask` verifies figures match their claims
 - **Adversarial review** (Stage 5): `codex_review` runs alongside the 3 agent reviewers as a 4th perspective
+- **Reference verification** (Post-QA): `codex_ask` independently verifies a sample of references
 - **Risk radar** (Post-QA): `codex_risk_radar` assesses scientific, ethical, reproducibility, and novelty risks
 - **Collaboration stats** (Stage 6): `codex_stats` reports how the two AI systems worked together
 - **On-demand critique**: `/codex-review` for manual review of any section
 
 All codex integration is **graceful** — if codex-bridge is not installed or configured, every step that uses it is silently skipped. The pipeline works fine without it.
 
-**Disagreement protocol**: If Codex disagrees with Claude's assessment, both perspectives are presented. Neither side silently wins.
+**Deliberation protocol**: Codex feedback is never blindly accepted. Claude evaluates each point (AGREE / PARTIALLY AGREE / DISAGREE), pushes back with reasoning when it disagrees, and Codex gets one rebuttal. Unresolved disagreements are logged in `reviews/codex_deliberation_log.md` for the user to decide. Neither side silently wins.
 
 ## Praxis Integration
 
