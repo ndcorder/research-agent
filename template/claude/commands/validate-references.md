@@ -25,12 +25,19 @@ This is a CRITICAL quality gate. Fabricated references are the single biggest ri
    - Volume, number, pages filled in (for journal articles)
    - DOI present (add if found during verification)
 
-5. **Fix directly**:
+5. **For VERIFIED entries, attempt OA resolution** (if no source extract with FULL-TEXT exists):
+   - **If DOI present**: check Semantic Scholar `openAccessPdf` field via `https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,abstract`
+   - **If open-access PDF found**: fetch it with WebFetch, create or update `research/sources/<key>.md` with `Access Level: FULL-TEXT` and a content snapshot of key sections
+   - **If no OA PDF but abstract available**: create or update `research/sources/<key>.md` with `Access Level: ABSTRACT-ONLY` and the abstract as the content snapshot
+   - **If abstract available from Semantic Scholar response**: always save it to the source extract even if full text isn't available
+   - This step is best-effort — don't let OA failures block the validation. Log attempts in `research/log.md`.
+
+6. **Fix directly**:
    - Correct metadata mismatches in `references.bib`
    - Remove FABRICATED entries from `references.bib` AND their `\citep{}`/`\citet{}` from `main.tex`
    - Add missing DOIs discovered during verification
 
-6. **Write validation report** to `research/reference_validation.md`:
+7. **Write validation report** to `research/reference_validation.md`:
    ```
    Reference Validation Report
    Total entries:     45
@@ -47,8 +54,14 @@ This is a CRITICAL quality gate. Fabricated references are the single biggest ri
 
    METADATA CORRECTIONS:
    - [key] year: 2021->2022, venue: "ICML"->"NeurIPS"
+
+   Source Access Levels:
+   - Full-text:      N (via OA resolution or attachments/)
+   - Abstract-only:  N
+   - Metadata-only:  N
+   - No source file: N
    ```
 
-7. **After all fixes**, compile: `latexmk -pdf -interaction=nonstopmode main.tex`
+8. **After all fixes**, compile: `latexmk -pdf -interaction=nonstopmode main.tex`
 
 $ARGUMENTS
