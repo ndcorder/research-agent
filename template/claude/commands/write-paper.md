@@ -180,7 +180,10 @@ This log is critical for research provenance. Do not skip it.
 
 SOURCE EXTRACTS — When you find a paper that you cite in your output:
 1. Create a file: research/sources/<bibtexkey>.md (e.g., research/sources/smith2024.md)
-2. Include: full citation, abstract (if available), key excerpts or findings you're using, and the URL/DOI where you found it
+2. Determine access level based on what you ACTUALLY accessed:
+   - **FULL-TEXT**: You read the complete paper (PDF in attachments/, open-access HTML, arXiv/bioRxiv full text)
+   - **ABSTRACT-ONLY**: You read the abstract but not the full paper (API metadata, database entry, Perplexity summary)
+   - **METADATA-ONLY**: You only know title/authors/year/venue (CrossRef hit, citation in another paper)
 3. Format:
 ```markdown
 # <Paper Title>
@@ -188,17 +191,31 @@ SOURCE EXTRACTS — When you find a paper that you cite in your output:
 **Citation**: <authors>, <title>, <venue>, <year>
 **DOI/URL**: <doi or url>
 **BibTeX Key**: <key>
+**Access Level**: FULL-TEXT | ABSTRACT-ONLY | METADATA-ONLY
+**Accessed Via**: <tool name and method — e.g., "arXiv API full text", "Perplexity summary", "PDF in attachments/davis1997.pdf">
 
-## Abstract
-<paste or summarize the abstract>
+## Content Snapshot
+
+> Paste here the ACTUAL content you accessed, verbatim or near-verbatim.
+> This section records what you really read — not what you think the paper says.
+>
+> - If FULL-TEXT: key sections (abstract + most relevant passages to this paper's topic, 500-1500 words)
+> - If ABSTRACT-ONLY: the abstract as retrieved, plus any excerpts from Perplexity/web summaries
+> - If METADATA-ONLY: "No content accessed. Title, authors, and venue only."
 
 ## Key Findings Used
-<bullet points of specific findings, data, or claims you referenced from this paper>
 
-## Source
-<where this was found: which tool, which database, what query>
+<bullet points of specific findings, data, or claims you referenced from this paper>
+<For each finding, note whether it came from the snapshot above or was inferred>
+
+## Provenance
+
+- **Found via**: <tool name, e.g., mcp__perplexity__search>
+- **Query**: <exact query string>
+- **Date**: <timestamp>
+- **URL**: <where the content was accessed>
 ```
-This ensures every cited claim is traceable to a specific source document.
+This ensures every cited claim is traceable to a specific source document with a verifiable content snapshot.
 ```
 
 **Agent 1 — "Field Survey"** (model: claude-sonnet-4-6[1m])
