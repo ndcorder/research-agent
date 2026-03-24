@@ -11,6 +11,7 @@ figures/          # Generated and imported figures
 attachments/      # Reference PDFs, data files, supplementary materials
 research/         # Literature research outputs (created by /write-paper)
   sources/        # Raw source extracts per cited paper (abstract, key findings, provenance)
+  knowledge/      # LightRAG knowledge graph (auto-built from sources, gitignored)
   log.md          # Research provenance log (all searches, queries, tools, results)
 reviews/          # Review feedback (created by /write-paper)
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
@@ -70,6 +71,7 @@ For interactive, step-by-step work:
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
 - `/audit-sources` — Audit source coverage: classify every reference by access level (full-text/abstract/metadata), attempt OA resolution, generate acquisition list
+- `/knowledge` — Query the per-paper knowledge graph: semantic search, contradiction detection, evidence for/against claims, entity/relationship exploration
 - `/ask` — Query research artifacts to answer questions about the research (searches sources, notes, reviews, log)
 
 ### Data & Figures
@@ -154,6 +156,24 @@ Each source extract includes:
 The Content Snapshot is the critical field. It answers: "What did the pipeline actually read before making this claim?" If the snapshot only contains an abstract, any claims that go beyond the abstract are suspect.
 
 The `/audit-sources` command can retroactively audit and upgrade source coverage on existing papers.
+
+## Knowledge Graph
+
+Each paper can optionally have a knowledge graph built from its source extracts using LightRAG. The graph is stored in `research/knowledge/` (gitignored — rebuilds from sources).
+
+**Build**: `python scripts/knowledge.py build` — reads all `research/sources/*.md`, extracts entities and relationships using an LLM (Gemini Flash via OpenRouter), and builds a queryable graph with semantic embeddings (Qwen3 8B via OpenRouter).
+
+**Requires**: `OPENROUTER_API_KEY` environment variable. The knowledge graph is optional — the pipeline works without it.
+
+**Query commands**:
+- `query "question"` — freeform semantic search across sources
+- `contradictions` — find conflicting claims (saved to `research/knowledge_contradictions.md`)
+- `evidence-for "claim"` — find sources supporting a claim
+- `evidence-against "claim"` — find sources challenging a claim
+- `entities` — list all extracted concepts, theories, methods, etc.
+- `relationships "entity"` — show how a concept connects to others
+
+The graph is built automatically during `/write-paper` (after Stage 1d) and queried during thesis development, claims verification, writing, and QA review.
 
 ## File Conventions
 
