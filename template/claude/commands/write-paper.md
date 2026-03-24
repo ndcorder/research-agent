@@ -33,6 +33,7 @@ You are an autonomous research paper writing system. You will produce a publicat
    ```
 6. Create a task for each pipeline stage using TaskCreate.
 7. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
+   - **Special case — Source Acquisition pause**: If `source_acquisition` exists but `"done": false`, the pipeline was paused waiting for the user to provide PDFs. Check `attachments/` for any new PDF files (compare against `research/source_coverage.md` to identify new additions). If new PDFs found, ingest them (same as `/ingest-papers` logic), update source extracts, then mark `source_acquisition` as done and continue to Stage 2. If no new PDFs, re-present the acquisition list from `research/source_coverage.md` and ask the user again.
 
 ## Checkpoint Persistence
 
@@ -707,12 +708,13 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - Flag any claims that lack evidence — these must be either supported or removed before writing begins
    - Format as a markdown table:
      ```
-     | # | Claim | Evidence Type | Evidence Source | Section | Status |
-     |-|-|-|-|-|-|
-     | 1 | Our method improves X by Y% | Experiment | Table 2, results on benchmark Z | Results | Planned |
-     | 2 | Prior approaches fail because... | Citation | smith2024, jones2025 | Related Work | Supported |
+     | # | Claim | Evidence Type | Evidence Source | Source Access | Section | Status |
+     |-|-|-|-|-|-|-|
+     | 1 | Our method improves X by Y% | Experiment | Table 2, benchmark Z | N/A (own data) | Results | Planned |
+     | 2 | Prior approaches fail because... | Citation | smith2024, jones2025 | smith2024: FULL-TEXT, jones2025: ABSTRACT-ONLY ⚠ | Related Work | Supported |
      ```
    - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA
+   - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
 
 5. **Codex reviews the Claims-Evidence Matrix**:
    ```
