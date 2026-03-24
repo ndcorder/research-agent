@@ -159,7 +159,7 @@ SOURCE EXTRACTS — When you find a paper that you cite in your output:
 This ensures every cited claim is traceable to a specific source document.
 ```
 
-**Agent 1 — "Field Survey"** (model: sonnet)
+**Agent 1 — "Field Survey"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research scientist conducting a literature survey.
 TOPIC: [TOPIC]
@@ -185,7 +185,7 @@ Do NOT fabricate any references.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Agent 2 — "Methodology Deep Dive"** (model: sonnet)
+**Agent 2 — "Methodology Deep Dive"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research methodologist analyzing approaches for: [TOPIC]
 DOMAIN: [DETECTED_DOMAIN]
@@ -208,7 +208,7 @@ Full citation details for every paper. Do NOT fabricate references.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Agent 3 — "Empirical Evidence & Benchmarks"** (model: sonnet)
+**Agent 3 — "Empirical Evidence & Benchmarks"** (model: claude-sonnet-4-6[1m])
 ```
 You are a data scientist compiling empirical evidence for: [TOPIC]
 DOMAIN: [DETECTED_DOMAIN]
@@ -231,7 +231,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Agent 4 — "Theoretical Foundations"** (model: sonnet)
+**Agent 4 — "Theoretical Foundations"** (model: claude-sonnet-4-6[1m])
 ```
 You are a theoretical researcher analyzing foundations of: [TOPIC]
 DOMAIN: [DETECTED_DOMAIN]
@@ -253,7 +253,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**Agent 5 — "Gap Analysis & Positioning"** (model: opus)
+**Agent 5 — "Gap Analysis & Positioning"** (model: claude-opus-4-6[1m])
 ```
 You are a senior researcher identifying research gaps for: [TOPIC]
 DOMAIN: [DETECTED_DOMAIN]
@@ -276,7 +276,7 @@ This will directly inform the paper's contribution statement.
 RESEARCH LOG: After every search or tool call, append an entry to research/log.md with: timestamp, tool name, query, result summary, and URLs/DOIs found. Use the format specified in the TOOL FALLBACK instructions above.
 ```
 
-**[DEEP] Agents 6-12 — Additional Specialized Research** (model: sonnet)
+**[DEEP] Agents 6-12 — Additional Specialized Research** (model: claude-sonnet-4-6[1m])
 
 If `depth` is `"deep"`, spawn 7 additional research agents IN PARALLEL alongside agents 1-4. Each gets the same TOOL FALLBACK, RESEARCH LOG, and SOURCE EXTRACTS instructions as agents 1-5.
 
@@ -452,7 +452,7 @@ mcp__codex-bridge__codex_ask({
 ```
 
 3. Write the Codex response to `research/codex_cross_check.md`
-4. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: sonnet) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
+4. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: claude-sonnet-4-6[1m]) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
 
 **Checkpoint**: Verify `research/codex_cross_check.md` exists. If it does not exist, you skipped this stage — go back and do it.
 
@@ -542,7 +542,7 @@ Now that the thesis, contribution statement, and outline are finalized, run a SE
 
 Read `research/thesis.md` and the outline in `main.tex`. For each major claim or section, spawn a targeted research agent.
 
-Spawn **3 agents in parallel** (model: sonnet):
+Spawn **3 agents in parallel** (model: claude-sonnet-4-6[1m]):
 
 **Agent A — "Supporting Evidence"**
 ```
@@ -669,7 +669,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to read relevant research/ files for content
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
-- `model: "opus"` for highest quality prose
+- `model: "claude-opus-4-6[1m]"` for highest quality prose
 
 **Section writing order and targets:**
 
@@ -716,7 +716,7 @@ mcp__codex-bridge__codex_ask({
 })
 ```
 
-If Codex identifies substantive gaps, spawn an **expansion agent** (model: opus) to address them:
+If Codex identifies substantive gaps, spawn an **expansion agent** (model: claude-opus-4-6[1m]) to address them:
 ```
 Read main.tex. The [SECTION] section has been reviewed and these content gaps were identified:
 [paste Codex response]
@@ -732,7 +732,7 @@ Edit main.tex directly.
 
 **Step 4a: Data-driven figures with Praxis (if available)**
 
-If `vendor/praxis/scripts/` exists AND `attachments/` contains data files, spawn a **data analysis agent** (model: sonnet):
+If `vendor/praxis/scripts/` exists AND `attachments/` contains data files, spawn a **data analysis agent** (model: claude-sonnet-4-6[1m]):
 ```
 You are a scientific data analyst. Read .claude/skills/praxis/SKILL.md for the Praxis toolkit API.
 Read vendor/praxis/references/cookbook.md for worked examples.
@@ -760,7 +760,7 @@ If Praxis is not available but data files exist, fall back to generic matplotlib
 
 **Step 4b: Structural figures and tables**
 
-Spawn an agent (model: sonnet):
+Spawn an agent (model: claude-sonnet-4-6[1m]):
 ```
 You are a scientific visualization specialist.
 Read main.tex completely.
@@ -801,7 +801,7 @@ Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatc
 
 #### Step 5a: Parallel Review
 
-Spawn **3 review agents in parallel** (model: sonnet):
+Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
 
 **Technical Reviewer:**
 ```
@@ -897,7 +897,7 @@ Read ALL files in `reviews/` including `codex_adversarial.md`. Build a prioritiz
 
 #### Step 5c: Revision Agent
 
-Spawn a revision agent (model: opus):
+Spawn a revision agent (model: claude-opus-4-6[1m]):
 ```
 You are revising a research paper based on peer review feedback.
 Invoke the `scientific-writing` skill.
@@ -939,7 +939,7 @@ Write to `reviews/codex_final_deep.md`. If this surfaces CRITICAL issues, do one
 
 **These steps run ONCE after the QA loop exits (all quality criteria met).** They are NOT inside the loop.
 
-Run two final audits **in parallel** (model: sonnet):
+Run two final audits **in parallel** (model: claude-sonnet-4-6[1m]):
 
 **Consistency Checker:**
 ```
@@ -1022,7 +1022,7 @@ Update `.paper-state.json`: mark `codex_risk_radar` as done.
 
 ### Stage 6: Finalization
 
-Spawn a **final polish agent** (model: opus):
+Spawn a **final polish agent** (model: claude-opus-4-6[1m]):
 ```
 You are a senior editor doing the final pass before journal submission.
 Invoke the `scientific-writing` skill.
@@ -1051,7 +1051,7 @@ Write both to research/summaries.md.
 If .venue.json indicates the venue requires a lay summary (Nature, medical journals), add it to main.tex after the abstract.
 ```
 
-**De-AI Polish** — remove AI writing patterns (model: opus):
+**De-AI Polish** — remove AI writing patterns (model: claude-opus-4-6[1m]):
 ```
 You are an expert editor removing AI-generated writing patterns.
 Read main.tex completely.
@@ -1129,11 +1129,13 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 3. **Write exhaustively.** More depth is always better. 2000 thorough words beats 500 concise ones.
 4. **How to use skills.** When an agent prompt says "use the `scientific-writing` skill", the agent should read the file `.claude/skills/scientific-writing/SKILL.md` and follow its guidance. Skills are markdown files at `.claude/skills/<skill-name>/SKILL.md`. The `scientific-writing` skill is mandatory for all writing agents.
 5. **Sequential writing, parallel research/review.** Writing agents one at a time. Research and review agents in parallel.
-6. **Assess completeness after every writing agent.** If the section lacks depth, is missing citations, or leaves obvious gaps, expand immediately. The expansion agent should use `model: "opus"`.
-7. **Model selection.** Three tiers — always use 1M context variants for opus and sonnet (agents frequently read entire manuscripts + all research files + full bibliographies):
-   - **Opus** (`model: "opus"`): Writing, revision, expansion, final polish, gap analysis, de-AI polish — anything requiring deep reasoning, synthesis, or prose quality.
-   - **Sonnet** (`model: "sonnet"`): Research agents, review agents, data analysis, figures — tasks requiring tool use, search, and structured evaluation.
+6. **Assess completeness after every writing agent.** If the section lacks depth, is missing citations, or leaves obvious gaps, expand immediately. The expansion agent should use `model: "claude-opus-4-6[1m]"`.
+7. **Model selection.** Three tiers — use 1M context variants (`[1m]` suffix) for opus and sonnet so agents can read entire manuscripts + all research files + full bibliographies without hitting context limits:
+   - **Opus 1M** (`model: "claude-opus-4-6[1m]"`): Writing, revision, expansion, final polish, gap analysis, de-AI polish — anything requiring deep reasoning, synthesis, or prose quality.
+   - **Sonnet 1M** (`model: "claude-sonnet-4-6[1m]"`): Research agents, review agents, data analysis, figures — tasks requiring tool use, search, and structured evaluation.
    - **Haiku** (`model: "haiku"`): Bibliography building, reference validation, lay summary, reproducibility checklist, section lit searches — mechanical tasks requiring lookup, pattern matching, or summarization.
+
+   **IMPORTANT**: The shorthand `"opus"` and `"sonnet"` resolve to the standard context models, NOT the 1M variants. You MUST use the full model IDs above for opus and sonnet agents.
 8. **Track progress.** Use TaskCreate/TaskUpdate for every stage. Naming: `"Stage 1: Research"`, `"Stage 3: Write Introduction"`, etc. Set status to `in_progress` when starting, `completed` when done.
 9. **Be patient.** This pipeline runs 1-4+ hours. Every stage matters. Do not rush or skip.
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.

@@ -52,7 +52,7 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 5. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
 6. **Finalization** — Polish, compile, archive all artifacts, report
 
-This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context for opus/sonnet: `"opus"` for writing/reasoning, `"sonnet"` for research/review, `"haiku"` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort — more agents, targeted second pass, per-section literature searches, and additional Codex rounds.
+This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review, `haiku` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort.
 
 ## Manual Commands
 
@@ -128,10 +128,10 @@ If Praxis is installed (cloned to `vendor/praxis/`), it provides domain-specific
 ## Agent Usage Guidelines
 
 When spawning agents for paper work:
-- **Writing/revision/expansion/de-AI agents**: Use `model: "opus"`. Deep reasoning and prose quality.
-- **Research agents**: Run in parallel. Each writes to a separate file in `research/`. Use `model: "sonnet"`.
-- **Review agents**: Run in parallel. Each writes to a separate file in `reviews/`. Use `model: "sonnet"`.
-- **Gap analysis agent**: Uses `model: "opus"` — requires deep reasoning about what's missing.
+- **Writing/revision/expansion/de-AI agents**: Use `model: "claude-opus-4-6[1m]"`. Deep reasoning and prose quality.
+- **Research agents**: Run in parallel. Each writes to a separate file in `research/`. Use `model: "claude-sonnet-4-6[1m]"`.
+- **Review agents**: Run in parallel. Each writes to a separate file in `reviews/`. Use `model: "claude-sonnet-4-6[1m]"`.
+- **Gap analysis agent**: Uses `model: "claude-opus-4-6[1m]"` — requires deep reasoning about what's missing.
 - **Bibliography, reference validation, lay summary, reproducibility, section lit searches**: Use `model: "haiku"`. Mechanical lookup and formatting tasks.
 - Always include detailed, specific prompts for each agent — they have no shared context.
 
