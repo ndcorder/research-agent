@@ -20,7 +20,7 @@ This is the standalone version of Stage 1d from `/write-paper`. Use it on existi
    - Read `research/survey.md`, `research/methods.md`, `research/empirical.md`, `research/theory.md`, `research/gaps.md` (and any other research files)
    - Search for mentions of the paper's title or BibTeX key
    - Extract whatever context exists about this paper from the research files
-   - Create `research/sources/<key>.md` with the appropriate access level and whatever content is available as the snapshot
+   - Create `research/sources/<key>.md` using the format from `/write-paper` Stage 1 SOURCE EXTRACTS instructions (Access Level, Content Snapshot, Key Findings Used, Provenance sections), with whatever content is available as the snapshot
 
 ### Phase 2: Automated OA Resolution
 

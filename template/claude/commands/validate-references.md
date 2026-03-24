@@ -30,6 +30,7 @@ This is a CRITICAL quality gate. Fabricated references are the single biggest ri
    - **If open-access PDF found**: fetch it with WebFetch, create or update `research/sources/<key>.md` with `Access Level: FULL-TEXT` and a content snapshot of key sections
    - **If no OA PDF but abstract available**: create or update `research/sources/<key>.md` with `Access Level: ABSTRACT-ONLY` and the abstract as the content snapshot
    - **If abstract available from Semantic Scholar response**: always save it to the source extract even if full text isn't available
+   - Use the source extract format from `/write-paper` Stage 1 SOURCE EXTRACTS instructions (Access Level, Content Snapshot, Key Findings Used, Provenance sections).
    - This step is best-effort — don't let OA failures block the validation. Log attempts in `research/log.md`.
 
 6. **Fix directly**:

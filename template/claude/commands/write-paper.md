@@ -620,7 +620,7 @@ For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-ac
 
 After automated resolution, re-count access levels. If there are still ABSTRACT-ONLY or METADATA-ONLY papers:
 
-1. **Prioritize the acquisition list** — sort by how many times each paper is cited in the research files (more citations = more important to have full text for)
+1. **Prioritize the acquisition list** — sort by how many times each paper is cited in the research files (more citations = more important to have full text for). In standard mode, present only the **top 5** papers. In deep mode, present ALL abstract-only and metadata-only papers.
 2. **Use AskUserQuestion** to present the list and pause:
 
 ```
