@@ -46,11 +46,12 @@ archive/          # Browsable research archive with index (created at end of /wr
 The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 1. **Deep Research** — Parallel agents search literature across all available sources
-2. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
-3. **Writing** — Sequential agents write each section (1000-2500 words each)
-4. **Figures & Tables** — Ensure adequate visual elements
-5. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
-6. **Finalization** — Polish, compile, archive all artifacts, report
+2. **Source Acquisition** — Audit source access levels, attempt OA resolution, pause for user to provide paywalled PDFs if needed
+3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
+4. **Writing** — Sequential agents write each section (1000-2500 words each)
+5. **Figures & Tables** — Ensure adequate visual elements
+6. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
+7. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review, `haiku` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort.
 
@@ -68,6 +69,7 @@ For interactive, step-by-step work:
 - `/add-citation` — Add a properly formatted BibTeX entry
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
+- `/audit-sources` — Audit source coverage: classify every reference by access level (full-text/abstract/metadata), attempt OA resolution, generate acquisition list
 - `/ask` — Query research artifacts to answer questions about the research (searches sources, notes, reviews, log)
 
 ### Data & Figures
@@ -138,6 +140,20 @@ When spawning agents for paper work:
 - **Gap analysis agent**: Uses `model: "claude-opus-4-6[1m]"` — requires deep reasoning about what's missing.
 - **Bibliography, reference validation, lay summary, reproducibility, section lit searches**: Use `model: "haiku"`. Mechanical lookup and formatting tasks.
 - Always include detailed, specific prompts for each agent — they have no shared context.
+
+## Source Extracts
+
+Every cited paper gets a source extract file in `research/sources/<bibtexkey>.md`. These files serve as the verifiable ground truth for what the pipeline actually read.
+
+Each source extract includes:
+- **Access Level**: `FULL-TEXT` (read the paper), `ABSTRACT-ONLY` (read the abstract), `METADATA-ONLY` (title/authors only)
+- **Content Snapshot**: Verbatim or near-verbatim text that was actually accessed — the raw material behind any claims
+- **Key Findings**: The pipeline's interpretation of what's relevant
+- **Provenance**: Which tool found it, what query, when
+
+The Content Snapshot is the critical field. It answers: "What did the pipeline actually read before making this claim?" If the snapshot only contains an abstract, any claims that go beyond the abstract are suspect.
+
+The `/audit-sources` command can retroactively audit and upgrade source coverage on existing papers.
 
 ## File Conventions
 
