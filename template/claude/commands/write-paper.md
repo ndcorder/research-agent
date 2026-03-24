@@ -673,6 +673,20 @@ After acquisition is complete (or skipped), update `research/source_coverage.md`
 
 Update `.paper-progress.txt`: "Stage 1d complete: [N] full-text, [M] abstract-only sources"
 
+#### Knowledge Graph Build
+
+After source acquisition is complete, build the knowledge graph from all source extracts:
+
+```bash
+python scripts/knowledge.py build
+```
+
+This creates a queryable knowledge graph in `research/knowledge/` from all files in `research/sources/`. The graph extracts entities (papers, theories, methods, findings, authors) and relationships (cites, contradicts, supports, extends) that agents can query during writing.
+
+**If `scripts/knowledge.py` does not exist or `OPENROUTER_API_KEY` is not set**, skip this step silently — the knowledge graph is optional. The pipeline works without it; agents fall back to reading research/ files directly.
+
+Update `.paper-state.json`: add `"knowledge_graph": { "done": true, "entities": N, "relationships": N }` to the stages object.
+
 ---
 
 ### Stage 2: Thesis, Contribution & Outline
@@ -715,6 +729,12 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      ```
    - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA
    - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
+   - **If the knowledge graph is available** (`research/knowledge/` exists), use it to verify evidence:
+     ```bash
+     python scripts/knowledge.py evidence-for "claim text here"
+     python scripts/knowledge.py evidence-against "claim text here"
+     ```
+     Update the matrix with any additional evidence or contradictions the graph surfaces.
 
 5. **Codex reviews the Claims-Evidence Matrix**:
    ```
@@ -895,6 +915,8 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
+- If `research/knowledge/` exists, instruction to query the knowledge graph for section-specific evidence:
+  `python scripts/knowledge.py query "question relevant to this section"` — use this to find specific evidence, check for contradictions, and ensure comprehensive coverage.
 
 **Section writing order and targets:**
 
@@ -1039,6 +1061,12 @@ Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatc
 **This stage LOOPS until all quality criteria pass.** Maximum 5 iterations (or 8 if depth is `"deep"`).
 
 #### Step 5a: Parallel Review
+
+**Before spawning review agents**, run contradiction detection if the knowledge graph exists:
+```bash
+python scripts/knowledge.py contradictions
+```
+Read `research/knowledge_contradictions.md` and pass its content to the review agents as additional context. Contradictions should be addressed in the Discussion section or flagged for the author.
 
 Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
 
