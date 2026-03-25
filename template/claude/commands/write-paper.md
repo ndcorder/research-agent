@@ -1412,6 +1412,53 @@ Edit main.tex directly.
 
 Then do one final compile and report results.
 
+**Provenance Report** — Generate a human-readable provenance report from the ledger. Spawn an agent (model: haiku):
+```
+You are a provenance report generator.
+Read research/provenance.jsonl completely. Parse each JSON line.
+
+Generate research/provenance_report.md with this structure:
+
+# Provenance Report
+Generated: [timestamp]
+
+## Summary
+- Total actions logged: N
+- Writing actions: N (paragraphs originally written)
+- Revisions: N (changes from QA feedback)
+- Expansions: N (content added for depth)
+- Cuts: N (content removed)
+- Planning decisions: N
+- Research actions informing writing: N
+- Unique sources referenced: N (list of BibTeX keys)
+- Claims covered: N / total claims in matrix
+
+## Timeline
+[Chronological list of all actions, grouped by stage]
+
+## Section Provenance
+### Introduction
+[For each paragraph in this section, show:]
+#### Paragraph 1 (introduction/p1)
+- **Written by**: [agent], Stage [N]
+- **Sources**: [list of BibTeX keys with paper titles]
+- **Claims supported**: [C1, C3]
+- **Writing reasoning**: [from the reasoning field]
+- **Revision history**: [list of subsequent revisions, if any, with reasoning and feedback refs]
+
+### Methods
+[same structure]
+...
+
+## Cuts Archive
+[List all cuts with: what was removed, from where, why, and where the original text is archived]
+
+## Untraced Content
+[Flag any paragraphs in main.tex that have NO provenance entry — these are gaps in the trace]
+```
+
+Write the report to research/provenance_report.md.
+
 Finally, **archive all research artifacts** by running the `/archive` command. This creates a self-contained `archive/` directory with all research notes, reviews, figures, data, and metadata organized for easy browsing, with a README index. This allows the user to browse through all research findings, downloaded materials, and intermediate outputs after the pipeline completes.
 
 **Report Codex collaboration metrics:**
