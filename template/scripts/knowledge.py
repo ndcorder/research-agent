@@ -336,12 +336,10 @@ async def cmd_relationships(args):
 
     for match in matches:
         print(f"## Relationships for: {match}\n")
-        for _, target_node, data in G.edges(match, data=True):
+        for neighbor in G.neighbors(match):
+            data = G.edges[match, neighbor]
             rel_type = data.get("relationship", data.get("label", "related_to"))
-            print(f"  -> {rel_type} -> {target_node}")
-        for source_node, _, data in G.in_edges(match, data=True):
-            rel_type = data.get("relationship", data.get("label", "related_to"))
-            print(f"  <- {rel_type} <- {source_node}")
+            print(f"  -- {rel_type} -- {neighbor}")
         print()
 
     log_operation("Relationships", {
