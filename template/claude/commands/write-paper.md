@@ -960,6 +960,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
 - If `research/knowledge/` exists, instruction to query the knowledge graph for section-specific evidence:
   `python scripts/knowledge.py query "question relevant to this section"` — use this to find specific evidence, check for contradictions, and ensure comprehensive coverage.
+- Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
 
 **Section writing order and targets:**
 
@@ -972,6 +973,8 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 | 5 | Discussion | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. |
 | 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
 | 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. |
+
+**Provenance for each section**: After completing each section, the writing agent must have appended at least one provenance entry per paragraph. If a paragraph draws from multiple sources, list all of them. The `reasoning` field should explain the paragraph's role in the argument (e.g., "Sets up the gap in prior work by contrasting smith2024's approach with jones2023's limitations, motivating our contribution").
 
 **Codex-Authored Limitations Draft**
 
@@ -995,6 +998,7 @@ EXPAND the section by adding depth, subsections, citations, analysis, and formal
 Do NOT delete existing content. Only ADD substantive content — not filler.
 Write until the section is comprehensive. A domain expert should not feel anything important was left unsaid.
 Edit main.tex directly.
+PROVENANCE — For each paragraph you add, append a provenance entry to research/provenance.jsonl with action "expand", the paragraph target, reasoning for why this content was needed, and sources used. Set iteration to 0.
 ```
 
 **After each section completes**, call Codex for a spot-check. This applies to ALL sections: Introduction, Related Work, Methods, Results, Discussion, Conclusion, and Abstract.
