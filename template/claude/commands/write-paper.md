@@ -224,6 +224,8 @@ RESEARCH LOG — After EACH tool call (success or failure), append an entry to r
 ```
 This log is critical for research provenance. Do not skip it.
 
+PROVENANCE — When your research findings directly inform a specific claim or argument direction, also append a provenance entry to research/provenance.jsonl with action "research", target "research/[your-output-file]", and reasoning explaining what this finding contributes to the paper's argument. Set stage to "1" and iteration to 0.
+
 SOURCE EXTRACTS — When you find a paper that you cite in your output:
 1. Create a file: research/sources/<bibtexkey>.md (e.g., research/sources/smith2024.md)
 2. Determine access level based on what you ACTUALLY accessed:
@@ -1090,6 +1092,9 @@ Ensure the paper has:
 If Praxis already generated data figures (check figures/ directory), don't duplicate them — focus on structural/conceptual figures.
 Add any new figures to main.tex with proper \includegraphics{} and \caption{}.
 Edit main.tex directly.
+
+PROVENANCE — For each figure or table added, append a provenance entry to research/provenance.jsonl:
+{"ts":"[timestamp]","stage":"4","agent":"figures","action":"add","target":"figures/[filename]","reasoning":"[why this figure — what it shows and why the paper needs it]","sources":["keys"],"iteration":0}
 ```
 
 **Step 4c: Codex Figure & Claims Audit**
@@ -1274,6 +1279,8 @@ Read main.tex completely. Check for:
 - Reference format inconsistencies (Figure vs Fig., Section vs Sec.)
 Fix all issues directly in main.tex.
 Write report to reviews/consistency.md.
+
+PROVENANCE — For each fix applied, append a provenance entry to research/provenance.jsonl with action "revise", stage "post-qa", agent "consistency-checker", and reasoning explaining the inconsistency fixed.
 ```
 
 **Claims Auditor:**
@@ -1286,6 +1293,8 @@ Read main.tex completely. For every claim, check:
 - Overclaims from limited experiments ("generalizes" from 2 datasets)
 Fix Critical and Major overclaims in main.tex (soften language, add hedging, note missing tests).
 Write report to reviews/claims_audit.md.
+
+PROVENANCE — For each overclaim softened or hedging added, append a provenance entry to research/provenance.jsonl with action "revise", stage "post-qa", agent "claims-auditor", target "[section/pN]", and reasoning explaining what was overclaimed and how it was fixed.
 ```
 
 After both complete, also spawn a **reproducibility checker** (model: haiku):
