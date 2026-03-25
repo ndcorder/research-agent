@@ -65,7 +65,12 @@ After completing EACH stage or section, update `.paper-state.json`:
     "qa_iteration": 0,
     "qa":           { "done": false },
     "codex_risk_radar": { "done": false },
-    "finalization": { "done": false }
+    "finalization": { "done": false },
+    "auto_iterations": {
+      "completed": 0,
+      "requested": 0,
+      "history": []
+    }
   }
 }
 ```
