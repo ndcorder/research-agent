@@ -186,17 +186,21 @@ with open("main.tex", "w") as f:
 PYEOF
 ok "main.tex generated ($VENUE_NAME format)"
 
-# Copy other template files
+# Copy per-project files
 cp "$TEMPLATE_DIR/references.bib" .
 cp "$TEMPLATE_DIR/gitignore" .gitignore
-mkdir -p .claude/commands figures attachments research/sources
-cp "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/
+mkdir -p .claude figures attachments research/sources provenance/cuts
 cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
-cp "$TEMPLATE_DIR/claude/commands/"*.md .claude/commands/
+
+# Symlink shared files back to the research-agent template.
+# When the template is updated, every project sees the change instantly.
+ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/CLAUDE.md
+ln -s "$TEMPLATE_DIR/claude/commands" .claude/commands
+ln -s "$TEMPLATE_DIR/scripts" scripts
 
 # Copy venue config for reference
 cp "$VENUES_DIR/$VENUE.json" .venue.json
-ok "Template files copied"
+ok "Template files linked"
 
 # Generate .paper.json config
 python3 -c "
@@ -324,6 +328,9 @@ echo "  /validate-references   Verify every citation is real"
 echo "  /novelty-check         Verify contribution hasn't been published"
 echo "  /codex-review          Adversarial AI review via Codex"
 echo "  /de-ai-polish          Remove AI writing patterns"
+echo "  /auto [N]             Autonomous improvement iterations on finished paper"
+echo "  /provenance            Query the provenance audit trail"
+echo "  /knowledge             Query the knowledge graph"
 echo "  /status                Progress dashboard"
 echo ""
 echo "  /archive               Bundle research artifacts for browsing"

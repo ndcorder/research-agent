@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ──────────────────────────────────────────────────────────────
+# sync-papers — Migrate existing paper projects from copies to
+#               symlinks so they auto-update with the template.
+#
+# Usage:
+#   sync-papers [directory]
+#
+#   directory  Base directory containing paper projects
+#              (default: ~/Documents/Research Papers)
+#
+# What it does:
+#   For each paper project (has .claude/ dir):
+#   1. Replaces .claude/commands/ (copied dir) with symlink → template
+#   2. Replaces .claude/CLAUDE.md (copied file) with symlink → template
+#   3. Creates scripts/ symlink → template (if not present)
+#   4. Creates provenance/cuts/ directory (if not present)
+#
+# Safe to run multiple times — skips projects already symlinked.
+# ──────────────────────────────────────────────────────────────
+
+# Resolve script location to find template
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+    DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/template"
+
+# Colors
+green='\033[0;32m'
+yellow='\033[0;33m'
+blue='\033[0;34m'
+reset='\033[0m'
+
+TARGET_BASE="${1:-$HOME/Documents/Research Papers}"
+
+if [[ ! -d "$TARGET_BASE" ]]; then
+    echo "Directory not found: $TARGET_BASE" >&2
+    exit 1
+fi
+
+echo -e "${blue}Syncing paper projects in:${reset} $TARGET_BASE"
+echo -e "${blue}Template source:${reset} $TEMPLATE_DIR"
+echo ""
+
+updated=0
+skipped=0
+total=0
+
+for project in "$TARGET_BASE"/*/; do
+    name="$(basename "$project")"
+
+    # Skip if no .claude directory (not a paper project)
+    if [[ ! -d "$project/.claude" ]]; then
+        echo -e "  ${yellow}skip${reset} $name (no .claude/ directory)"
+        ((skipped++))
+        continue
+    fi
+
+    ((total++))
+    changed=false
+
+    # 1. Replace .claude/commands/ with symlink
+    if [[ -L "$project/.claude/commands" ]]; then
+        : # Already a symlink, nothing to do
+    elif [[ -d "$project/.claude/commands" ]]; then
+        rm -rf "$project/.claude/commands"
+        ln -s "$TEMPLATE_DIR/claude/commands" "$project/.claude/commands"
+        changed=true
+    else
+        ln -s "$TEMPLATE_DIR/claude/commands" "$project/.claude/commands"
+        changed=true
+    fi
+
+    # 2. Replace .claude/CLAUDE.md with symlink
+    if [[ -L "$project/.claude/CLAUDE.md" ]]; then
+        : # Already a symlink
+    elif [[ -f "$project/.claude/CLAUDE.md" ]]; then
+        rm "$project/.claude/CLAUDE.md"
+        ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" "$project/.claude/CLAUDE.md"
+        changed=true
+    else
+        ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" "$project/.claude/CLAUDE.md"
+        changed=true
+    fi
+
+    # 3. Create scripts/ symlink
+    if [[ -L "$project/scripts" ]]; then
+        : # Already a symlink
+    elif [[ ! -e "$project/scripts" ]]; then
+        ln -s "$TEMPLATE_DIR/scripts" "$project/scripts"
+        changed=true
+    fi
+
+    # 4. Create provenance directories
+    if [[ ! -d "$project/provenance/cuts" ]]; then
+        mkdir -p "$project/provenance/cuts"
+        changed=true
+    fi
+
+    if $changed; then
+        echo -e "  ${green}✓${reset} $name"
+        ((updated++))
+    else
+        echo -e "  ${green}·${reset} $name (already up to date)"
+    fi
+done
+
+echo ""
+echo -e "${green}Done.${reset} $updated updated, $((total - updated)) already current, $skipped skipped"
