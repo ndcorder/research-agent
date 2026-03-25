@@ -9,7 +9,7 @@ set -euo pipefail
 #   sync-papers [directory]
 #
 #   directory  Base directory containing paper projects
-#              (default: ~/Documents/Research Papers)
+#              (required — no default, to avoid assuming a path)
 #
 # What it does:
 #   For each paper project (has .claude/ dir):
@@ -37,7 +37,13 @@ yellow='\033[0;33m'
 blue='\033[0;34m'
 reset='\033[0m'
 
-TARGET_BASE="${1:-$HOME/Documents/Research Papers}"
+TARGET_BASE="${1:-}"
+
+if [[ -z "$TARGET_BASE" ]]; then
+    echo "Usage: sync-papers <directory-containing-paper-projects>" >&2
+    echo "  e.g.: sync-papers ~/Documents/Research\\ Papers" >&2
+    exit 1
+fi
 
 if [[ ! -d "$TARGET_BASE" ]]; then
     echo "Directory not found: $TARGET_BASE" >&2

@@ -23,3 +23,6 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# Internal planning docs (may contain machine-specific paths)
+docs/plans/

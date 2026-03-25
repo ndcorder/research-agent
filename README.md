@@ -91,8 +91,7 @@ Paper projects symlink their `.claude/commands/`, `.claude/CLAUDE.md`, and `scri
 If you have existing projects created before the symlink migration, run `sync-papers` once to convert them:
 
 ```bash
-sync-papers                              # default: ~/Documents/Research Papers
-sync-papers /path/to/your/papers         # custom directory
+sync-papers /path/to/your/papers
 ```
 
 Safe to run multiple times. Projects already using symlinks are skipped.
