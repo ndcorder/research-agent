@@ -32,17 +32,17 @@ SOURCES_DIR = "research/sources"
 LOG_FILE = "research/log.md"
 CONTRADICTIONS_FILE = "research/knowledge_contradictions.md"
 
-LLM_MODEL = "google/gemini-3-flash-preview"
-EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
-EMBEDDING_DIM = 4096
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+LLM_MODEL = os.environ.get("LIGHTRAG_LLM_MODEL", "google/gemini-3-flash-preview")
+EMBEDDING_MODEL = os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
+EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
+EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32768"))
+OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 # Concurrency settings — tuned for OpenRouter's rate limits.
 # Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC
-# Default was 2 × 4 = 8. Now 8 × 16 = 128 theoretical max.
-MAX_PARALLEL_INSERT = 8   # Documents processed concurrently (recommended: MAX_ASYNC / 3 to 4)
-LLM_MAX_ASYNC = 16        # Concurrent LLM requests per document (chunk extraction)
-EMBEDDING_BATCH_NUM = 32  # Embeddings batched per request
+MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "8"))
+LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "32"))
+EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "32"))
 
 
 def get_api_key():
@@ -95,7 +95,7 @@ def create_rag():
         max_parallel_insert=MAX_PARALLEL_INSERT,
         embedding_func=EmbeddingFunc(
             embedding_dim=EMBEDDING_DIM,
-            max_token_size=8192,
+            max_token_size=EMBEDDING_LENGTH,
             func=partial(
                 openai_embed,
                 model=EMBEDDING_MODEL,

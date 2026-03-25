@@ -1030,13 +1030,13 @@ Updated by `/status` and at each pipeline checkpoint.
 The template files in `template/claude/commands/` define what each slash command does. Editing them changes the behavior of the pipeline in all new paper projects.
 
 Key files for contributors:
-- `/Users/kexxt/code-opensource/research-agent/template/claude/CLAUDE.md` — project rules and command reference (copied into each paper project)
-- `/Users/kexxt/code-opensource/research-agent/template/claude/commands/write-paper.md` — the full pipeline definition (~1500 lines)
-- `/Users/kexxt/code-opensource/research-agent/template/claude/commands/auto.md` — the `/auto` improvement loop
-- `/Users/kexxt/code-opensource/research-agent/template/claude/commands/provenance.md` — the provenance query command
-- `/Users/kexxt/code-opensource/research-agent/create-paper` — the project scaffolding script
-- `/Users/kexxt/code-opensource/research-agent/write-paper` — the pipeline launcher script
-- `/Users/kexxt/code-opensource/research-agent/template/venues/` — venue configuration files
+- `template/claude/CLAUDE.md` — project rules and command reference (symlinked into each paper project)
+- `template/claude/commands/write-paper.md` — the full pipeline definition (~1500 lines)
+- `template/claude/commands/auto.md` — the `/auto` improvement loop
+- `template/claude/commands/provenance.md` — the provenance query command
+- `create-paper` — the project scaffolding script
+- `write-paper` — the pipeline launcher script
+- `template/venues/` — venue configuration files
 
 ---
 

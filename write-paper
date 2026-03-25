@@ -34,12 +34,13 @@ if [[ -z "$TOPIC" ]]; then
 fi
 
 # Update .paper.json
-python3 -c "
-import json, os
-config = json.load(open('.paper.json')) if os.path.exists('.paper.json') else {}
-config['topic'] = '''$TOPIC'''
-json.dump(config, open('.paper.json', 'w'), indent=2)
-" 2>/dev/null || true
+python3 - "$TOPIC" <<'PYEOF' 2>/dev/null || true
+import json, os, sys
+topic = sys.argv[1]
+config = json.load(open(".paper.json")) if os.path.exists(".paper.json") else {}
+config["topic"] = topic
+json.dump(config, open(".paper.json", "w"), indent=2)
+PYEOF
 
 # Check dependencies
 if ! command -v claude &>/dev/null; then
@@ -63,4 +64,4 @@ else
 fi
 echo ""
 
-exec claude --dangerously-skip-permissions "/write-paper $TOPIC"
+exec claude --dangerously-skip-permissions "/write-paper ${TOPIC}"

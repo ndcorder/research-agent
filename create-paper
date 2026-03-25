@@ -121,11 +121,12 @@ for cmd in git pdflatex claude; do
 done
 
 # ── Read venue config ─────────────────────────────────────────
-VENUE_NAME=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['name'])")
-VENUE_DOCCLASS=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['documentclass'])")
-VENUE_BIBSTYLE=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['bibliography_style'])")
-VENUE_ABSTRACT_LIMIT=$(python3 -c "import json; print(json.load(open('$VENUES_DIR/$VENUE.json'))['abstract_word_limit'])")
-VENUE_SECTIONS=$(python3 -c "import json; v=json.load(open('$VENUES_DIR/$VENUE.json')); print('\n'.join(v['sections']))")
+VENUE_FILE="$VENUES_DIR/$VENUE.json"
+VENUE_NAME=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1]))['name'])" "$VENUE_FILE")
+VENUE_DOCCLASS=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1]))['documentclass'])" "$VENUE_FILE")
+VENUE_BIBSTYLE=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1]))['bibliography_style'])" "$VENUE_FILE")
+VENUE_ABSTRACT_LIMIT=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1]))['abstract_word_limit'])" "$VENUE_FILE")
+VENUE_SECTIONS=$(python3 -c "import json, sys; v=json.load(open(sys.argv[1])); print('\n'.join(v['sections']))" "$VENUE_FILE")
 
 info "Creating ${bold}$VENUE_NAME${reset} paper in ${bold}$TARGET${reset}"
 
@@ -203,30 +204,31 @@ cp "$VENUES_DIR/$VENUE.json" .venue.json
 ok "Template files linked"
 
 # Generate .paper.json config
-python3 -c "
-import json
+python3 - "$TOPIC" "$VENUE" "$DEPTH" <<'PYEOF'
+import json, sys
+topic, venue, depth = sys.argv[1], sys.argv[2], sys.argv[3]
 config = {
-    'topic': '''${TOPIC}''' if '''${TOPIC}''' else '',
-    'venue': '$VENUE',
-    'depth': '$DEPTH',
-    'model': 'claude-opus-4-6',
-    'max_revisions': 3,
-    'authors': [
+    "topic": topic,
+    "venue": venue,
+    "depth": depth,
+    "model": "claude-opus-4-6",
+    "max_revisions": 3,
+    "authors": [
         {
-            'name': 'First Author',
-            'affiliation': 'Department, University',
-            'email': 'author@example.com',
-            'orcid': ''
+            "name": "First Author",
+            "affiliation": "Department, University",
+            "email": "author@example.com",
+            "orcid": ""
         }
     ],
-    'keywords': [],
-    'funding': '',
-    'conflicts': '',
-    'data_availability': '',
-    'code_availability': ''
+    "keywords": [],
+    "funding": "",
+    "conflicts": "",
+    "data_availability": "",
+    "code_availability": ""
 }
-json.dump(config, open('.paper.json', 'w'), indent=2)
-"
+json.dump(config, open(".paper.json", "w"), indent=2)
+PYEOF
 ok "Paper config written (.paper.json)"
 
 # Initialize git
