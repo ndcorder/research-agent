@@ -1225,10 +1225,15 @@ For each issue:
 3. If a section needs more words, add substantive content (not filler)
 4. If citations are needed, find appropriate ones from references.bib
 5. If new citations are needed, add verified entries to references.bib
+6. If content should be REMOVED (redundant, weak, or diluting stronger arguments), cut it
 
 After all fixes, compile: latexmk -pdf -interaction=nonstopmode main.tex
 Fix any LaTeX errors.
 Edit main.tex and references.bib directly.
+
+PROVENANCE — After EACH revision, append a JSON entry to research/provenance.jsonl:
+{"ts":"[timestamp]","stage":"5","agent":"qa-revision","action":"revise|cut|add","target":"[section/pN]","reasoning":"[why — reference the specific review issue]","feedback_ref":"[reviews/file.md#issue-number]","diff_summary":"[what changed]","sources":["keys"],"iteration":0}
+For cuts: save removed text to provenance/cuts/[section]-[pN]-qa[iteration].tex and set archived_to.
 ```
 
 #### Step 5d: Quality Gate Check
