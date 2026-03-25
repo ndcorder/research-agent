@@ -13,7 +13,10 @@ research/         # Literature research outputs (created by /write-paper)
   sources/        # Raw source extracts per cited paper (abstract, key findings, provenance)
   knowledge/      # LightRAG knowledge graph (auto-built from sources, gitignored)
   log.md          # Research provenance log (all searches, queries, tools, results)
+  provenance.jsonl  # Machine-readable provenance ledger (every action traced)
 reviews/          # Review feedback (created by /write-paper)
+provenance/       # Provenance audit trail (cuts archive, auto-iteration artifacts)
+  cuts/           # Archived text from content that was cut (never delete without archiving)
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/skills/   # -> vendor/claude-scientific-skills (177 scientific skills)
@@ -41,6 +44,8 @@ archive/          # Browsable research archive with index (created at end of /wr
 8. **No placeholder text**: Remove all `\lipsum`, TODO, TBD, FIXME before finalizing
 9. **No fabricated references**: Every BibTeX entry must be a real, verifiable publication
 10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`
+11. **No em dashes**: Never use em dashes (—) or en dashes (–) as punctuation. Rewrite using commas, parentheses, colons, or separate sentences. Em dashes are the single most recognizable AI writing pattern.
+12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in write-paper.md.
 
 ## Autonomous Pipeline: /write-paper
 
@@ -55,6 +60,8 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 7. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review, `haiku` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort.
+
+After the pipeline completes, use `/auto [N]` to run additional improvement iterations. Each iteration autonomously assesses the paper, prioritizes changes (including cuts), executes improvements, and verifies no regressions. The provenance ledger (`research/provenance.jsonl`) traces every word back to its origin across both the initial pipeline and all improvement iterations.
 
 ## Manual Commands
 
@@ -90,6 +97,8 @@ For interactive, step-by-step work:
 - `/compile` — Compile LaTeX to PDF and report errors
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)
+- `/auto` — Run N autonomous improvement iterations on a completed paper (assess → prioritize → execute → verify)
+- `/provenance` — Query the provenance ledger (trace claims, inspect paragraph history, find gaps)
 
 ### Codex Bridge (optional — adversarial AI review)
 - `/codex-review` — Get a second-opinion review from OpenAI Codex (challenges assumptions, finds logical gaps)
