@@ -49,7 +49,13 @@ Scan the manuscript for common AI-generated writing patterns and replace them wi
    - "dramatically" → use numbers instead
    - "groundbreaking" → let the results speak
 
-   ### Category 6: Structural Tells (vary for natural rhythm)
+   ### Category 6: Em Dashes and En Dashes (replace all)
+   - "—" (em dash) → rewrite using commas, parentheses, colons, or separate sentences
+   - "–" (en dash used as punctuation, not in number ranges) → same treatment
+   - Em dashes are the single most recognizable AI writing tell — even one is a red flag
+   - Number ranges ("pages 1–10", "2020–2024") may keep en dashes
+
+   ### Category 7: Structural Tells (vary for natural rhythm)
    - All paragraphs roughly same length → vary paragraph length
    - Every paragraph starts with a topic sentence of identical structure → diversify
    - Lists that were clearly expanded from bullet points → rewrite as flowing prose
