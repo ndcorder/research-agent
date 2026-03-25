@@ -13,7 +13,7 @@ You are an autonomous research paper writing system. You will produce a publicat
    - Store the depth value — it determines behavior at every stage below.
 2. Read `.venue.json` if present for venue-specific formatting rules (sections, citation style, page limits).
 3. Read `main.tex` and `references.bib` to understand current state.
-4. Run: `mkdir -p research research/sources reviews figures`
+4. Run: `mkdir -p research research/sources reviews figures provenance provenance/cuts`
 5. Initialize the research log: write a header to `research/log.md`:
    ```markdown
    # Research Log
@@ -31,6 +31,7 @@ You are an autonomous research paper writing system. You will produce a publicat
 
    ---
    ```
+   Also initialize the provenance ledger. Create an empty file `research/provenance.jsonl` (or leave it if it already exists on resume). This is a machine-readable append-only log of every action taken during the pipeline. Every agent will append entries to this file.
 6. Create a task for each pipeline stage using TaskCreate.
 7. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
    - **Special case — Source Acquisition pause**: If `source_acquisition` exists but `"done": false`, the pipeline was paused waiting for the user to provide PDFs. Check `attachments/` for any new PDF files (compare against `research/source_coverage.md` to identify new additions). If new PDFs found, ingest them (same as `/ingest-papers` logic), update source extracts, then mark `source_acquisition` as done and continue to Stage 2. If no new PDFs, re-present the acquisition list from `research/source_coverage.md` and ask the user again.
