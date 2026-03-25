@@ -790,6 +790,10 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 
 6. Use the `scientific-writing` skill for IMRAD structure guidance.
 7. Use the `venue-templates` skill if targeting a specific venue.
+8. **Log planning provenance** — append entries to `research/provenance.jsonl` for key planning decisions:
+   - Thesis selection: action `plan`, target `thesis`, reasoning explaining why this contribution was chosen over alternatives from gaps.md
+   - Section structure: action `plan`, target `outline`, reasoning explaining structural decisions (why these sections, why this order)
+   - Each claim in the claims matrix: action `plan`, target `claims/C[N]`, reasoning explaining the evidence strategy for this claim
 
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
