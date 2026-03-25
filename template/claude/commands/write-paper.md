@@ -1390,6 +1390,8 @@ Final improvements:
 
 Report: word count per section, total words, citation count, page count.
 Edit main.tex directly.
+
+PROVENANCE — After completing all edits, append a summary provenance entry to research/provenance.jsonl with action "revise", stage "6", agent "final-polish", target "all", and reasoning listing the categories of changes made. Set iteration to 0.
 ```
 
 After polish, generate a **lay summary** (model: haiku):
@@ -1417,11 +1419,14 @@ Search for and replace these common AI writing tells:
 8. **Flowery conclusions**: "In conclusion, this groundbreaking work..." → tone down to academic neutral
 9. **List-to-prose artifacts**: Sentences that read like expanded bullet points → rewrite as flowing prose
 10. **Uniform paragraph length**: If all paragraphs are ~same length, vary them for natural rhythm
+11. **Em dashes and en dashes**: Replace ALL em dashes (—) and en dashes used as punctuation (–) with commas, parentheses, colons, or separate sentences. Number ranges may keep en dashes. Em dashes are the single most recognizable AI writing tell.
 
 Do NOT change technical content, citations, or mathematical notation.
 Do NOT remove necessary hedging (e.g., "may" when results are genuinely uncertain).
 Focus on making the paper read like a human domain expert wrote it.
 Edit main.tex directly.
+
+PROVENANCE — After completing all edits, append a summary provenance entry to research/provenance.jsonl with action "revise", stage "6", agent "de-ai-polish", target "all", and reasoning listing the categories of changes made and counts per category. Set iteration to 0.
 ```
 
 Then do one final compile and report results.
