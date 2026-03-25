@@ -123,6 +123,48 @@ When Codex provides feedback at any stage, do NOT blindly accept it. Follow this
 
 This protocol applies to EVERY Codex interaction below — not just reviews, but research cross-checks, figure audits, risk radar, etc. The goal is genuine collaboration, not rubber-stamping.
 
+## Provenance Logging Protocol
+
+Every agent that writes, revises, or modifies manuscript content MUST append provenance entries to `research/provenance.jsonl`. This creates a traceable chain from every word in the final paper back to its origin.
+
+**When to log:**
+- After writing each paragraph or subsection (action: `write`)
+- After revising text based on review feedback (action: `revise`)
+- After cutting/removing content (action: `cut`)
+- After adding new content during expansion (action: `add` or `expand`)
+- After reordering sections or paragraphs (action: `reorder`)
+- After a research query that directly informs writing (action: `research`)
+- After a planning decision that shapes the paper (action: `plan`)
+
+**Entry format** — append one JSON object per line to `research/provenance.jsonl`:
+
+```json
+{"ts":"[ISO-8601]","stage":"[stage number]","agent":"[your agent name]","action":"[write|revise|cut|add|expand|reorder|research|plan]","target":"[section/paragraph, e.g. methods/p3]","reasoning":"[WHY you made this choice — what sources, logic, or feedback drove it]","sources":["bibtex_keys"],"claims":["C1"],"feedback_ref":"reviews/file.md#issue","diff_summary":"one-line change summary","iteration":0}
+```
+
+**Required fields**: `ts`, `stage`, `agent`, `action`, `target`, `reasoning` — always present.
+**Conditional fields**:
+- `sources` — BibTeX keys of source extracts that informed this action (required for `write`, `add`, `expand`)
+- `claims` — claim IDs from `research/claims_matrix.md` that this action supports (when applicable)
+- `feedback_ref` — pointer to the review feedback that triggered this action (required for `revise`, `cut` during QA)
+- `diff_summary` — one-line description of the change (required for `revise`, `cut`, `expand`)
+- `archived_to` — file path where cut content was saved (required for `cut`)
+- `iteration` — 0 for the initial pipeline, 1+ for `/auto` iterations
+
+**For cuts**: Save the removed text to `provenance/cuts/[section]-[paragraph]-[context].tex` and record the path in `archived_to`. Never delete content without archiving.
+
+**Paragraph targeting**: Use `[section]/p[N]` format where N is the paragraph number within that section (1-indexed). E.g., `introduction/p1`, `methods/p5`, `discussion/p3`. For subsections, use `methods/training-procedure/p2`. When revising, if a paragraph is rewritten entirely, keep the same target ID. If a paragraph is split, use `methods/p3a` and `methods/p3b`.
+
+**Abbreviated instruction for agent prompts** — include this in every writing, revision, expansion, and QA agent prompt:
+
+```
+PROVENANCE — After EACH writing or editing action, append a JSON entry to research/provenance.jsonl:
+{"ts":"[timestamp]","stage":"[N]","agent":"[your-name]","action":"[write|revise|cut|add|expand]","target":"[section/pN]","reasoning":"[why]","sources":["keys"],"claims":["CN"],"diff_summary":"[what changed]","iteration":0}
+For cuts, save removed text to provenance/cuts/[section]-[pN]-[context].tex and record in archived_to field.
+```
+
+---
+
 ## Domain Detection & Skill Routing
 
 Before starting research, analyze the topic to determine the paper's domain. This determines which skills and databases agents should prioritize.
