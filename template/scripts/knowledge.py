@@ -37,6 +37,13 @@ EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 EMBEDDING_DIM = 4096
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
+# Concurrency settings — tuned for OpenRouter's rate limits.
+# Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC
+# Default was 2 × 4 = 8. Now 8 × 16 = 128 theoretical max.
+MAX_PARALLEL_INSERT = 8   # Documents processed concurrently (recommended: MAX_ASYNC / 3 to 4)
+LLM_MAX_ASYNC = 16        # Concurrent LLM requests per document (chunk extraction)
+EMBEDDING_BATCH_NUM = 32  # Embeddings batched per request
+
 
 def get_api_key():
     """Get OpenRouter API key from environment."""
@@ -78,14 +85,14 @@ def create_rag():
 
     rag = LightRAG(
         working_dir=WORKING_DIR,
-        # openai_complete (not openai_complete_if_cache) is the correct wrapper —
-        # it reads llm_model_name from global config and passes it to the cache layer
         llm_model_func=openai_complete,
         llm_model_name=LLM_MODEL,
         llm_model_kwargs={
             "base_url": OPENROUTER_BASE_URL,
             "api_key": api_key,
         },
+        llm_model_max_async=LLM_MAX_ASYNC,
+        max_parallel_insert=MAX_PARALLEL_INSERT,
         embedding_func=EmbeddingFunc(
             embedding_dim=EMBEDDING_DIM,
             max_token_size=8192,
@@ -96,6 +103,7 @@ def create_rag():
                 api_key=api_key,
             ),
         ),
+        embedding_batch_num=EMBEDDING_BATCH_NUM,
     )
     return rag
 
