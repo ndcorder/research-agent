@@ -8,11 +8,13 @@
 
 #### Step 5a: Parallel Review
 
-**Before spawning review agents**, run contradiction detection if the knowledge graph exists:
+**Before spawning review agents**, run knowledge graph analysis if `research/knowledge/` exists (skip silently if not):
 ```bash
 python scripts/knowledge.py contradictions
+python scripts/knowledge.py entities
+python scripts/knowledge.py coverage main.tex
 ```
-Read `research/knowledge_contradictions.md` and pass its content to the review agents as additional context. Contradictions should be addressed in the Discussion section or flagged for the author.
+Read `research/knowledge_contradictions.md` and pass its content to the review agents as additional context. Contradictions should be addressed in the Discussion section or flagged for the author. The entity coverage report identifies key graph entities missing from the manuscript.
 
 Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
 
@@ -32,11 +34,19 @@ Evaluate:
 - Appropriate use of domain-specific terminology?
 - **Evidence density**: Check the scored claims-evidence matrix. Any WEAK (score 1-2.9) or CRITICAL (score < 1) claims that appear in the manuscript MUST use appropriately hedged language. Flag any WEAK/CRITICAL claims written with unjustified confidence as CRITICAL issues. Flag any CRITICAL claims that survived to Stage 5 without being addressed as mandatory fix items.
 
+The knowledge graph identified these contradictions across sources:
+[paste content of research/knowledge_contradictions.md]
+Check whether the paper addresses these contradictions in the Discussion.
+
+Also verify that these key entities from the graph are discussed where appropriate:
+[paste entity coverage report — focus on missing entities with high connection counts]
+
 Write a detailed review to reviews/technical.md:
 - CRITICAL issues (list with line references and specific fixes)
 - MAJOR issues (list with line references and specific fixes)
 - MINOR issues (list)
 - Evidence density heatmap: list all claims by strength (STRONG/MODERATE/WEAK/CRITICAL) with their scores
+- Entity coverage gaps: list important graph entities not discussed in the manuscript
 ```
 
 **Writing Quality Reviewer:**

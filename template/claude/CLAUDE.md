@@ -218,15 +218,20 @@ Each paper can optionally have a knowledge graph built from its source extracts 
 
 **Requires**: `OPENROUTER_API_KEY` environment variable. The knowledge graph is optional — the pipeline works without it.
 
-**Query commands**:
-- `query "question"` — freeform semantic search across sources
-- `contradictions` — find conflicting claims (saved to `research/knowledge_contradictions.md`)
-- `evidence-for "claim"` — find sources supporting a claim
-- `evidence-against "claim"` — find sources challenging a claim
+**Commands**:
+- `build` — full rebuild of the knowledge graph from all sources and PDFs
+- `update` — incremental update (only ingests files newer than last build)
+- `query "question"` — freeform semantic search across sources (cached)
+- `contradictions` — find conflicting claims, saved to `research/knowledge_contradictions.md` (cached)
+- `evidence-for "claim"` — find sources supporting a claim (cached)
+- `evidence-against "claim"` — find sources challenging a claim (cached)
 - `entities` — list all extracted concepts, theories, methods, etc.
 - `relationships "entity"` — show how a concept connects to others
+- `coverage "document.md"` — check which graph entities appear in a document, report missing entities sorted by importance
 
-The graph is built automatically during `/write-paper` (after Stage 1d) and queried during thesis development, claims verification, writing, and QA review.
+Query results are cached in `research/knowledge/.cache/` until the next build or update.
+
+The graph is built automatically during `/write-paper` (after Stage 1d), rebuilt incrementally after Stage 2c (deep targeted research) and `/auto` iterations that add references, and queried at every stage where evidence matters: thesis validation (Stage 2), section writing (Stage 3, mandatory section-specific queries), and QA review (Stage 5, contradiction + entity coverage analysis).
 
 ## File Conventions
 

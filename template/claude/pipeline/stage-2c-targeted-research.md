@@ -67,4 +67,10 @@ RESEARCH LOG: [same format]
 
 After all agents complete, run the bibliography builder again to add new references to `references.bib`.
 
+**Rebuild knowledge graph** — new papers from targeted research need to be incorporated:
+```bash
+python scripts/knowledge.py update
+```
+This runs an incremental update, only ingesting files newer than the last build. If the knowledge graph was not previously built (no `research/knowledge/` directory), skip this step silently.
+
 **Checkpoint**: Verify targeted research files exist. Update `.paper-state.json`: mark `targeted_research` as done.

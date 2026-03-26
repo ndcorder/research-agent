@@ -36,8 +36,34 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
 - Instruction to read `research/claims_matrix.md` for the scored claims-evidence matrix. **Adjust writing confidence based on claim strength**: STRONG claims (score >= 6) use confident language ("demonstrates", "establishes"). MODERATE claims (3-5.9) use standard academic language ("shows", "indicates"). WEAK claims (1-2.9) MUST use hedged language ("suggests", "preliminary evidence indicates") and note the limitation. CRITICAL claims (< 1) should not appear in the final text without explicit qualification.
-- If `research/knowledge/` exists, instruction to query the knowledge graph for section-specific evidence:
-  `python scripts/knowledge.py query "question relevant to this section"` — use this to find specific evidence, check for contradictions, and ensure comprehensive coverage.
+- **Knowledge graph queries** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue). Run section-specific queries BEFORE writing and pass results as a `## Knowledge Graph Context` section in the agent prompt (capped at 500 words, summarize rather than dumping raw results):
+
+  **For Introduction**:
+  ```bash
+  python scripts/knowledge.py query "What is the current state of [topic] and what problems remain?"
+  python scripts/knowledge.py relationships "[main method/concept]"
+  ```
+
+  **For Related Work**:
+  ```bash
+  python scripts/knowledge.py entities  # identify all methods/approaches to organize thematically
+  python scripts/knowledge.py relationships "[each major approach]"  # find connections between approaches
+  ```
+
+  **For Methods/Approach**:
+  ```bash
+  python scripts/knowledge.py evidence-for "[proposed method is valid because...]"
+  python scripts/knowledge.py query "What are known limitations of [method components]?"
+  ```
+
+  **For Results/Discussion**:
+  ```bash
+  python scripts/knowledge.py evidence-for "[each key finding]"
+  python scripts/knowledge.py evidence-against "[each key finding]"
+  python scripts/knowledge.py contradictions
+  ```
+
+  **For all other sections** (Conclusion, Abstract): no additional graph queries needed — they synthesize existing content.
 - Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
 
 **Section writing order and targets:**

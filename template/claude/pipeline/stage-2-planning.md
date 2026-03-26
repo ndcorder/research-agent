@@ -12,6 +12,17 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - What are the key claims this paper will make?
    - Write these to `research/thesis.md`
 
+   **Knowledge graph validation** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue):
+   ```bash
+   python scripts/knowledge.py query "What approaches have been proposed for [thesis topic]?"
+   python scripts/knowledge.py evidence-against "[proposed contribution statement]"
+   python scripts/knowledge.py contradictions
+   python scripts/knowledge.py entities
+   ```
+   - If the graph reveals existing work that closely matches the proposed contribution, flag this as a **novelty red flag** and surface it before Stage 2d (novelty check).
+   - Use the entity list to identify key concepts the paper MUST discuss. If an entity with many relationships isn't mentioned in the outline, it's likely a gap.
+   - Run `python scripts/knowledge.py coverage research/thesis.md` to check which important entities are missing from the thesis statement.
+
 2. **Determine paper structure** based on topic type AND venue:
    - Read `.venue.json` for venue-specific section order (e.g., Nature puts Results before Methods)
    - Read `.venue.json` for citation style (natbib vs numeric vs APA), page limits, abstract limits
@@ -43,12 +54,12 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      Each evidence source entry uses compact notation: `key (access_level, relevance) = N pts`
    - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA, and no CRITICAL-strength claims may survive to finalization
    - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
-   - **If the knowledge graph is available** (`research/knowledge/` exists), use it to verify evidence:
+   - **Knowledge graph evidence verification** (run if `research/knowledge/` exists, skip silently if not):
      ```bash
      python scripts/knowledge.py evidence-for "claim text here"
      python scripts/knowledge.py evidence-against "claim text here"
      ```
-     Update the matrix with any additional evidence or contradictions the graph surfaces.
+     Run these for EVERY claim in the matrix. Update the matrix with any additional evidence or contradictions the graph surfaces. This is mandatory when the graph is available, not optional.
 
 5. **Score the Claims-Evidence Matrix** — compute evidence density scores for every claim:
 

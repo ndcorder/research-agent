@@ -7,12 +7,14 @@ All LLM and embedding calls go through OpenRouter (OPENROUTER_API_KEY env var).
 
 Usage:
     python scripts/knowledge.py build                        # Build/update graph from sources
+    python scripts/knowledge.py update                       # Incremental update (new/changed files only)
     python scripts/knowledge.py query "question"             # Freeform semantic search
     python scripts/knowledge.py contradictions               # Find conflicting claims
     python scripts/knowledge.py evidence-for "claim"         # Sources supporting a claim
     python scripts/knowledge.py evidence-against "claim"     # Sources challenging a claim
     python scripts/knowledge.py entities                     # List extracted entities
     python scripts/knowledge.py relationships "entity"       # Show entity connections
+    python scripts/knowledge.py coverage "document.md"       # Check entity coverage in a document
 """
 
 import argparse
@@ -32,6 +34,8 @@ SOURCES_DIR = "research/sources"
 ATTACHMENTS_DIR = "attachments"
 LOG_FILE = "research/log.md"
 CONTRADICTIONS_FILE = "research/knowledge_contradictions.md"
+LAST_BUILD_FILE = os.path.join(WORKING_DIR, ".last_build")
+CACHE_DIR = os.path.join(WORKING_DIR, ".cache")
 
 LLM_MODEL = os.environ.get("LIGHTRAG_LLM_MODEL", "google/gemini-3-flash-preview")
 EMBEDDING_MODEL = os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
@@ -70,6 +74,45 @@ def log_operation(operation: str, details: dict):
     if log_path.exists():
         with open(log_path, "a") as f:
             f.write(entry)
+
+
+def _save_build_timestamp():
+    """Save current timestamp as last build time."""
+    Path(LAST_BUILD_FILE).write_text(
+        datetime.now(timezone.utc).isoformat(), encoding="utf-8"
+    )
+
+
+def _invalidate_cache():
+    """Delete query cache (called after build/update)."""
+    import shutil
+
+    cache_path = Path(CACHE_DIR)
+    if cache_path.exists():
+        shutil.rmtree(cache_path)
+
+
+def _get_cache_path(query: str, mode: str) -> Path:
+    """Get cache file path for a query."""
+    import hashlib
+
+    key = hashlib.md5(f"{query}|{mode}".encode()).hexdigest()
+    return Path(CACHE_DIR) / f"{key}.txt"
+
+
+async def _cached_query(rag, query: str, mode: str) -> str:
+    """Query with file-based caching. Returns cached result if available."""
+    from lightrag import QueryParam
+
+    cache_path = _get_cache_path(query, mode)
+    if cache_path.exists():
+        print("(using cached result)", file=sys.stderr)
+        return cache_path.read_text(encoding="utf-8")
+
+    result = await rag.aquery(query, param=QueryParam(mode=mode))
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_path.write_text(str(result), encoding="utf-8")
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -227,20 +270,82 @@ async def cmd_build(_args):
         "Storage": WORKING_DIR,
     })
 
+    _save_build_timestamp()
+    _invalidate_cache()
 
-async def cmd_query(args):
-    """Freeform semantic search across the knowledge graph."""
-    from lightrag import QueryParam
+
+async def cmd_update(_args):
+    """Incremental update: only ingest files newer than last build."""
+    last_build_path = Path(LAST_BUILD_FILE)
+    if not last_build_path.exists():
+        print("No previous build found. Running full build instead.")
+        await cmd_build(_args)
+        return
+
+    last_build_time = datetime.fromisoformat(
+        last_build_path.read_text(encoding="utf-8").strip()
+    ).timestamp()
+
+    sources_path = Path(SOURCES_DIR)
+    attachments_path = Path(ATTACHMENTS_DIR)
+
+    documents = []
+    ids = []
+
+    # --- New/changed source extracts ---
+    new_sources = 0
+    if sources_path.exists():
+        for f in sorted(sources_path.glob("*.md")):
+            if f.stat().st_mtime > last_build_time:
+                documents.append(f.read_text(encoding="utf-8"))
+                ids.append(f.stem)
+                new_sources += 1
+
+    # --- New/changed PDFs ---
+    new_pdfs = 0
+    if attachments_path.exists():
+        for pdf in sorted(attachments_path.glob("*.pdf")):
+            if pdf.stat().st_mtime > last_build_time:
+                text = extract_pdf_text(pdf)
+                if text:
+                    documents.append(text)
+                    ids.append(f"pdf_{pdf.stem}")
+                    new_pdfs += 1
+
+    if not documents:
+        print("No new or changed files since last build. Graph is up to date.")
+        return
+
+    print(f"Updating knowledge graph with {len(documents)} new/changed documents "
+          f"({new_sources} sources + {new_pdfs} PDFs)...")
 
     rag = create_rag()
     await rag.initialize_storages()
     from lightrag.kg.shared_storage import initialize_pipeline_status
     await initialize_pipeline_status()
+    await rag.ainsert(documents, ids=ids)
 
-    result = await rag.aquery(
-        args.question,
-        param=QueryParam(mode="hybrid"),
-    )
+    _save_build_timestamp()
+    _invalidate_cache()
+
+    print(f"Updated knowledge graph with {len(documents)} documents.")
+
+    log_operation("Update", {
+        "Tool": "scripts/knowledge.py update",
+        "New sources": str(new_sources),
+        "New PDFs": str(new_pdfs),
+        "Total new documents": str(len(documents)),
+    })
+
+
+async def cmd_query(args):
+    """Freeform semantic search across the knowledge graph."""
+    rag = create_rag()
+    await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
+
+    result = await _cached_query(rag, args.question, "hybrid")
 
     print(f"## Results (hybrid mode)\n\n{result}")
 
@@ -254,8 +359,6 @@ async def cmd_query(args):
 
 async def cmd_contradictions(_args):
     """Find conflicting claims across source documents."""
-    from lightrag import QueryParam
-
     rag = create_rag()
     await rag.initialize_storages()
     from lightrag.kg.shared_storage import initialize_pipeline_status
@@ -271,7 +374,7 @@ async def cmd_contradictions(_args):
         "Format each contradiction as a numbered item."
     )
 
-    result = await rag.aquery(prompt, param=QueryParam(mode="global"))
+    result = await _cached_query(rag, prompt, "global")
 
     output = (
         f"# Knowledge Graph — Contradictions Report\n\n"
@@ -292,8 +395,6 @@ async def cmd_contradictions(_args):
 
 async def cmd_evidence_for(args):
     """Find sources supporting a specific claim."""
-    from lightrag import QueryParam
-
     rag = create_rag()
     await rag.initialize_storages()
     from lightrag.kg.shared_storage import initialize_pipeline_status
@@ -310,7 +411,7 @@ async def cmd_evidence_for(args):
         f"Do not stretch or misrepresent findings."
     )
 
-    result = await rag.aquery(prompt, param=QueryParam(mode="hybrid"))
+    result = await _cached_query(rag, prompt, "hybrid")
     print(f"## Evidence Supporting: \"{args.claim}\"\n\n{result}")
 
     log_operation("Evidence-For", {
@@ -323,8 +424,6 @@ async def cmd_evidence_for(args):
 
 async def cmd_evidence_against(args):
     """Find sources challenging a specific claim."""
-    from lightrag import QueryParam
-
     rag = create_rag()
     await rag.initialize_storages()
     from lightrag.kg.shared_storage import initialize_pipeline_status
@@ -342,7 +441,7 @@ async def cmd_evidence_against(args):
         f"Be thorough — a reviewer would use this to attack the claim."
     )
 
-    result = await rag.aquery(prompt, param=QueryParam(mode="hybrid"))
+    result = await _cached_query(rag, prompt, "hybrid")
     print(f"## Evidence Against: \"{args.claim}\"\n\n{result}")
 
     log_operation("Evidence-Against", {
@@ -418,6 +517,56 @@ async def cmd_relationships(args):
     })
 
 
+async def cmd_coverage(args):
+    """Check which graph entities appear in a document."""
+    import networkx as nx
+
+    graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
+    if not graph_path.exists():
+        print("Error: Knowledge graph not built yet. Run 'build' first.", file=sys.stderr)
+        sys.exit(1)
+
+    doc_path = Path(args.document)
+    if not doc_path.exists():
+        print(f"Error: Document not found: {args.document}", file=sys.stderr)
+        sys.exit(1)
+
+    doc_text = doc_path.read_text(encoding="utf-8").lower()
+    G = nx.read_graphml(str(graph_path))
+
+    # Build entity list with connection counts
+    missing = []
+    present = []
+    for node in G.nodes():
+        degree = G.degree(node)
+        if node.lower() in doc_text:
+            present.append((node, degree))
+        else:
+            missing.append((node, degree))
+
+    # Sort missing by degree (most connected first = most important)
+    missing.sort(key=lambda x: x[1], reverse=True)
+
+    total = len(present) + len(missing)
+    print(f"## Entity Coverage for {args.document}\n")
+    print(f"**Present**: {len(present)}/{total} entities found in document\n")
+
+    if missing:
+        print(f"### Missing Entities ({len(missing)}) — sorted by importance\n")
+        for name, degree in missing:
+            print(f"- **{name}** ({degree} connections)")
+    else:
+        print("All entities are covered in the document.")
+
+    log_operation("Coverage", {
+        "Tool": "scripts/knowledge.py coverage",
+        "Document": args.document,
+        "Present": str(len(present)),
+        "Missing": str(len(missing)),
+        "Total": str(total),
+    })
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -429,6 +578,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("build", help="Build/update graph from research/sources/")
+    subparsers.add_parser("update", help="Incremental update (new/changed files only)")
 
     p_query = subparsers.add_parser("query", help="Freeform semantic search")
     p_query.add_argument("question", help="Question to search for")
@@ -446,16 +596,21 @@ def main():
     p_rel = subparsers.add_parser("relationships", help="Show entity connections")
     p_rel.add_argument("entity", help="Entity name to look up")
 
+    p_cov = subparsers.add_parser("coverage", help="Check entity coverage in a document")
+    p_cov.add_argument("document", help="Path to document to check")
+
     args = parser.parse_args()
 
     commands = {
         "build": cmd_build,
+        "update": cmd_update,
         "query": cmd_query,
         "contradictions": cmd_contradictions,
         "evidence-for": cmd_evidence_for,
         "evidence-against": cmd_evidence_against,
         "entities": cmd_entities,
         "relationships": cmd_relationships,
+        "coverage": cmd_coverage,
     }
 
     asyncio.run(commands[args.command](args))

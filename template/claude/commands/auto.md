@@ -39,6 +39,14 @@ Run N autonomous improvement iterations on a completed paper. Each iteration ass
 
 For each iteration from `CURRENT_ITERATION` to requested count:
 
+#### Phase 0: Knowledge Graph Refresh
+
+Before assessment, refresh contradiction analysis if the knowledge graph exists (`research/knowledge/` directory present — skip silently if not):
+```bash
+python scripts/knowledge.py contradictions
+```
+Read `research/knowledge_contradictions.md` and pass any new contradictions to the Depth & Evidence Reviewer (Agent A) in Phase 1.
+
 #### Phase 1: Assessment (parallel agents)
 
 Spawn **4 assessment agents in parallel** (model: claude-sonnet-4-6[1m]). Each reads main.tex and writes an assessment to `reviews/auto_iter[N]_[type].md`.
@@ -194,6 +202,12 @@ Add any new references to references.bib.
 RESEARCH LOG: Append entries to research/log.md.
 Create source extracts in research/sources/ for any new papers.
 ```
+
+**After the research agent completes** (if it ran and added new source extracts or references), rebuild the knowledge graph incrementally:
+```bash
+python scripts/knowledge.py update
+```
+Skip silently if `research/knowledge/` does not exist.
 
 **Revision phase**
 
