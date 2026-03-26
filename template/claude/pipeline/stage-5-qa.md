@@ -33,6 +33,12 @@ Evaluate:
 - Mathematical notation defined and consistent?
 - Appropriate use of domain-specific terminology?
 - **Evidence density**: Check the scored claims-evidence matrix. Any WEAK (score 1-2.9) or CRITICAL (score < 1) claims that appear in the manuscript MUST use appropriately hedged language. Flag any WEAK/CRITICAL claims written with unjustified confidence as CRITICAL issues. Flag any CRITICAL claims that survived to Stage 5 without being addressed as mandatory fix items.
+- **Argument structure** — for each major claim, verify:
+  1. Is there an explicit **WARRANT** (reasoning connecting evidence to claim)? A claim with citations but no warrant is a "citation dump" — the reader is left to figure out the connection. Flag as CRITICAL if missing.
+  2. Is the warrant **VALID**? Does the evidence actually support the claim through the stated reasoning? Flag invalid warrants (logical fallacies, factual errors) as CRITICAL.
+  3. Are **QUALIFIERS** appropriate? Is the claim scoped to what the evidence can actually show? Flag overclaims (qualifier too weak) as MAJOR and underclaims (qualifier too strong) as MINOR.
+  4. Are known **REBUTTALS** addressed somewhere in the paper? Check the Rebuttal column in claims_matrix.md and verify each one is handled.
+  No claim may pass QA with a Missing warrant.
 
 The knowledge graph identified these contradictions across sources:
 [paste content of research/knowledge_contradictions.md]
@@ -46,6 +52,7 @@ Write a detailed review to reviews/technical.md:
 - MAJOR issues (list with line references and specific fixes)
 - MINOR issues (list)
 - Evidence density heatmap: list all claims by strength (STRONG/MODERATE/WEAK/CRITICAL) with their scores
+- Warrant quality assessment: list each claim's warrant quality (Sound/Reasonable/Weak/Missing/Invalid) with issues
 - Entity coverage gaps: list important graph entities not discussed in the manuscript
 ```
 

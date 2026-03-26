@@ -36,6 +36,16 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
 - Instruction to read `research/claims_matrix.md` for the scored claims-evidence matrix. **Adjust writing confidence based on claim strength**: STRONG claims (score >= 6) use confident language ("demonstrates", "establishes"). MODERATE claims (3-5.9) use standard academic language ("shows", "indicates"). WEAK claims (1-2.9) MUST use hedged language ("suggests", "preliminary evidence indicates") and note the limitation. CRITICAL claims (< 1) should not appear in the final text without explicit qualification.
+- **Argumentation** — for each major claim in your section, ensure the paragraph contains:
+  1. The **CLAIM** stated clearly
+  2. **EVIDENCE** supporting it (with citations)
+  3. A **WARRANT** explaining why the evidence is sufficient (the logical bridge from evidence to claim, from the Warrant column in claims_matrix.md)
+  4. A **QUALIFIER** if the claim has scope limitations (from the Qualifier column)
+  5. Reference to where **REBUTTALS** are addressed (if not in this section, from the Rebuttal column)
+
+  Do NOT just cite papers and state conclusions. Explain WHY the cited evidence supports YOUR specific claim. This is the difference between a literature dump and an argument.
+
+  The claims relevant to your section are listed in `research/claims_matrix.md` with their Warrant, Qualifier, and Rebuttal columns — use these as your argumentation scaffolding.
 - **Knowledge graph queries** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue). Run section-specific queries BEFORE writing and pass results as a `## Knowledge Graph Context` section in the agent prompt (capped at 500 words, summarize rather than dumping raw results):
 
   **For Introduction**:

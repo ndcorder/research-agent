@@ -60,7 +60,11 @@ archive/          # Browsable research archive with index (created at end of /wr
 7. **Cross-references**: Use `\label{}` and `\ref{}` consistently
 8. **No placeholder text**: Remove all `\lipsum`, TODO, TBD, FIXME before finalizing
 9. **No fabricated references**: Every BibTeX entry must be a real, verifiable publication
-10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`. Each claim is scored for evidence density (base score by source access level + modifiers for citations, recency, relevance, domain) and labeled: STRONG (>= 6), MODERATE (3-5.9), WEAK (1-2.9), CRITICAL (< 1). Writing agents adjust confidence language by strength. No CRITICAL claims may survive to finalization. WEAK claims must use hedged language.
+10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`. Each claim is scored for evidence density (base score by source access level + modifiers for citations, recency, relevance, domain) and labeled: STRONG (>= 6), MODERATE (3-5.9), WEAK (1-2.9), CRITICAL (< 1). Writing agents adjust confidence language by strength. No CRITICAL claims may survive to finalization. WEAK claims must use hedged language. The matrix also includes three argumentation columns:
+    - **Warrant**: WHY the evidence supports the claim (the logical bridge). Quality rated: Sound, Reasonable, Weak, Missing, or Invalid. Claims with Missing or Invalid warrants are structural defects that must be resolved before writing.
+    - **Qualifier**: Scope limitations or conditions under which the claim holds.
+    - **Rebuttal**: Anticipated counterarguments and where they're addressed in the paper.
+    Writing agents must ensure each major claim paragraph includes the warrant (not just citations), appropriate qualifiers, and rebuttal references. The Technical Reviewer (Stage 5) and Depth Reviewer (`/auto`) verify warrant quality. No claim may pass QA with a Missing warrant.
 11. **No em dashes**: Never use em dashes (—) or en dashes (–) as punctuation. Rewrite using commas, parentheses, colons, or separate sentences. Em dashes are the single most recognizable AI writing pattern.
 12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in `pipeline/shared-protocols.md`.
 

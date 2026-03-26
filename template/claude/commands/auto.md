@@ -73,6 +73,13 @@ For each issue, specify: section, paragraph (approximate), severity (HIGH/MEDIUM
 IMPORTANT: Cutting weak content is as valuable as adding strong content. Recommend cuts explicitly.
 IMPORTANT: Strengthening a WEAK claim from 2.0 to 6.0 is higher priority than polishing prose in a section with all STRONG claims.
 
+8. **ARGUMENTATION** — Check the warrant quality for the paper's 5 strongest claims:
+   a. Is the logical bridge from evidence to claim explicit and sound? Or is the claim just juxtaposed with citations?
+   b. Are there hidden assumptions in the warrant that should be stated as explicit qualifiers?
+   c. Would a domain expert accept this warrant, or would they say "that doesn't follow"?
+   d. Are rebuttals from the claims matrix actually addressed in the manuscript text?
+   Weak warrants are higher priority than missing citations — a well-cited claim with bad reasoning is worse than a lightly-cited claim with sound logic. For each warrant issue, specify: claim number, current warrant quality (Sound/Reasonable/Weak/Missing/Invalid), and suggested fix.
+
 Write assessment to reviews/auto_iter[N]_depth.md.
 ```
 

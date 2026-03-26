@@ -46,13 +46,16 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - Flag any claims that lack evidence — these must be either supported or removed before writing begins
    - Format as a markdown table:
      ```
-     | # | Claim | Evidence Type | Evidence Sources | Score | Strength | Section | Status |
-     |-|-|-|-|-|-|-|-|
-     | 1 | Our method improves X by Y% | Experiment | Own experiments (N/A, direct) = 3 | 3.0 | WEAK | Results | Planned |
-     | 2 | Prior approaches fail because... | Citation | smith2024 (FULL-TEXT, direct) = 4, jones2025 (ABSTRACT-ONLY, tangential) = 1 | 5.0 | MODERATE | Related Work | Supported |
+     | # | Claim | Evidence Type | Evidence Sources | Warrant | Qualifier | Rebuttal | Score | Strength | Section | Status |
+     |-|-|-|-|-|-|-|-|-|-|-|
+     | 1 | Our method improves X by Y% | Experiment | Own experiments (N/A, direct) = 3 | Standard benchmark, exceeds typical gains | English data, default params | May not generalize to low-resource (Sec 6.2) | 3.0 | WEAK | Results | Planned |
+     | 2 | Prior approaches fail because... | Citation | smith2024 (FULL-TEXT, direct) = 4, jones2025 (ABSTRACT-ONLY, tangential) = 1 | [MISSING] | | | 5.0 | MODERATE | Related Work | ⚠ Weak warrant |
      ```
      Each evidence source entry uses compact notation: `key (access_level, relevance) = N pts`
-   - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA, and no CRITICAL-strength claims may survive to finalization
+     - **Warrant**: One sentence explaining WHY the evidence supports the claim (the logical bridge). A claim with empty Warrant is a structural red flag — the pipeline knows WHAT evidence exists but hasn't articulated WHY it's sufficient.
+     - **Qualifier**: Scope limitations or conditions under which the claim holds.
+     - **Rebuttal**: Anticipated counterarguments and where they're addressed.
+   - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA, and no CRITICAL-strength claims may survive to finalization. Additionally, no claim may pass QA with a "Missing" warrant.
    - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
    - **Knowledge graph evidence verification** (run if `research/knowledge/` exists, skip silently if not):
      ```bash
@@ -60,6 +63,27 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      python scripts/knowledge.py evidence-against "claim text here"
      ```
      Run these for EVERY claim in the matrix. Update the matrix with any additional evidence or contradictions the graph surfaces. This is mandatory when the graph is available, not optional.
+
+   **Warrant Development** — after building the claims-evidence matrix, develop the Warrant and Rebuttal for each claim:
+
+   For each claim in the matrix:
+   1. **Warrant**: Articulate WHY the evidence supports the claim. If the warrant is obvious (direct experimental result supporting an empirical claim), state it briefly. If the warrant requires reasoning (e.g., "this theoretical framework applies because..."), develop it fully. If no clear warrant exists, the claim is unsupported even with citations — flag it with `[MISSING]` in the Warrant column.
+   2. **Qualifier**: State the scope limitations or conditions under which the claim holds. Omit only if the claim is truly universal.
+   3. **Rebuttal**: For each claim, identify the most likely reviewer objection. Determine whether the rebuttal is addressed in the paper (and where) or needs to be added. Use the knowledge graph (if available) to find counterevidence:
+      ```bash
+      python scripts/knowledge.py evidence-against "[claim text]"
+      ```
+
+   **Warrant quality categories** — assess each warrant:
+   | Quality | Description | Action |
+   |-|-|-|
+   | **Sound** | Evidence logically necessitates the claim | None needed |
+   | **Reasonable** | Evidence supports the claim given stated assumptions | State assumptions explicitly |
+   | **Weak** | Evidence is consistent with the claim but doesn't strongly support it | Hedge the claim or find stronger evidence |
+   | **Missing** | No warrant articulated — claim and evidence are just juxtaposed | Develop warrant or remove claim |
+   | **Invalid** | The warrant contains a logical fallacy or factual error | Fix immediately |
+
+   Claims with Missing or Invalid warrants are structural defects — they must be resolved before writing begins, regardless of evidence density score.
 
 5. **Score the Claims-Evidence Matrix** — compute evidence density scores for every claim:
 
