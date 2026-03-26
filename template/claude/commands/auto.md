@@ -47,9 +47,34 @@ python scripts/knowledge.py contradictions
 ```
 Read `research/knowledge_contradictions.md` and pass any new contradictions to the Depth & Evidence Reviewer (Agent A) in Phase 1.
 
+#### Phase 0b: Load Iteration Context (iterations 2+)
+
+If `CURRENT_ITERATION > 1`, read the context file from the previous iteration:
+- For iterations 2-3: read `reviews/auto_iter[CURRENT_ITERATION-1]_context.md`
+- For iterations 4+: read `reviews/auto_cumulative_context.md` (see Post-Iteration step 5b)
+
+Store the contents as `ITERATION_CONTEXT`. This is passed to all assessment agents below.
+
+If the context file doesn't exist (e.g., first run after this feature was added), skip — agents run without context as before.
+
 #### Phase 1: Assessment (parallel agents)
 
-Spawn **4 assessment agents in parallel** (model: claude-sonnet-4-6[1m]). Each reads main.tex and writes an assessment to `reviews/auto_iter[N]_[type].md`.
+Spawn assessment agents in parallel (model: claude-sonnet-4-6[1m]). Each reads main.tex and writes an assessment to `reviews/auto_iter[N]_[type].md`.
+
+**If CURRENT_ITERATION > 1**, prepend the following block to EVERY assessment agent prompt:
+
+```
+ITERATION CONTEXT — This paper has been through [N-1] improvement iterations.
+[paste ITERATION_CONTEXT here]
+
+Rules:
+1. Do NOT re-flag issues listed in "Deliberate Decisions" unless you have NEW reasoning not already considered
+2. DO check "Sections Modified" for regressions — did the changes hold up? Did they break anything?
+3. For "Sections Unchanged Since Last Review": quick scan only — focus your attention on modified sections and deferred issues
+4. If something from "Deferred Issues" is still present, escalate its priority
+```
+
+Spawn **4 assessment agents in parallel** (plus a 5th regression detection agent — see below).
 
 **Agent A — "Depth & Evidence Reviewer"**
 ```
@@ -156,13 +181,33 @@ mcp__codex-bridge__codex_review({
 
 Write to `reviews/auto_iter[N]_codex.md`. Apply the Codex Deliberation Protocol.
 
+**Agent E — "Regression Detector" (iterations 2+ only, parallel with agents above)**
+
+Only spawn this agent if `CURRENT_ITERATION > 1`. Model: claude-sonnet-4-6[1m].
+
+```
+You are a regression detector for iteration [N] of autonomous paper improvement.
+Read reviews/auto_iter[N-1]_context.md (or reviews/auto_cumulative_context.md for iterations 4+) for what changed in the last iteration.
+Read main.tex completely.
+
+For each change listed in "Changes Made":
+1. Find the modified section/paragraph in main.tex
+2. Check: does the change still make sense in context? Did it break transitions with surrounding text?
+3. Check: did the change introduce any new issues (AI patterns, citation errors, logical gaps)?
+4. Check: is the change consistent with changes made elsewhere in the same iteration?
+
+Report ONLY regressions — things that got worse because of the last iteration's changes.
+If no regressions found, write an empty report (just "No regressions detected.").
+Write to reviews/auto_iter[N]_regressions.md.
+```
+
 #### Phase 2: Prioritize
 
 After all assessment agents complete, read ALL assessment files for this iteration. Build a **prioritized action list**:
 
-1. Read all `reviews/auto_iter[N]_*.md` files and `research/claims_matrix.md` (for evidence density scores)
-2. Collect all issues across reviewers, deduplicate similar findings
-3. Rank by impact, using evidence density scores as a tiebreaker: actions that strengthen WEAK/CRITICAL claims (moving them toward MODERATE/STRONG) outrank polish actions on sections with all STRONG claims
+1. Read all `reviews/auto_iter[N]_*.md` files (including `_regressions.md` if it exists) and `research/claims_matrix.md` (for evidence density scores)
+2. Collect all issues across reviewers, deduplicate similar findings. **Regressions from Agent E get automatic HIGH priority** — fixes that undo damage from the last iteration come before new improvements
+3. Rank by impact, using evidence density scores as a tiebreaker: regressions first, then actions that strengthen WEAK/CRITICAL claims (moving them toward MODERATE/STRONG), then polish actions on sections with all STRONG claims
 4. Select the **top 5 actions** for this iteration. Mix of:
    - Strengthening (rewrite, expand, add evidence — prioritize WEAK/CRITICAL claims)
    - Cutting (remove redundant/weak content)
@@ -280,10 +325,59 @@ Write verification report to reviews/auto_iter[N]_verify.md.
    }
    ```
 4. Update `.paper-progress.txt`: "Auto iteration [N]/[total] complete: [summary of changes]"
-5. **Early stop check**: if `changes_made < 3`, stop iterations and report:
+5. **Generate iteration context file** — write `reviews/auto_iter[N]_context.md` for use by the next iteration's assessment agents. Build it from the plan (`reviews/auto_iter[N]_plan.md`), verification report (`reviews/auto_iter[N]_verify.md`), and provenance entries (`research/provenance.jsonl` filtered to `iteration: N`):
+   ```markdown
+   # Iteration [N] Context
+
+   ## Changes Made
+   1. [section/paragraph] — [action: strengthen/cut/rewrite/merge] — [one-line summary]
+   2. ...
+
+   ## Deliberate Decisions (kept as-is)
+   1. [section/paragraph] — [what was flagged] — [why it was kept]
+   2. ...
+   [Derive from issues in assessments that were NOT selected for action in the plan, plus any "Deferred" items with explicit reasoning.]
+
+   ## Sections Modified
+   - [Section]: [which paragraphs changed]
+   - ...
+
+   ## Sections Unchanged Since Last Review
+   - [Section] (unchanged since iteration [M])
+   - ...
+
+   ## Deferred Issues
+   [Copy from reviews/auto_iter[N]_plan.md "Deferred to Next Iteration" section]
    ```
-   Stopping after iteration [N] — diminishing returns (only [X] meaningful changes found).
+   Keep the file compact — under 500 words. Use bullet points, not prose.
+6. **Generate cumulative context (iterations 3+ only)** — if `CURRENT_ITERATION >= 3`, generate `reviews/auto_cumulative_context.md` by merging all individual context files. For iterations 4+, this file replaces individual context files in agent prompts (to keep prompt size manageable):
+   ```markdown
+   # Cumulative Iteration History
+
+   ## All Deliberate Decisions (across all iterations)
+   [Merged from all previous context files. Only keep decisions from the last 2 iterations — older decisions that weren't re-flagged are considered resolved.]
+
+   ## Section Stability
+   | Section | Last Modified | Iterations Since Change |
+   |-|-|-|
+   | Introduction | Iteration 2 | 1 |
+   | Related Work | Initial pipeline | 3 (stable) |
+   | ... | ... | ... |
+
+   ## Current Deferred Issues
+   [Only from the most recent iteration — older deferred issues not re-flagged are considered resolved]
+   ```
+   Keep the cumulative file under 800 words.
+7. **Early stop check** — stop iterations if ANY of these conditions are met:
+   - **Low change count**: `changes_made < 3` (existing criterion)
+   - **No new issues**: all assessment agents reported no issues beyond those already listed in "Deliberate Decisions" from previous iterations (i.e., nothing genuinely new was found)
+   - **Persistent low-priority only**: the only issues found appear in "Deferred Issues" from 2+ consecutive iterations and were deprioritized each time
+
+   When stopping, report:
+   ```
+   Stopping after iteration [N] — [reason: diminishing returns / no new issues / only persistent low-priority items].
    The paper has stabilized. Remaining minor issues from the assessment are in reviews/auto_iter[N]_plan.md under "Deferred".
+   [If persistent low-priority: "Persistent low-priority issues that were never addressed: [list]. These are unlikely to be worth further iteration."]
    ```
 
 ### After All Iterations Complete
@@ -322,7 +416,7 @@ Write verification report to reviews/auto_iter[N]_verify.md.
 5. **Log everything.** Every change gets a provenance entry. Every cut gets archived.
 6. **Early stop is good.** Stopping because the paper is strong is a success, not a failure.
 7. **Model selection.** Assessment, verification, and report generation: claude-sonnet-4-6[1m]. Revision: claude-opus-4-6[1m]. Never use Haiku.
-8. **Don't fight the last war.** Each iteration's assessment is fresh — don't just re-check what the last iteration changed. Read the whole paper with fresh eyes.
+8. **Fresh eyes, informed by context.** Each iteration's assessment reads the whole paper — the iteration context helps agents avoid re-litigating settled decisions and focus on regressions, but it does NOT replace reading the full manuscript. Agents should still find new issues, not just check the last iteration's work.
 
 ## Arguments
 

@@ -6,7 +6,22 @@
 
 **This stage LOOPS until all quality criteria pass.** Maximum 5 iterations (or 8 if depth is `"deep"`).
 
+Track `QA_ITERATION` starting at 1, incrementing each time the loop repeats from Step 5d back to Step 5a.
+
 #### Step 5a: Parallel Review
+
+**Load QA iteration context (iterations 2+):** If `QA_ITERATION > 1` and `reviews/qa_iter[QA_ITERATION-1]_context.md` exists, read it and store as `QA_CONTEXT`. Prepend the following block to EVERY review agent prompt below:
+
+```
+QA ITERATION CONTEXT — This is QA iteration [QA_ITERATION]. The paper has been revised [QA_ITERATION-1] times in this QA stage.
+[paste QA_CONTEXT here]
+
+Rules:
+1. Do NOT re-flag issues listed in "Deliberate Decisions" unless you have NEW reasoning
+2. Focus on "Sections Modified" for regressions — did the last revision's fixes hold up?
+3. Quick-scan "Sections Unchanged" — focus your attention on modified sections and deferred issues
+4. Escalate any issues from "Deferred Issues" that are still present
+```
 
 **Before spawning review agents**, run knowledge graph analysis if `research/knowledge/` exists (skip silently if not):
 ```bash
@@ -151,9 +166,34 @@ Fix any LaTeX errors.
 Edit main.tex and references.bib directly.
 
 PROVENANCE — After EACH revision, append a JSON entry to research/provenance.jsonl:
-{"ts":"[timestamp]","stage":"5","agent":"qa-revision","action":"revise|cut|add","target":"[section/pN]","reasoning":"[why — reference the specific review issue]","feedback_ref":"[reviews/file.md#issue-number]","diff_summary":"[what changed]","sources":["keys"],"iteration":0}
-For cuts: save removed text to provenance/cuts/[section]-[pN]-qa[iteration].tex and set archived_to.
+{"ts":"[timestamp]","stage":"5","agent":"qa-revision","action":"revise|cut|add","target":"[section/pN]","reasoning":"[why — reference the specific review issue]","feedback_ref":"[reviews/file.md#issue-number]","diff_summary":"[what changed]","sources":["keys"],"qa_iteration":[QA_ITERATION]}
+For cuts: save removed text to provenance/cuts/[section]-[pN]-qa[QA_ITERATION].tex and set archived_to.
 ```
+
+#### Step 5c-ii: Generate QA Iteration Context
+
+After the revision agent completes, generate `reviews/qa_iter[QA_ITERATION]_context.md` for use by the next QA iteration's review agents (if the loop repeats). Build from the review files and provenance entries for this QA iteration:
+
+```markdown
+# QA Iteration [QA_ITERATION] Context
+
+## Changes Made
+1. [section/paragraph] — [action] — [one-line summary]
+
+## Deliberate Decisions (kept as-is)
+1. [section/paragraph] — [what was flagged] — [why it was kept or deferred]
+
+## Sections Modified
+- [Section]: [which paragraphs changed]
+
+## Sections Unchanged
+- [Section] (unchanged since QA iteration [M] or initial pipeline)
+
+## Deferred Issues
+[MEDIUM/MINOR issues not addressed in this iteration]
+```
+
+Keep under 500 words.
 
 #### Step 5d: Quality Gate Check
 
