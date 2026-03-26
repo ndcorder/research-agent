@@ -267,7 +267,7 @@ Write verification report to reviews/auto_iter[N]_verify.md.
 
 ### After All Iterations Complete
 
-1. Regenerate the provenance report — spawn a report agent (model: haiku):
+1. Regenerate the provenance report — spawn a report agent (model: claude-sonnet-4-6[1m]):
    ```
    Read research/provenance.jsonl completely. Generate an updated research/provenance_report.md
    covering ALL actions including auto-iterations. Group the report by stage, with auto-iterations
@@ -300,7 +300,7 @@ Write verification report to reviews/auto_iter[N]_verify.md.
 4. **No em dashes.** Enforce Writing Rule #11 in every agent prompt.
 5. **Log everything.** Every change gets a provenance entry. Every cut gets archived.
 6. **Early stop is good.** Stopping because the paper is strong is a success, not a failure.
-7. **Model selection.** Assessment and verification: claude-sonnet-4-6[1m]. Revision: claude-opus-4-6[1m]. Report generation: haiku.
+7. **Model selection.** Assessment, verification, and report generation: claude-sonnet-4-6[1m]. Revision: claude-opus-4-6[1m]. Never use Haiku.
 8. **Don't fight the last war.** Each iteration's assessment is fresh — don't just re-check what the last iteration changed. Read the whole paper with fresh eyes.
 
 ## Arguments
