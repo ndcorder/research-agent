@@ -197,6 +197,7 @@ cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
 # When the template is updated, every project sees the change instantly.
 ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/CLAUDE.md
 ln -s "$TEMPLATE_DIR/claude/commands" .claude/commands
+ln -s "$TEMPLATE_DIR/claude/pipeline" .claude/pipeline
 ln -s "$TEMPLATE_DIR/scripts" scripts
 
 # Copy venue config for reference
@@ -333,6 +334,7 @@ echo "  /de-ai-polish          Remove AI writing patterns"
 echo "  /auto [N]             Autonomous improvement iterations on finished paper"
 echo "  /provenance            Query the provenance audit trail"
 echo "  /knowledge             Query the knowledge graph"
+echo "  /health                Check project setup and dependencies"
 echo "  /status                Progress dashboard"
 echo ""
 echo "  /archive               Bundle research artifacts for browsing"

@@ -15,8 +15,9 @@ set -euo pipefail
 #   For each paper project (has .claude/ dir):
 #   1. Replaces .claude/commands/ (copied dir) with symlink → template
 #   2. Replaces .claude/CLAUDE.md (copied file) with symlink → template
-#   3. Creates scripts/ symlink → template (if not present)
-#   4. Creates provenance/cuts/ directory (if not present)
+#   3. Replaces .claude/pipeline/ (copied dir) with symlink → template
+#   4. Creates scripts/ symlink → template (if not present)
+#   5. Creates provenance/cuts/ directory (if not present)
 #
 # Safe to run multiple times — skips projects already symlinked.
 # ──────────────────────────────────────────────────────────────
@@ -95,7 +96,19 @@ for project in "$TARGET_BASE"/*/; do
         changed=true
     fi
 
-    # 3. Create scripts/ symlink
+    # 3. Replace .claude/pipeline/ with symlink
+    if [[ -L "$project/.claude/pipeline" ]]; then
+        : # Already a symlink
+    elif [[ -d "$project/.claude/pipeline" ]]; then
+        rm -rf "$project/.claude/pipeline"
+        ln -s "$TEMPLATE_DIR/claude/pipeline" "$project/.claude/pipeline"
+        changed=true
+    else
+        ln -s "$TEMPLATE_DIR/claude/pipeline" "$project/.claude/pipeline"
+        changed=true
+    fi
+
+    # 4. Create scripts/ symlink
     if [[ -L "$project/scripts" ]]; then
         : # Already a symlink
     elif [[ ! -e "$project/scripts" ]]; then
@@ -103,7 +116,7 @@ for project in "$TARGET_BASE"/*/; do
         changed=true
     fi
 
-    # 4. Create provenance directories
+    # 5. Create provenance directories
     if [[ ! -d "$project/provenance/cuts" ]]; then
         mkdir -p "$project/provenance/cuts"
         changed=true

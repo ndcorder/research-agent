@@ -14,7 +14,7 @@ An autonomous research paper writing toolkit for Claude Code. From a topic promp
 4. [The `/auto` Command](#4-the-auto-command)
 5. [Provenance System](#5-provenance-system)
 6. [Knowledge Graph](#6-knowledge-graph)
-7. [All 30 Slash Commands](#7-all-30-slash-commands)
+7. [All 35 Slash Commands](#7-all-35-slash-commands)
 8. [Integrations](#8-integrations)
 9. [Writing Rules](#9-writing-rules)
 10. [Model Tiers](#10-model-tiers)
@@ -122,7 +122,7 @@ create-paper my-paper "Protein structure prediction" --venue nature --deep
 `create-paper` does the following in one command:
 1. Creates the project directory
 2. Generates a `main.tex` formatted for the target venue
-3. Copies all 30 slash commands into `.claude/commands/`
+3. Copies all 35 slash commands into `.claude/commands/`
 4. Writes `.paper.json` and `.venue.json`
 5. Clones 177 scientific skills as a git submodule (`vendor/claude-scientific-skills`)
 6. Clones Praxis as a git submodule (`vendor/praxis`) and installs Python dependencies
@@ -144,7 +144,7 @@ claude
 # then type: /write-paper A survey on LLM reasoning
 ```
 
-The `write-paper` launcher calls `claude --dangerously-skip-permissions "/write-paper $TOPIC"`. The `--dangerously-skip-permissions` flag is required for the autonomous pipeline to operate without per-tool confirmations during multi-hour runs.
+The `write-paper` launcher calls `claude "/write-paper $TOPIC"`. The pipeline operates without per-tool confirmations because `.claude/settings.local.json` contains a scoped allowlist that pre-approves every tool the pipeline uses. Tools not on the allowlist (e.g., `git push`, arbitrary shell commands) still prompt for confirmation.
 
 ### Monitoring a running pipeline
 
@@ -168,6 +168,8 @@ ls reviews/                      # review files during QA
 | `arxiv` | arXiv preprint, extended format | natbib | none |
 | `apa` | APA 7th edition | apacite | none |
 
+Each venue JSON also includes a `writing_guide` field with venue-specific tone, structure, citation density, figure count, and reviewer expectation guidance. Writing agents read the guide to match the conventions of the target venue.
+
 ---
 
 ## 3. The Full Pipeline: `/write-paper`
@@ -176,7 +178,7 @@ Run with `/write-paper <topic>` inside a Claude Code session, or via the `write-
 
 ### Checkpoint and resume
 
-After completing each stage or section, the pipeline writes `.paper-state.json` tracking exactly which stages and sections are done. If the session is interrupted, rerunning `/write-paper` reads this file and skips completed work. `.paper-progress.txt` is updated at each checkpoint with a human-readable summary.
+After completing each stage or section, the pipeline writes `.paper-state.json` tracking exactly which stages and sections are done. If the session is interrupted, rerunning `/write-paper` reads this file and skips completed work. Partial stage recovery tracks sub-steps within stages (individual research agents, individual sections) so a crash mid-stage resumes from the last completed sub-step, not the start of the stage. `.paper-progress.txt` is updated at each checkpoint with a human-readable summary.
 
 ### Stage 1: Deep Literature Research
 
@@ -502,7 +504,7 @@ After the pipeline completes, `/auto` runs additional autonomous improvement ite
 /auto --continue # resume from last completed iteration
 ```
 
-Each iteration runs a 4-phase cycle.
+Each iteration runs a 4-phase cycle. Like `/write-paper`, `/auto` uses the split-phase pattern: each phase reads its instructions from a dedicated file in `pipeline/` (`auto-phase-1-assessment.md` through `auto-phase-4-verification.md`) to avoid context degradation in long sessions.
 
 ### Phase 1: Assessment (4 parallel agents)
 
@@ -656,7 +658,7 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 
 ---
 
-## 7. All 30 Slash Commands
+## 7. All 35 Slash Commands
 
 ### Autonomous pipeline
 
@@ -677,6 +679,8 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/cite-network` | Analyze citation patterns: distribution by section and year, temporal coverage, venue diversity, author diversity, orphan detection, gap identification with suggested additions. |
 | `/ask <question>` | Query research artifacts to answer questions. Searches `research/sources/`, `research/`, `reviews/`, `main.tex`, `references.bib`, and `research/log.md`, providing the provenance trail for each answer. |
 | `/knowledge [operation]` | Interact with the LightRAG knowledge graph: query, contradictions, evidence-for, evidence-against, entities, relationships. Builds the graph if needed. |
+| `/export-sources` | Export source extracts and references to the shared knowledge base (`~/.research-agent/shared-sources/`) for reuse across papers. |
+| `/import-sources [topic]` | Import relevant sources from the shared knowledge base into the current paper. Uses `.paper.json` topic if omitted. |
 | `/audit-sources` | Retroactive source coverage audit: classifies all references by access level, attempts OA resolution for abstract-only sources, generates acquisition list. Standalone version of Stage 1d. |
 
 ### Writing
@@ -699,6 +703,7 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/de-ai-polish [section]` | Remove AI writing patterns across 7 categories: filler phrases, AI vocabulary, formulaic transitions, redundant phrasing, empty emphasis, em dashes, structural tells. |
 | `/reproducibility-checklist` | Check Methods completeness against a structured checklist (general scientific, ML-specific if applicable, ethical considerations). Reports YES/NO/N/A per item with section references. |
 | `/codex-review [section]` | On-demand adversarial review from OpenAI Codex via `codex_plan`, `codex_review`, and `codex_ask`. Requires codex-bridge. |
+| `/health` | Diagnose pipeline prerequisites and optional integrations (LaTeX, API keys, knowledge graph, Codex, Praxis). Reports status, detail, and impact for each check. |
 | `/compile` | Compile LaTeX to PDF via `latexmk -pdf -interaction=nonstopmode main.tex` and report errors. |
 
 ### Analysis
@@ -721,6 +726,8 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/lay-summary` | Generate a 200+ word plain-language summary, a 2-3 sentence elevator pitch, and (where required by venue) a lay summary for inclusion in the manuscript. |
 | `/archive` | Bundle all research artifacts into a browsable `archive/` directory with a README index. Auto-runs at the end of `/write-paper`. |
 | `/prepare-submission` | Generate submission package: anonymized version (for blind-review venues), camera-ready version, cover letter, response to reviewers (if reviews exist), and a submission checklist. |
+| `/respond-to-reviewers` | Generate a structured point-by-point response to peer reviewer comments with tracked changes in the manuscript. |
+| `/prisma-flowchart` | Generate a PRISMA 2020 flowchart from the research log and add it to the manuscript. |
 | `/clean` | `latexmk -c` to remove LaTeX build artifacts. Add `all` argument to also remove `research/`, `reviews/`, `archive/`, and pipeline state files (never removes `main.tex`, `references.bib`, `figures/`, `attachments/`, `.paper.json`, `.venue.json`). |
 
 ---
@@ -835,7 +842,11 @@ research-agent/                 (this repository)
 │   ├── claude/
 │   │   ├── CLAUDE.md          Project instructions, writing rules, command reference
 │   │   ├── settings.local.json Tool permissions for autonomous operation
-│   │   └── commands/          All 30 slash commands (symlinked into each paper project)
+│   │   ├── commands/          All 35 slash commands (symlinked into each paper project)
+│   │   └── pipeline/          Stage-specific instructions (read on-demand per stage/phase)
+│   │       ├── stage-1-research.md through stage-6-finalization.md
+│   │       ├── auto-phase-1-assessment.md through auto-phase-4-verification.md
+│   │       └── shared-protocols.md
 │   ├── scripts/               Utility scripts (knowledge.py, etc.)
 │   ├── venues/                Venue configuration JSON files
 │   │   ├── generic.json
@@ -848,6 +859,8 @@ research-agent/                 (this repository)
 │   ├── main.tex               LaTeX template (overwritten by venue-specific generation)
 │   ├── references.bib         Empty bibliography template
 │   └── gitignore              Standard gitignore for paper projects
+├── tests/                     Test suite (run_all.sh, test_structure.sh, test_prompts.sh, test_schema.py)
+├── .github/workflows/ci.yml  CI via GitHub Actions
 └── vendor/                    External dependencies (submodules)
 ```
 
@@ -904,7 +917,8 @@ my-paper/
 └── .claude/
     ├── CLAUDE.md              Project instructions (copied from template)
     ├── settings.local.json    Tool permissions
-    ├── commands/              All 30 slash commands
+    ├── commands/              All 35 slash commands
+    ├── pipeline/             Stage and phase instructions (symlinked from template)
     └── skills/ -> vendor/    Symlink to scientific skills
 ```
 
@@ -1075,6 +1089,10 @@ Key files for contributors:
 - `create-paper` — the project scaffolding script
 - `write-paper` — the pipeline launcher script
 - `template/venues/` — venue configuration files
+
+### Testing
+
+Run the test suite with `tests/run_all.sh`. Individual tests: `tests/test_structure.sh` (project structure validation), `tests/test_prompts.sh` (prompt consistency checks), `tests/test_schema.py` (JSON schema validation). CI runs automatically via GitHub Actions (`.github/workflows/ci.yml`).
 
 ---
 
