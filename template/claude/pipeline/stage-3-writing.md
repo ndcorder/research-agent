@@ -148,4 +148,110 @@ Invoke the `scientific-writing` skill.
 Edit main.tex directly.
 ```
 
+**Evidence Check Loop**
+
+After ALL post-section steps above (expansion, spot-check, [DEEP] Codex expansion), run an evidence check before moving to the next section. This catches under-supported claims while the section is fresh.
+
+**Step 1: Evidence Check** — Spawn a fast agent (model: `claude-haiku-4-5-20251001`) to cross-reference the just-written section against the evidence base:
+
+```
+You are an evidence gap detector. Read the [SECTION] section that was just written in main.tex.
+Also read research/claims_matrix.md and the source extracts in research/sources/.
+
+For each claim or factual statement in this section:
+1. Is it supported by a citation? If not, flag it.
+2. If cited, does the source extract for that citation actually contain content supporting this specific claim? (Check research/sources/<key>.md)
+3. Are there claims that go BEYOND what the source extract says? (e.g., claiming "X shows that..." when the source extract only contains an abstract)
+
+Output a list of evidence gaps:
+- GAP: [section/paragraph] — [claim text] — [what's missing: citation needed / source is abstract-only / claim exceeds source content]
+- OK: [section/paragraph] — [claim text] — [supported by: key (access level)]
+
+Write to reviews/evidence_gaps_[SECTION].md
+```
+
+If the knowledge graph is available (`research/knowledge/` exists), the evidence check agent also queries it before flagging gaps:
+
+```bash
+python scripts/knowledge.py evidence-for "[claim from gap]"
+```
+
+Sometimes the evidence exists in the graph (from a source the writing agent didn't think to cite) and no new research is needed — just add the citation.
+
+**Step 2: Decision Gate** — Based on gaps found:
+
+| Gaps found | Action |
+|-|-|
+| 0 gaps | Proceed to next section immediately |
+| 1-2 gaps, minor (missing citation for well-known fact) | Note for QA. Proceed. |
+| 3+ gaps OR any gap where claim exceeds source content | Trigger micro-research before next section |
+
+**Depth mode override**: In `"deep"` mode, the threshold drops to 1+ gap triggering micro-research.
+
+**Step 3: Micro-Research** (when triggered) — Spawn a targeted agent (model: `claude-sonnet-4-6[1m]`) to fill exactly the identified gaps:
+
+```
+You are a targeted research agent filling evidence gaps found during writing.
+TOPIC: [TOPIC]
+TOOL FALLBACK: [standard chain from shared-protocols.md]
+
+Fill these specific gaps:
+[paste gap list from reviews/evidence_gaps_[SECTION].md]
+
+For each gap:
+1. Search for a paper that directly supports the claim
+2. If found: add to references.bib, create source extract in research/sources/, note the BibTeX key
+3. If NOT found: report that the claim may need to be hedged or removed
+
+Budget: maximum 2 search queries per gap (4 in deep mode). Be precise.
+Write findings to research/section_gaps_[SECTION].md.
+Add new references to references.bib.
+RESEARCH LOG: Append entries to research/log.md.
+```
+
+Micro-research runs **at most once per section**. If gaps remain after research, they're deferred to Stage 5 QA.
+
+**[DEEP] Post-Micro-Research Verification**: In `"deep"` mode, after micro-research completes, re-run the evidence check (Step 1) to verify gaps were filled. Do NOT trigger a second round of micro-research — this is verification only.
+
+**Step 4: Patch** — After micro-research:
+1. If new citations were found for the just-written section, spawn a quick edit agent (model: `claude-sonnet-4-6[1m]`) to add the citations to main.tex in the appropriate locations.
+2. The NEXT section's writing agent prompt must include: `Also read research/section_gaps_[PREVIOUS_SECTION].md for references discovered during evidence checking of the previous section.`
+
+**Sections that skip micro-research**: Conclusion and Abstract do not trigger micro-research (they summarize existing content, not introduce new claims). The evidence check still runs on Conclusion to catch any unsupported summary claims, but gaps are deferred to QA.
+
+**Depth mode summary:**
+
+| Setting | Standard | Deep |
+|-|-|-|
+| Evidence check | After every section | After every section |
+| Gap threshold for micro-research | 3+ gaps | 1+ gap |
+| Max search queries per gap | 2 | 4 |
+| Re-check after micro-research | No | Yes (verify only) |
+
+**Pipeline flow with evidence check:**
+
+```
+Write Intro → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
+Write Related Work → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
+Write Methods → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
+Write Results → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
+Write Discussion → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
+Write Conclusion → [Expansion/Spot-check] → Evidence Check (no micro-research) →
+Write Abstract
+```
+
+**State tracking** — After each section's evidence check, update `.paper-state.json` under the writing stage:
+
+```json
+"writing": {
+  "sections": {
+    "introduction": { "done": true, "words": 1250, "evidence_gaps": 1, "micro_research": false },
+    "related_work": { "done": true, "words": 2100, "evidence_gaps": 4, "micro_research": true, "new_refs": 3 },
+    "methods": { "done": true, "words": 1800, "evidence_gaps": 0, "micro_research": false }
+  }
+}
+```
+
+Record `evidence_gaps` (count from evidence check), `micro_research` (whether it triggered), and `new_refs` (count of references added by micro-research, if any).
+
 ---
