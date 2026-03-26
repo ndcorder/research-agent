@@ -29,6 +29,7 @@ from pathlib import Path
 
 WORKING_DIR = "research/knowledge"
 SOURCES_DIR = "research/sources"
+ATTACHMENTS_DIR = "attachments"
 LOG_FILE = "research/log.md"
 CONTRADICTIONS_FILE = "research/knowledge_contradictions.md"
 
@@ -38,11 +39,15 @@ EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
 EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32768"))
 OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-# Concurrency settings — tuned for OpenRouter's rate limits.
+# Concurrency settings — aggressive defaults for OpenRouter.
 # Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC
-MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "8"))
-LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "32"))
-EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "32"))
+MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "32"))
+LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "64"))
+EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "64"))
+
+# Timeout settings (seconds) — full PDFs need more time than short extracts.
+LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "300"))
+EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "120"))
 
 
 def get_api_key():
@@ -93,6 +98,8 @@ def create_rag():
         },
         llm_model_max_async=LLM_MAX_ASYNC,
         max_parallel_insert=MAX_PARALLEL_INSERT,
+        default_llm_timeout=LLM_TIMEOUT,
+        default_embedding_timeout=EMBEDDING_TIMEOUT,
         embedding_func=EmbeddingFunc(
             embedding_dim=EMBEDDING_DIM,
             max_token_size=EMBEDDING_LENGTH,
@@ -112,26 +119,77 @@ def create_rag():
 # Commands
 # ---------------------------------------------------------------------------
 
+def extract_pdf_text(pdf_path: Path) -> str:
+    """Extract full text from a PDF using pymupdf."""
+    try:
+        import fitz  # pymupdf
+    except ImportError:
+        print(
+            f"Warning: pymupdf not installed, skipping PDF {pdf_path.name}. "
+            "Install with: pip install pymupdf",
+            file=sys.stderr,
+        )
+        return ""
+
+    try:
+        doc = fitz.open(str(pdf_path))
+        pages = []
+        for page in doc:
+            text = page.get_text()
+            if text.strip():
+                pages.append(text)
+        doc.close()
+        full_text = "\n\n".join(pages)
+        if not full_text.strip():
+            return ""
+        # Prepend a header so the graph can attribute entities back to this PDF
+        return f"# PDF: {pdf_path.stem}\n\nSource file: {pdf_path.name}\n\n{full_text}"
+    except Exception as e:
+        print(f"Warning: Failed to extract text from {pdf_path.name}: {e}", file=sys.stderr)
+        return ""
+
+
 async def cmd_build(_args):
-    """Build or update the knowledge graph from research/sources/*.md."""
+    """Build or update the knowledge graph from source extracts and PDFs."""
     sources_path = Path(SOURCES_DIR)
-    if not sources_path.exists():
-        print(f"Error: {SOURCES_DIR} directory not found.", file=sys.stderr)
-        sys.exit(1)
-
-    source_files = sorted(sources_path.glob("*.md"))
-    if not source_files:
-        print(f"No .md files found in {SOURCES_DIR}.", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"Building knowledge graph from {len(source_files)} source extracts...")
+    attachments_path = Path(ATTACHMENTS_DIR)
 
     documents = []
     ids = []
-    for f in source_files:
-        content = f.read_text(encoding="utf-8")
-        documents.append(content)
-        ids.append(f.stem)
+
+    # --- Source extract markdown files ---
+    if sources_path.exists():
+        source_files = sorted(sources_path.glob("*.md"))
+        for f in source_files:
+            content = f.read_text(encoding="utf-8")
+            documents.append(content)
+            ids.append(f.stem)
+        print(f"Found {len(source_files)} source extracts in {SOURCES_DIR}/")
+    else:
+        source_files = []
+        print(f"Warning: {SOURCES_DIR}/ not found, skipping source extracts.", file=sys.stderr)
+
+    # --- PDF files in attachments ---
+    pdf_count = 0
+    if attachments_path.exists():
+        pdf_files = sorted(attachments_path.glob("*.pdf"))
+        for pdf in pdf_files:
+            text = extract_pdf_text(pdf)
+            if text:
+                doc_id = f"pdf_{pdf.stem}"
+                documents.append(text)
+                ids.append(doc_id)
+                pdf_count += 1
+        if pdf_files:
+            print(f"Extracted text from {pdf_count}/{len(pdf_files)} PDFs in {ATTACHMENTS_DIR}/")
+    else:
+        print(f"No {ATTACHMENTS_DIR}/ directory found, skipping PDFs.")
+
+    if not documents:
+        print("Error: No documents to ingest (no source extracts and no readable PDFs).", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Building knowledge graph from {len(documents)} total documents...")
 
     os.makedirs(WORKING_DIR, exist_ok=True)
     rag = create_rag()
@@ -154,13 +212,16 @@ async def cmd_build(_args):
 
     summary = (
         f"Built knowledge graph: {entity_count} entities, "
-        f"{relation_count} relationships from {len(source_files)} source documents"
+        f"{relation_count} relationships from {len(documents)} documents "
+        f"({len(source_files)} source extracts + {pdf_count} PDFs)"
     )
     print(summary)
 
     log_operation("Build", {
         "Tool": "scripts/knowledge.py build",
-        "Sources ingested": f"{len(source_files)} documents from {SOURCES_DIR}",
+        "Source extracts": f"{len(source_files)} from {SOURCES_DIR}",
+        "PDFs ingested": f"{pdf_count} from {ATTACHMENTS_DIR}",
+        "Total documents": str(len(documents)),
         "Entities extracted": str(entity_count),
         "Relationships extracted": str(relation_count),
         "Storage": WORKING_DIR,
