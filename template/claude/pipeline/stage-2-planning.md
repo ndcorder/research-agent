@@ -133,3 +133,5 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 **Checkpoint**: Verify outline has 5+ major sections, subsections under each, and planning notes.
 
 Update `.paper-state.json`: mark `outline` as done.
+
+> **Next**: After novelty verification (Stage 2d), proceed to **Stage 2e: Assumptions Analysis** (`pipeline/stage-2e-assumptions.md`) which systematically enumerates and categorizes methodological assumptions before writing begins.

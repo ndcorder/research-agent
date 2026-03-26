@@ -14,6 +14,7 @@ research/         # Literature research outputs (created by /write-paper)
   knowledge/      # LightRAG knowledge graph (auto-built from sources, gitignored)
   log.md          # Research provenance log (all searches, queries, tools, results)
   provenance.jsonl  # Machine-readable provenance ledger (every action traced)
+  assumptions.md    # Categorized methodological assumptions (Standard/Reasonable/Risky/Critical)
 reviews/          # Review feedback (created by /write-paper)
 provenance/       # Provenance audit trail (cuts archive, auto-iteration artifacts)
   cuts/           # Archived text from content that was cut (never delete without archiving)
@@ -32,6 +33,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-2b-codex-thesis.md  # Codex thesis stress-test
     stage-2c-targeted-research.md  # Deep mode targeted research
     stage-2d-novelty-check.md  # Novelty verification
+    stage-2e-assumptions.md   # Methodological assumptions analysis
     stage-3-writing.md    # Section-by-section writing
     stage-4-figures.md    # Figures, tables, visual elements
     stage-5-qa.md         # QA review loop
@@ -75,8 +77,8 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find, then co-citation analysis identifies important papers frequently cited alongside your references but missing from the bibliography
 2. **Source Acquisition** — Audit source access levels, attempt OA resolution, pause for user to provide paywalled PDFs if needed
-3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
-4. **Writing** — Sequential agents write each section (1000-2500 words each)
+3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
+4. **Writing** — Sequential agents write each section (1000-2500 words each); Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
 5. **Figures & Tables** — Ensure adequate visual elements
 6. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
 7. **Finalization** — Polish, compile, archive all artifacts, report

@@ -55,6 +55,7 @@ After completing EACH stage or section, update `.paper-state.json`:
     "source_acquisition": { "done": false, "full_text": 0, "abstract_only": 0, "metadata_only": 0 },
     "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
     "novelty_check": { "done": true, "completed_at": "...", "file": "research/novelty_check.md", "status": "NOVEL" },
+    "assumptions": { "done": true, "completed_at": "...", "file": "research/assumptions.md", "total": 12, "critical": 1, "risky": 3 },
     "writing": {
       "done": false,
       "sections": {
@@ -131,13 +132,14 @@ For each stage in order:
 | 7 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
 | 8 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
 | 9 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
-| 10 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
-| 11 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
-| 12 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
-| 13 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
-| 14 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
+| 10 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
+| 11 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
+| 12 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
+| 13 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
+| 14 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
+| 15 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
 
-**Important**: The QA Loop (Stage 12) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 13). The quality criteria table below defines the gate for exiting the QA loop.
+**Important**: The QA Loop (Stage 13) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 14). The quality criteria table below defines the gate for exiting the QA loop.
 
 ---
 

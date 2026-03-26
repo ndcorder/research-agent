@@ -48,6 +48,12 @@ Evaluate:
 - Mathematical notation defined and consistent?
 - Appropriate use of domain-specific terminology?
 - **Evidence density**: Check the scored claims-evidence matrix. Any WEAK (score 1-2.9) or CRITICAL (score < 1) claims that appear in the manuscript MUST use appropriately hedged language. Flag any WEAK/CRITICAL claims written with unjustified confidence as CRITICAL issues. Flag any CRITICAL claims that survived to Stage 5 without being addressed as mandatory fix items.
+- **Assumptions coverage** — Read `research/assumptions.md` (if it exists). Verify:
+  1. Every RISKY and CRITICAL assumption is explicitly stated in Methods
+  2. Every CRITICAL assumption is discussed in the Limitations subsection of Discussion
+  3. No new assumptions were introduced during writing that aren't in the analysis
+  4. The paper doesn't inadvertently claim broader validity than the assumptions allow
+  Flag missing CRITICAL assumptions as CRITICAL issues. Flag missing RISKY assumptions as MAJOR issues.
 - **Argument structure** — for each major claim, verify:
   1. Is there an explicit **WARRANT** (reasoning connecting evidence to claim)? A claim with citations but no warrant is a "citation dump" — the reader is left to figure out the connection. Flag as CRITICAL if missing.
   2. Is the warrant **VALID**? Does the evidence actually support the claim through the stated reasoning? Flag invalid warrants (logical fallacies, factual errors) as CRITICAL.
