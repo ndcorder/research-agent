@@ -6,6 +6,44 @@
 
 Each section gets its own dedicated agent. **Run sequentially** — each section builds on prior ones.
 
+**Abstract-First Strategy**
+
+Check `.paper.json` for `"abstract_strategy": "first"`. If set:
+
+1. **Before any section writing**, spawn a **draft abstract agent** (model: claude-opus-4-6[1m]):
+```
+You are an expert scientific writer. Your task is to draft a preliminary abstract that will serve as an alignment tool for all subsequent writing.
+
+Read:
+- research/thesis.md (thesis and contribution statement)
+- The outline in main.tex (% OUTLINE comments)
+- research/claims_matrix.md (what the paper will argue and with what evidence)
+
+Write a 200-300 word draft abstract that:
+1. States the problem and motivation
+2. Describes the approach/method
+3. Summarizes expected contributions and key claims
+4. Notes the most important evidence/results the paper will present
+
+This is a DRAFT — it will be rewritten after all sections are complete. Its purpose is to force clarity about what the paper promises to deliver.
+
+Write the draft abstract to research/draft_abstract.md.
+```
+
+2. **Pass the draft abstract to every writing agent** (added automatically to the MUST include list below when `abstract_strategy` is `"first"`). Include this in each agent's prompt:
+```
+## Alignment: Draft Abstract
+The following draft abstract defines what this paper promises to deliver. Ensure your section fulfills its relevant promises.
+
+[contents of research/draft_abstract.md]
+```
+
+3. The **final abstract** (Order 7) is still rewritten from scratch after all sections are complete — it replaces the draft with one that matches the actual content.
+
+If `abstract_strategy` is `"last"` or absent, skip this block entirely (current default behavior).
+
+---
+
 **[DEEP] Per-Section Literature Deep-Dives**
 
 If depth is `"deep"`, BEFORE each writing agent starts, spawn a quick **section research agent** (model: claude-sonnet-4-6[1m]) to find literature specific to that section's topic:
@@ -33,6 +71,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to read references.bib for citation keys
 - Instruction to read relevant research/ files for content
 - Instruction to read `research/assumptions.md` for methodological assumptions (if it exists)
+- If `abstract_strategy` is `"first"` in `.paper.json`: instruction to read `research/draft_abstract.md` and ensure the section delivers on the abstract's promises (see Abstract-First Strategy above)
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
@@ -87,7 +126,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 | 4 | Results/Experiments | Data-driven | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. Present all results needed to support your claims. |
 | 5 | Discussion | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. **ASSUMPTIONS** — Read `research/assumptions.md`. The Limitations subsection MUST address: (1) every CRITICAL assumption: what happens if it doesn't hold, how bounded is the impact, (2) every RISKY assumption: evidence for and against, alternative approaches if assumption fails, (3) group assumptions by theme (data, model, evaluation) for readability. Frame limitations honestly but constructively — "We acknowledge X; however, prior work [cite] demonstrates Y, suggesting this assumption is reasonable in the context of Z." |
 | 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
-| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. |
+| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. If `abstract_strategy` is `"first"`, this replaces the draft abstract from `research/draft_abstract.md` — compare against it to ensure nothing promised was dropped. |
 
 **Provenance for each section**: After completing each section, the writing agent must have appended at least one provenance entry per paragraph. If a paragraph draws from multiple sources, list all of them. The `reasoning` field should explain the paragraph's role in the argument (e.g., "Sets up the gap in prior work by contrasting smith2024's approach with jones2023's limitations, motivating our contribution").
 

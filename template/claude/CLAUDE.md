@@ -89,6 +89,8 @@ This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M 
 
 Required fields: `topic`, `depth` (`"standard"` or `"deep"`).
 
+Optional field: `abstract_strategy` (`"first"` or `"last"`, default: `"last"`). When `"first"`, a draft abstract is written after Stage 2 and used as an alignment tool during section writing. The final abstract is still rewritten after all sections are complete.
+
 Optional fields for enhanced OA resolution:
 ```json
 {
@@ -129,6 +131,8 @@ For interactive, step-by-step work:
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
 - `/audit-sources` — Audit source coverage: classify every reference by access level (full-text/abstract/metadata), attempt OA resolution, generate acquisition list
+- `/export-sources` — Export source extracts and references to the shared knowledge base (~/.research-agent/shared-sources/)
+- `/import-sources` — Import relevant sources from the shared knowledge base into the current paper
 - `/knowledge` — Query the per-paper knowledge graph: semantic search, contradiction detection, evidence for/against claims, entity/relationship exploration
 - `/ask` — Query research artifacts to answer questions about the research (searches sources, notes, reviews, log)
 
@@ -157,6 +161,7 @@ For interactive, step-by-step work:
 ### Submission & Archive
 - `/archive` — Bundle all research artifacts into a browsable `archive/` folder with README index (auto-runs at end of /write-paper)
 - `/prepare-submission` — Generate submission package (anonymized, cover letter, supplementary)
+- `/respond-to-reviewers` — Generate point-by-point response to peer reviewer comments with tracked changes
 - `/clean` — Remove build artifacts and working directories
 
 ## Codex Bridge Integration
@@ -216,6 +221,16 @@ Each source extract includes:
 The Content Snapshot is the critical field. It answers: "What did the pipeline actually read before making this claim?" If the snapshot only contains an abstract, any claims that go beyond the abstract are suspect.
 
 The `/audit-sources` command can retroactively audit and upgrade source coverage on existing papers.
+
+## Shared Knowledge Base
+
+Source extracts can be shared across papers via `~/.research-agent/shared-sources/`. This avoids redundant literature research when writing multiple papers in the same domain.
+
+- `/export-sources` — copies `research/sources/*.md` and `references.bib` entries to the shared directory, tagged with provenance (paper topic, date, project)
+- `/import-sources [topic]` — searches the shared directory for sources relevant to a topic, imports matches into `research/sources/` and `references.bib`
+- Stage 1 of `/write-paper` automatically checks for relevant shared sources and notifies the user
+
+The shared knowledge base stores source extracts only (not knowledge graphs). Each extract retains provenance: which paper it came from, when it was exported, and its access level.
 
 ## Knowledge Graph
 

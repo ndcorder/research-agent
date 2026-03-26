@@ -4,6 +4,84 @@
 
 ---
 
+**Pre-Finalization Scooping Check**
+
+Before any polish or finalization, check whether recent preprints overlap with this paper's contribution. Spawn a **scooping check agent** (model: claude-sonnet-4-6[1m]):
+```
+You are a preprint scooping detector. Your task is to determine whether any very recent preprints significantly overlap with this paper's contribution.
+
+Read:
+- .paper.json for the topic and keywords
+- research/thesis.md for the contribution statement
+- .paper-state.json for the pipeline start date (if available — fall back to "last 14 days" if not)
+
+TOOL FALLBACK CHAIN — try in this order:
+1. Perplexity search (mcp__perplexity__search or mcp__perplexity__reason)
+2. Web search (WebSearch tool)
+3. Firecrawl search (mcp__firecrawl__firecrawl_search)
+
+Search for recent preprints:
+1. Search arXiv for: [paper topic keywords] published in the last 14 days (or since pipeline start date)
+2. If the paper is biomedical/clinical (detect from topic keywords: medical, clinical, health, disease, drug, gene, protein, biomarker, patient, therapy, diagnosis), also search bioRxiv and medRxiv
+3. Search Semantic Scholar for very recent papers matching the topic
+
+For each potentially conflicting preprint found:
+1. Read the title and abstract
+2. Assess overlap with our contribution statement:
+   - HIGH: The preprint makes the same core contribution (same method applied to same problem, or same finding). This would significantly diminish our novelty.
+   - MEDIUM: The preprint addresses the same problem but with a different approach, or makes a related but distinct contribution. Should be cited and differentiated.
+   - LOW: The preprint is in the same field but does not overlap with our specific contribution.
+
+Write findings to reviews/scooping_check.md with this format:
+
+# Pre-Finalization Scooping Check
+Date: [timestamp]
+Search window: [start date] to [today]
+
+## Summary
+- Searched: arXiv [and bioRxiv/medRxiv if applicable]
+- Potentially relevant preprints found: N
+- HIGH overlap: N
+- MEDIUM overlap: N
+- LOW overlap: N
+
+## Findings
+
+### [If HIGH overlap found]
+⚠️ HIGH OVERLAP DETECTED — Review before proceeding
+
+**Title**: [preprint title]
+**Authors**: [authors]
+**Posted**: [date]
+**URL/DOI**: [link]
+**Overlap assessment**: [detailed explanation of how this overlaps with our contribution]
+**Recommendation**: STOP — the user should review this preprint and decide whether to proceed, pivot the contribution, or cite and differentiate.
+
+### [For MEDIUM overlap]
+**Title**: [preprint title]
+**Authors**: [authors]
+**Posted**: [date]
+**URL/DOI**: [link]
+**Overlap assessment**: [explanation]
+**Recommendation**: Cite this preprint and explicitly differentiate our contribution in the Introduction or Related Work.
+
+### [For LOW overlap]
+**Title**: [preprint title] — LOW overlap, noted for awareness.
+```
+
+If the scooping check finds **HIGH overlap**:
+- **STOP the pipeline** and alert the user immediately
+- Print the scooping report summary
+- Ask the user to decide: proceed (with differentiation), pivot the contribution, or abandon
+- Do NOT continue to the polish step until the user responds
+
+If only **MEDIUM** or **LOW** overlap (or no overlapping preprints found):
+- Print a brief summary: "Scooping check: [N] preprints reviewed, no high overlap found."
+- If MEDIUM overlaps exist, note: "Consider citing [N] recent related preprints — see reviews/scooping_check.md"
+- Proceed to the polish step
+
+---
+
 Spawn a **final polish agent** (model: claude-opus-4-6[1m]):
 ```
 You are a senior editor doing the final pass before journal submission.
@@ -109,6 +187,14 @@ Generated: [timestamp]
 ```
 
 Write the report to research/provenance_report.md.
+
+Include the scooping check results in the final report. If `reviews/scooping_check.md` exists, append a summary:
+```
+## Scooping Check
+- Searched arXiv [and domain preprint servers] for work posted since [pipeline start date]
+- Found [N] potentially relevant preprints
+- [NONE with significant overlap / Details of MEDIUM/LOW overlaps noted]
+```
 
 Finally, **archive all research artifacts** by running the `/archive` command. This creates a self-contained `archive/` directory with all research notes, reviews, figures, data, and metadata organized for easy browsing, with a README index. This allows the user to browse through all research findings, downloaded materials, and intermediate outputs after the pipeline completes.
 

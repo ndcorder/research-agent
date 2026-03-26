@@ -4,6 +4,19 @@
 
 ---
 
+**Shared Knowledge Base Check**
+
+Before starting research, check if a shared knowledge base exists at `~/.research-agent/shared-sources/`. If it exists:
+
+1. Scan the shared sources for relevance to this paper's topic (from `.paper.json`)
+2. Count relevant sources (read titles and key findings, assess topical overlap)
+3. If relevant sources found, report to the user: "Found [N] source extracts from previous papers on related topics. Run `/import-sources` to pre-populate your bibliography."
+4. Do NOT auto-import — let the user decide. The check is informational only.
+
+If the shared directory does not exist, skip this check silently.
+
+---
+
 **Goal**: Comprehensive field understanding + 30-50 verified references in `references.bib`.
 
 Spawn **4-5 research agents in parallel**. Each agent must be told to invoke the relevant skills for the detected domain. Each writes to a separate file.

@@ -70,4 +70,14 @@ mcp__codex-bridge__codex_ask({
 
 Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatches between figures and claims in main.tex immediately.
 
+**Step 4d: PRISMA Flowchart (auto-detected)**
+
+Check if this paper is a systematic review by reading `.paper.json` and examining the `topic` field. If the topic contains any of these keywords (case-insensitive): "systematic review", "meta-analysis", "scoping review", "literature review", then generate a PRISMA flowchart:
+
+1. Read `commands/prisma-flowchart.md` for the full procedure.
+2. Execute the instructions: extract search statistics from `research/log.md`, `references.bib`, and `research/sources/`, compute the PRISMA phase numbers, generate a TikZ flowchart, and insert it into the Methods section of `main.tex`.
+3. Log provenance as specified in the command file.
+
+If the topic does **not** match any of the above keywords, skip this step silently (no output, no log entry).
+
 ---
