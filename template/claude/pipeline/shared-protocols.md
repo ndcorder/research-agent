@@ -184,3 +184,28 @@ SOURCE EXTRACTS — When you find a paper that you cite in your output:
 ```
 This ensures every cited claim is traceable to a specific source document with a verifiable content snapshot.
 ```
+
+---
+
+## Semantic Scholar API Rate Limiting Protocol
+
+Stages that call the Semantic Scholar API (snowballing, co-citation analysis) must follow this protocol to avoid 429 errors and data loss.
+
+Include this block in agent prompts that use Semantic Scholar:
+
+```
+SEMANTIC SCHOLAR RATE LIMITING:
+1. Add a 3-second delay between consecutive API requests (time.sleep(3) or equivalent pacing)
+2. If you receive a 429 (Too Many Requests) response:
+   a. Wait 10 seconds before retrying
+   b. On second 429 for the same request, wait 30 seconds
+   c. On third 429, skip this paper and log the failure
+3. If you receive a 5xx server error, retry once after 5 seconds, then skip
+4. Track and report: total requests made, successful, rate-limited, failed
+5. If more than 30% of requests are rate-limited, increase base delay to 5 seconds for remaining requests
+6. Log every skipped paper to research/log.md so it can be retried manually
+
+API base URL: https://api.semanticscholar.org/graph/v1/
+Recommendations: https://api.semanticscholar.org/recommendations/v1/
+No API key required, but rate limits are strict without one.
+```

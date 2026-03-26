@@ -21,75 +21,12 @@ If the shared directory does not exist, skip this check silently.
 
 Spawn **4-5 research agents in parallel**. Each agent must be told to invoke the relevant skills for the detected domain. Each writes to a separate file.
 
-**IMPORTANT — Tool Fallback Chains**: Research agents must try multiple tools. If one fails, try the next. Include this fallback instruction in EVERY research agent prompt:
+**IMPORTANT — Shared Protocol Blocks**: The orchestrator reads `pipeline/shared-protocols.md` at startup. Include the following blocks from that file in EVERY research agent prompt below:
+- **Tool Fallback Chain** (includes Research Log format)
+- **Provenance Logging Protocol** (abbreviated form for research agents — action: "research")
+- **Source Extract Format**
 
-```
-TOOL FALLBACK CHAIN — try in this order, skip failures:
-1. Domain-specific database skills (e.g., pubmed-database, arxiv-database)
-2. Perplexity search (mcp__perplexity__search or mcp__perplexity__reason)
-3. Web search (WebSearch tool)
-4. Firecrawl search (mcp__firecrawl__firecrawl_search)
-5. Web fetch of known database URLs (WebFetch tool)
-6. research-lookup skill as a general fallback
-
-If a tool returns an error or is unavailable, log it and move to the next.
-You MUST try at least 3 different tools. Do not stop at the first failure.
-If ALL tools fail for a query, note the gap and move on — other agents may cover it.
-
-RESEARCH LOG — After EACH tool call (success or failure), append an entry to research/log.md:
-```markdown
-### [TIMESTAMP] — [YOUR AGENT NAME]
-- **Tool**: [tool name, e.g., mcp__perplexity__search]
-- **Query**: [exact query string]
-- **Result**: [SUCCESS: N papers found / FAILURE: error message / EMPTY: no results]
-- **Key finds**: [1-2 sentence summary of what was found, or "N/A"]
-- **URLs/DOIs**: [list any URLs or DOIs discovered]
-```
-This log is critical for research provenance. Do not skip it.
-
-PROVENANCE — When your research findings directly inform a specific claim or argument direction, also append a provenance entry to research/provenance.jsonl with action "research", target "research/[your-output-file]", and reasoning explaining what this finding contributes to the paper's argument. Set stage to "1" and iteration to 0.
-
-SOURCE EXTRACTS — When you find a paper that you cite in your output:
-1. Create a file: research/sources/<bibtexkey>.md (e.g., research/sources/smith2024.md)
-2. Determine access level based on what you ACTUALLY accessed. Be STRICT — over-reporting FULL-TEXT causes the pipeline to skip source acquisition and degrades paper quality:
-   - **FULL-TEXT**: You read substantial body content of the actual paper (multiple sections, methods, results). This means: PDF in attachments/, a full open-access HTML article body (not just the landing page), or arXiv/bioRxiv full text where you read beyond the abstract.
-   - **ABSTRACT-ONLY**: You read the abstract and/or summaries but NOT the paper body. This includes: Perplexity summaries (even detailed ones), Semantic Scholar/OpenAlex metadata, database entries, web search snippets, paper landing pages, review articles summarizing this work. If you did not read the actual Methods/Results/Discussion sections written by the authors, this is ABSTRACT-ONLY.
-   - **METADATA-ONLY**: You only know title/authors/year/venue (CrossRef hit, citation in another paper, reference list entry)
-
-   ⚠ COMMON MISTAKE: Perplexity and web search results that describe a paper's findings are NOT full text — they are third-party summaries. Mark these ABSTRACT-ONLY even if the summary is detailed.
-3. Format:
-```markdown
-# <Paper Title>
-
-**Citation**: <authors>, <title>, <venue>, <year>
-**DOI/URL**: <doi or url>
-**BibTeX Key**: <key>
-**Access Level**: FULL-TEXT | ABSTRACT-ONLY | METADATA-ONLY
-**Accessed Via**: <tool name and method — e.g., "arXiv API full text", "Perplexity summary", "PDF in attachments/davis1997.pdf">
-
-## Content Snapshot
-
-> Paste here the ACTUAL content you accessed, verbatim or near-verbatim.
-> This section records what you really read — not what you think the paper says.
->
-> - If FULL-TEXT: key sections (abstract + most relevant passages to this paper's topic, 500-1500 words)
-> - If ABSTRACT-ONLY: the abstract as retrieved, plus any excerpts from Perplexity/web summaries
-> - If METADATA-ONLY: "No content accessed. Title, authors, and venue only."
-
-## Key Findings Used
-
-<bullet points of specific findings, data, or claims you referenced from this paper>
-<For each finding, note whether it came from the snapshot above or was inferred>
-
-## Provenance
-
-- **Found via**: <tool name, e.g., mcp__perplexity__search>
-- **Query**: <exact query string>
-- **Date**: <timestamp>
-- **URL**: <where the content was accessed>
-```
-This ensures every cited claim is traceable to a specific source document with a verifiable content snapshot.
-```
+Do NOT paraphrase these blocks — paste the actual text from shared-protocols.md into each agent prompt so agents get complete, consistent instructions.
 
 **Agent 1 — "Field Survey"** (model: claude-sonnet-4-6[1m])
 ```
@@ -212,7 +149,7 @@ RESEARCH LOG: After every search or tool call, append an entry to research/log.m
 
 If `depth` is `"deep"`, spawn 7 additional research agents IN PARALLEL alongside agents 1-4. Each gets the same TOOL FALLBACK, RESEARCH LOG, and SOURCE EXTRACTS instructions as agents 1-5.
 
-**Agent 6 — "Recent Frontiers (2024-2026)"**
+**Agent 6 — "Recent Frontiers (2024-2026)"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research scientist focused exclusively on the MOST RECENT work.
 TOPIC: [TOPIC]
@@ -230,7 +167,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 7 — "Negative Results & Failed Approaches"**
+**Agent 7 — "Negative Results & Failed Approaches"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research scientist studying what DIDN'T work.
 TOPIC: [TOPIC]
@@ -248,7 +185,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 8 — "Cross-Disciplinary Insights"**
+**Agent 8 — "Cross-Disciplinary Insights"** (model: claude-sonnet-4-6[1m])
 ```
 You are a cross-disciplinary researcher looking for insights from ADJACENT fields.
 TOPIC: [TOPIC]
@@ -266,7 +203,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 9 — "Datasets, Benchmarks & Reproducibility"**
+**Agent 9 — "Datasets, Benchmarks & Reproducibility"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research engineer focused on data and reproducibility.
 TOPIC: [TOPIC]
@@ -285,7 +222,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 10 — "Industry & Applied Work"**
+**Agent 10 — "Industry & Applied Work"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research analyst tracking industry and applied implementations.
 TOPIC: [TOPIC]
@@ -303,7 +240,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 11 — "Competing Hypotheses & Debates"**
+**Agent 11 — "Competing Hypotheses & Debates"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research scientist mapping the intellectual landscape of active debates.
 TOPIC: [TOPIC]
@@ -321,7 +258,7 @@ Full citation details. Do NOT fabricate references.
 RESEARCH LOG: [same as above]
 ```
 
-**Agent 12 — "Intellectual Lineage"**
+**Agent 12 — "Intellectual Lineage"** (model: claude-sonnet-4-6[1m])
 ```
 You are a research historian tracing the intellectual roots of this field.
 TOPIC: [TOPIC]
@@ -375,5 +312,7 @@ CRITICAL: Do NOT fabricate or guess references. If you cannot verify a paper, om
 After writing references.bib, count the entries and report the total.
 RESEARCH LOG: For every verification search, append an entry to research/log.md recording: the paper being verified, tool used, query, and result (VERIFIED/SUSPICIOUS/FABRICATED). Include the verification URL or DOI.
 ```
+
+**Partial resume**: After EACH research agent completes, update `.paper-state.json` to add the agent name to `stages.research.agents_completed` and remove it from `stages.research.agents_pending`. This enables resume if the session is interrupted mid-stage. Use the agent's short name: `"survey"`, `"methods"`, `"empirical"`, `"theory"`, `"gaps"`, and for deep mode: `"recent_frontiers"`, `"negative_results"`, `"cross_disciplinary"`, `"datasets_reproducibility"`, `"industry_applied"`, `"competing_hypotheses"`, `"intellectual_lineage"`. Also update `stages.research.notes` with a running count (e.g., `"3/5 agents done"`). On resume, the orchestrator will only spawn agents not in `agents_completed` (after verifying their output files exist and have content).
 
 **Checkpoint**: Count entries in `references.bib`. In standard mode, if fewer than 25 — or in deep mode, if fewer than 50 — report which research areas are underrepresented and spawn additional targeted research agents for those areas.

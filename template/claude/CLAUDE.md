@@ -22,7 +22,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 .paper.json       # Paper topic and configuration
 .claude/
   commands/       # Slash commands (30 commands)
-  pipeline/       # Stage-specific instructions for /write-paper (read on-demand per stage)
+  pipeline/       # Stage-specific instructions for /write-paper and /auto (read on-demand per stage/phase)
     shared-protocols.md   # Codex deliberation, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
     stage-1b-snowballing.md   # Citation snowballing (backward + forward)
@@ -39,6 +39,10 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-5-qa.md         # QA review loop
     stage-5-post-qa.md    # Post-QA audits, ref validation, risk radar
     stage-6-finalization.md  # Final polish, de-AI, provenance report
+    auto-phase-1-assessment.md    # /auto Phase 1: parallel assessment agents (A-E) + Codex
+    auto-phase-2-prioritization.md  # /auto Phase 2: read assessments, build action plan
+    auto-phase-3-execution.md     # /auto Phase 3: targeted research + revision agent
+    auto-phase-4-verification.md  # /auto Phase 4: verification, post-iteration, early stop
   skills/         # -> vendor/claude-scientific-skills (177 scientific skills)
 ```
 
@@ -162,6 +166,7 @@ For interactive, step-by-step work:
 - `/archive` — Bundle all research artifacts into a browsable `archive/` folder with README index (auto-runs at end of /write-paper)
 - `/prepare-submission` — Generate submission package (anonymized, cover letter, supplementary)
 - `/respond-to-reviewers` — Generate point-by-point response to peer reviewer comments with tracked changes
+- `/health` — Diagnose pipeline prerequisites and optional integrations (LaTeX, API keys, knowledge graph, Codex, Praxis)
 - `/clean` — Remove build artifacts and working directories
 
 ## Codex Bridge Integration

@@ -2,6 +2,8 @@
 
 An autonomous research paper writing toolkit for Claude Code. From a topic prompt, it produces a publication-ready, journal-quality LaTeX paper through multi-agent orchestration — running for 1-4 hours (standard) or 3-8 hours (deep mode).
 
+> **New here?** See [QUICKSTART.md](QUICKSTART.md) for the 3-minute setup.
+
 ---
 
 ## Table of Contents

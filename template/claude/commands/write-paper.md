@@ -34,6 +34,8 @@ You are an autonomous research paper writing system. You will produce a publicat
    Also initialize the provenance ledger. Create an empty file `research/provenance.jsonl` (or leave it if it already exists on resume). This is a machine-readable append-only log of every action taken during the pipeline. Every agent will append entries to this file.
 6. Create a task for each pipeline stage using TaskCreate.
 7. **Resume check**: Read `.paper-state.json` if it exists. It tracks completed stages and section word counts. Skip any stage marked `"done": true`. If no state file exists but `research/` has files or `main.tex` has content, infer progress and build the state file from what exists.
+   - **Partial Stage 1 resume**: If `stages.research` has `agents_completed` with entries but `done: false`, only spawn agents NOT already in the `agents_completed` list. Before trusting the list, verify each completed agent's output file exists in `research/` and has non-trivial content (>100 bytes). If a file is missing or empty, remove that agent from `agents_completed` and re-run it. Agents still in `agents_pending` (or not in either list) must be spawned. After all agents finish, proceed to the bibliography builder as normal.
+   - **Partial Stage 3 resume**: If `stages.writing.sections` has per-section tracking, skip any section marked `"done": true`. Resume from the first section where `done` is false. If a section has `done: false` but `current_substep` is set (e.g., `"expansion"`, `"evidence_check"`, `"micro_research"`), skip sub-steps that precede the recorded `current_substep` in the pipeline flow (write → expansion → spot_check → evidence_check → micro_research → patch). Verify that `main.tex` actually contains content for sections marked done — if a section is marked done but has no content in the LaTeX file, reset it to `done: false`.
    - **Special case — Source Acquisition pause**: If `source_acquisition` exists but `"done": false`, the pipeline was paused waiting for the user to provide PDFs. Check `attachments/` for any new PDF files (compare against `research/source_coverage.md` to identify new additions). If new PDFs found, ingest them (same as `/ingest-papers` logic), update source extracts, then mark `source_acquisition` as done and continue to Stage 2. If no new PDFs, re-present the acquisition list from `research/source_coverage.md` and ask the user again.
 
 ## Checkpoint Persistence
@@ -47,7 +49,7 @@ After completing EACH stage or section, update `.paper-state.json`:
   "started_at": "2026-03-21T14:00:00Z",
   "current_stage": "writing",
   "stages": {
-    "research":     { "done": true,  "completed_at": "...", "notes": "45 refs found" },
+    "research":     { "done": true,  "completed_at": "...", "agents_completed": ["survey", "methods", "empirical", "theory", "gaps"], "agents_pending": [], "notes": "45 refs found" },
     "snowballing":  { "done": false, "seeds": 0, "backward_found": 0, "forward_found": 0, "added_to_bib": 0 },
     "cocitation":   { "done": false, "references_analyzed": 0, "high_confidence_found": 0, "medium_confidence_found": 0, "auto_added": 0 },
     "outline":      { "done": true,  "completed_at": "..." },
@@ -58,10 +60,11 @@ After completing EACH stage or section, update `.paper-state.json`:
     "assumptions": { "done": true, "completed_at": "...", "file": "research/assumptions.md", "total": 12, "critical": 1, "risky": 3 },
     "writing": {
       "done": false,
+      "current_substep": "evidence_check",
       "sections": {
-        "introduction":  { "done": true,  "words": 1250 },
-        "related_work":  { "done": true,  "words": 2100 },
-        "methods":       { "done": false, "words": 0 }
+        "introduction":  { "done": true,  "words": 1250, "current_substep": null },
+        "related_work":  { "done": true,  "words": 2100, "current_substep": null },
+        "methods":       { "done": false, "words": 0, "current_substep": "expansion" }
       }
     },
     "figures":      { "done": false },

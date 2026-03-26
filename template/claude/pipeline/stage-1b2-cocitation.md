@@ -36,8 +36,7 @@ For each reference with a DOI:
    https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=citations.paperId,citations.title,citations.year,citations.citationCount
    Then count which cited papers appear across multiple of our references' citation lists.
 
-Handle 429 responses with a 5-second backoff and retry.
-Add 3-second delays between requests to stay within rate limits.
+SEMANTIC SCHOLAR RATE LIMITING: [include from shared-protocols.md]
 
 After collecting all recommendations:
 4. For each recommended paper, count how many of our existing references it was co-recommended with
@@ -119,6 +118,6 @@ RESEARCH LOG: Log every verification to research/log.md.
 
 #### Rate Limiting
 
-Semantic Scholar recommendations API: 100 requests/5 minutes without a key. With 20 references at 1 request each, well within limits. Deep mode with all references may need 3-second delays between requests — the agent handles 429 responses with 5-second backoff.
+Semantic Scholar recommendations API: 100 requests/5 minutes without a key. With 20 references at 1 request each, well within limits. Deep mode with all references may need pacing. The agent must follow the Semantic Scholar Rate Limiting Protocol from `pipeline/shared-protocols.md`.
 
 **Checkpoint**: Verify `research/cocitation_analysis.md` exists. Update `.paper-state.json`: mark `cocitation` as done with stats (references_analyzed, high_confidence_found, medium_confidence_found, auto_added).

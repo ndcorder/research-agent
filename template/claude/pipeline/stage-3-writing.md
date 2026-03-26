@@ -71,6 +71,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to read references.bib for citation keys
 - Instruction to read relevant research/ files for content
 - Instruction to read `research/assumptions.md` for methodological assumptions (if it exists)
+- If `.venue.json` exists: instruction to read it and follow the `writing_guide` field for venue-appropriate tone, structure, and conventions
 - If `abstract_strategy` is `"first"` in `.paper.json`: instruction to read `research/draft_abstract.md` and ensure the section delivers on the abstract's promises (see Abstract-First Strategy above)
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
@@ -192,7 +193,7 @@ Edit main.tex directly.
 
 After ALL post-section steps above (expansion, spot-check, [DEEP] Codex expansion), run an evidence check before moving to the next section. This catches under-supported claims while the section is fresh.
 
-**Step 1: Evidence Check** — Spawn a fast agent (model: `claude-haiku-4-5-20251001`) to cross-reference the just-written section against the evidence base:
+**Step 1: Evidence Check** — Spawn a fast agent (model: `claude-sonnet-4-6[1m]`) to cross-reference the just-written section against the evidence base:
 
 ```
 You are an evidence gap detector. Read the [SECTION] section that was just written in main.tex.
@@ -293,5 +294,7 @@ Write Abstract
 ```
 
 Record `evidence_gaps` (count from evidence check), `micro_research` (whether it triggered), and `new_refs` (count of references added by micro-research, if any).
+
+**Partial resume**: Update `.paper-state.json` after each section completes AND after each sub-step (expansion, spot_check, evidence_check, micro_research, patch). Set the section's `current_substep` field to track progress within a section. The sub-step order is: `"write"` → `"expansion"` → `"spot_check"` → `"evidence_check"` → `"micro_research"` → `"patch"`. On resume, if a section's `done` is false but `current_substep` is set, skip completed sub-steps and resume from the recorded sub-step. When a section fully completes, set `done: true` and `current_substep: null`. Also set `writing.current_substep` at the stage level to the currently active sub-step for quick status visibility.
 
 ---

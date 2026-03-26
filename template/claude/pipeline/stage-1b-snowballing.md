@@ -38,7 +38,7 @@ For each seed paper:
    - Highly cited (citationCount > 50) OR very recent (2024-2026)
 4. For each candidate, check if it's already in references.bib by title similarity and DOI match
 
-Handle 429 responses with a 5-second backoff and retry.
+SEMANTIC SCHOLAR RATE LIMITING: [include from shared-protocols.md]
 Maximum new papers to report: 15 (standard) / 30 (deep).
 
 Output: A deduplicated list of discovered papers with full metadata (authors, title, venue, year, DOI, citation count, which seed paper led to them).
@@ -64,7 +64,7 @@ For each seed paper:
 4. Prioritize papers with high citation counts (emerging influential work)
 5. For very old seminal papers with thousands of citations, cap at top 50 by citation count and filter by recency
 
-Handle 429 responses with a 5-second backoff and retry.
+SEMANTIC SCHOLAR RATE LIMITING: [include from shared-protocols.md]
 Maximum new papers to report: 15 (standard) / 30 (deep).
 
 Output: A deduplicated list of discovered papers with full metadata (authors, title, venue, year, DOI, citation count, which seed paper led to them).
@@ -104,7 +104,7 @@ Update `research/source_coverage.md` counts after new papers are added.
 
 #### Rate Limiting
 
-Semantic Scholar API allows 100 requests/5 minutes without a key. With 10 seeds x 2 directions = 20 requests, well within limits. Deep mode (20 seeds) may need brief pauses — the agents handle 429 responses with 5-second backoff.
+Semantic Scholar API allows 100 requests/5 minutes without a key. With 10 seeds x 2 directions = 20 requests, well within limits. Deep mode (20 seeds) may need brief pauses. Both agents must follow the Semantic Scholar Rate Limiting Protocol from `pipeline/shared-protocols.md`.
 
 **Checkpoint**: Verify `research/snowball_backward.md` and `research/snowball_forward.md` exist. Log snowballing stats in `.paper-state.json`.
 
