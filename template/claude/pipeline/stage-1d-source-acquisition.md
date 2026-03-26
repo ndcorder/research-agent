@@ -48,15 +48,46 @@ This stage audits what the research agents actually accessed vs. what they cited
 
 #### Phase 2: Automated OA Resolution
 
-For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-access copy. Try in order:
+For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-access copy. Try each API in order — **stop on first successful PDF download** (don't call remaining APIs for that paper). Always collect abstracts from APIs that return them, even if full text isn't found.
 
-1. **Semantic Scholar** — check `openAccessPdf` field:
-   ```
-   WebFetch: https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,title
-   ```
-   If `openAccessPdf.url` is present, fetch it and update the source extract to FULL-TEXT.
+**Configuration**: Check `.paper.json` for an `oa_resolution` object to see which APIs are enabled (all default to `true`). Check for `email` field or `UNPAYWALL_EMAIL` env var (needed for Unpaywall). Check for `CORE_API_KEY` env var (needed for CORE). Check for `NCBI_API_KEY` env var (optional, increases PubMed rate limit).
 
-2. **Web search for PDF** — the "Bing filetype:pdf trick", automated:
+1. **Unpaywall** (skip if no email configured):
+   ```
+   WebFetch: https://api.unpaywall.org/v2/<doi>?email=<user_email>
+   ```
+   Check `best_oa_location.url_for_pdf` (prefer) or `best_oa_location.url_for_landing_page`. Unpaywall covers ~30M OA articles and is the most comprehensive single source for legal OA copies. Rate limit: 100K/day (no concern).
+
+2. **OpenAlex** (no key needed):
+   ```
+   WebFetch: https://api.openalex.org/works/doi:<doi>?select=id,open_access,best_oa_url,abstract_inverted_index&mailto=<user_email>
+   ```
+   Check `open_access.oa_url` for PDF. Also extract `abstract_inverted_index` — OpenAlex stores abstracts in inverted index format; reconstruct by sorting tokens by position values. Save the abstract to the source extract even if no PDF is found. Adding `mailto` raises rate limit from 10/s to 100/s.
+
+3. **Semantic Scholar** (existing):
+   ```
+   WebFetch: https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,title,abstract
+   ```
+   Check `openAccessPdf.url`. Also save `abstract` to the source extract if available. Rate limit: 100/5min (already handled).
+
+4. **CORE** (skip if `CORE_API_KEY` env var not set):
+   ```
+   WebFetch: https://api.core.ac.uk/v3/search/works?q=title:"<exact title>"&limit=3
+   Header: Authorization: Bearer <CORE_API_KEY>
+   ```
+   Check `downloadUrl` field in results. CORE covers 200M+ works from institutional repositories. Rate limit: 10/s with key — add 100ms delay between requests.
+
+5. **PubMed Central** (only if detected domain is Biomedical/Clinical — check `.paper.json` topic keywords; or if `oa_resolution.pubmed_central` is explicitly `true`):
+   ```
+   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pmc&term=<title>&retmode=json
+   ```
+   If PMC ID found, full XML is at:
+   ```
+   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=<pmcid>&rettype=xml
+   ```
+   Extract text content from the XML. Rate limit: 3/s without key, 10/s with `NCBI_API_KEY` — add 350ms delay between requests.
+
+6. **Web search for PDF** (existing):
    ```
    mcp__firecrawl__firecrawl_search({
      query: "\"<exact paper title>\" <first author last name> filetype:pdf",
@@ -65,7 +96,7 @@ For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-ac
    ```
    If results include a direct PDF URL (ending in `.pdf` or from known preprint servers like arxiv.org, biorxiv.org, ssrn.com, repec.org), attempt to fetch and snapshot the content.
 
-3. **Academic repository search**:
+7. **Academic repository search** (existing):
    ```
    mcp__firecrawl__firecrawl_search({
      query: "\"<exact paper title>\" site:researchgate.net OR site:academia.edu OR site:ssrn.com",
@@ -74,17 +105,19 @@ For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-ac
    ```
    If found on these sites, note the URL — it may require a free account to download, which goes on the user's acquisition list.
 
-4. **For each successfully resolved paper**:
+**Abstract extraction fallback**: Even when no full text is found, several APIs above return abstracts (OpenAlex, Semantic Scholar, PubMed). If a paper remains ABSTRACT-ONLY after all resolution steps, ensure the source extract has the actual abstract text from whichever API returned it. This improves evidence quality even without full text.
+
+8. **For each successfully resolved paper** (steps 1-6 that return a PDF URL):
    - **Download the PDF** to `attachments/` so there is a persistent local copy:
      ```bash
      curl -L -o "attachments/<bibtexkey>.pdf" "<pdf_url>"
      ```
-     Verify the download succeeded (file exists and is > 10KB). If the URL returns HTML instead of a PDF (common with login walls), treat it as a failed download and move to step 5.
+     Verify the download succeeded: file exists, > 10KB, and starts with `%PDF` magic bytes. If the URL returns HTML instead of a PDF (common with login walls), treat it as a failed download and move to step 9.
    - **Read the downloaded PDF** using the Read tool (pages 1-5 + last 3-5 pages) to extract actual paper content
    - Update or create `research/sources/<key>.md` with Access Level: FULL-TEXT, Accessed Via: "Downloaded PDF from <url>", and a content snapshot from the PDF
-   - Log the resolution in `research/log.md` including the download path
+   - Log the resolution in `research/log.md` including the download path and which API resolved it
 
-5. **For each paper where a URL was found but content couldn't be fetched** (login wall, expired link, CAPTCHA, HTML instead of PDF):
+9. **For each paper where a URL was found but content couldn't be fetched** (login wall, expired link, CAPTCHA, HTML instead of PDF):
    - Note the URL in the acquisition list with a hint: "Found on Academia.edu — free account required"
    - Do NOT mark the source as FULL-TEXT — it remains ABSTRACT-ONLY until the PDF is actually read
 
@@ -128,7 +161,21 @@ Or say "skip" to proceed with abstract-level sources (I'll flag thin evidence in
 
 #### Phase 4: Update Coverage Report
 
-After acquisition is complete (or skipped), update `research/source_coverage.md` with final counts. This file persists as a permanent record of what the pipeline had access to.
+After acquisition is complete (or skipped), update `research/source_coverage.md` with final counts and a resolution sources table showing which API resolved each paper. This file persists as a permanent record of what the pipeline had access to.
+
+Include a **Resolution Sources** section in the coverage report:
+```markdown
+## Resolution Sources
+| API | Papers Resolved | Papers Attempted |
+|-|-|-|
+| Unpaywall | 8 | 25 |
+| OpenAlex | 3 | 17 |
+| Semantic Scholar | 2 | 14 |
+| CORE | 1 | 12 |
+| PubMed Central | 4 | 4 |
+| Web search | 2 | 8 |
+| Manual (user) | 3 | 3 |
+```
 
 **Checkpoint**: Verify `research/source_coverage.md` exists. Update `.paper-state.json`:
 ```json

@@ -70,6 +70,8 @@ Everything produced is traced. Every paragraph in the final paper links back to 
 **Optional:**
 - `codex-bridge` (`npm i -g codex-bridge`) — adversarial AI review from OpenAI Codex throughout the pipeline
 - `OPENROUTER_API_KEY` — required to build and query the knowledge graph (LightRAG via Gemini Flash and Qwen3 8B)
+- `CORE_API_KEY` — free API key from [CORE](https://core.ac.uk/services/api) (200M+ institutional repository papers). Register at core.ac.uk for a free key.
+- `NCBI_API_KEY` — free API key from [NCBI](https://ncbiinsights.ncbi.nlm.nih.gov/2017/11/02/new-api-keys-for-the-e-utilities/). Increases PubMed Central rate limit from 3/s to 10/s. Only useful for biomedical/clinical papers.
 - Praxis scientific analysis toolkit — auto-cloned as a submodule by `create-paper`
 
 ### Installation
@@ -919,6 +921,16 @@ Created by `create-paper`, read by the pipeline and most commands.
   "depth": "standard",
   "model": "claude-opus-4-6",
   "max_revisions": 3,
+  "email": "user@example.com",
+  "oa_resolution": {
+    "unpaywall": true,
+    "openalex": true,
+    "semantic_scholar": true,
+    "core": true,
+    "pubmed_central": "auto",
+    "web_search": true,
+    "repository_search": true
+  },
   "authors": [
     {
       "name": "First Author",
@@ -942,12 +954,37 @@ Created by `create-paper`, read by the pipeline and most commands.
 | `depth` | `"standard"` (5 agents, 30-50 refs, 1-4 hrs) or `"deep"` (12 agents, 60-80 refs, 3-8 hrs) |
 | `model` | Base model (1M context variants are added automatically per tier) |
 | `max_revisions` | Maximum QA iterations (overridden by depth: 5 for standard, 8 for deep) |
+| `email` | Email for Unpaywall API auth and OpenAlex rate-limit boost. Also read from `UNPAYWALL_EMAIL` env var. |
+| `oa_resolution` | Per-API toggles for the OA resolution chain (see below). All default to `true`. |
 | `authors` | Author list for cover letter and author block |
 | `keywords` | Keywords for submission metadata |
 | `funding` | Funding acknowledgment text |
 | `conflicts` | Conflicts of interest declaration |
 | `data_availability` | Data availability statement for submission |
 | `code_availability` | Code availability statement and URL |
+
+#### `oa_resolution` sub-object
+
+Controls which APIs are tried during source acquisition (Stage 1d), `/audit-sources`, and `/validate-references`. The pipeline tries each enabled API in order and stops on the first successful PDF download.
+
+| Key | Default | Description |
+|-|-|-|
+| `unpaywall` | `true` | [Unpaywall](https://unpaywall.org) — ~30M OA articles. Requires `email` field or `UNPAYWALL_EMAIL` env var. |
+| `openalex` | `true` | [OpenAlex](https://openalex.org) — 250M+ works, no key needed. Also extracts abstracts. |
+| `semantic_scholar` | `true` | [Semantic Scholar](https://www.semanticscholar.org) — checks `openAccessPdf` field. |
+| `core` | `true` | [CORE](https://core.ac.uk) — 200M+ institutional repository papers. Requires `CORE_API_KEY` env var (free). |
+| `pubmed_central` | `"auto"` | [PubMed Central](https://www.ncbi.nlm.nih.gov/pmc/) — biomedical full text. `"auto"` enables only for biomedical/clinical domains. Set `true` to force on, `false` to disable. Optional: `NCBI_API_KEY` env var increases rate limit. |
+| `web_search` | `true` | Firecrawl search for PDFs (filetype:pdf). |
+| `repository_search` | `true` | Search ResearchGate, Academia.edu, SSRN. |
+
+#### Environment variables
+
+| Variable | Required | Description |
+|-|-|-|
+| `UNPAYWALL_EMAIL` | For Unpaywall | Alternative to `email` in `.paper.json`. Any valid email address. |
+| `CORE_API_KEY` | For CORE | Free API key from [core.ac.uk/services/api](https://core.ac.uk/services/api). CORE is skipped if not set. |
+| `NCBI_API_KEY` | No | Free key from NCBI. Increases PubMed rate limit from 3/s to 10/s. |
+| `OPENROUTER_API_KEY` | For knowledge graph | Required for LightRAG knowledge graph. Graph is skipped if not set. |
 
 ### `.venue.json`
 

@@ -78,6 +78,31 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
 
+### Configuration: `.paper.json`
+
+Required fields: `topic`, `depth` (`"standard"` or `"deep"`).
+
+Optional fields for enhanced OA resolution:
+```json
+{
+  "email": "user@example.com",
+  "oa_resolution": {
+    "unpaywall": true,
+    "openalex": true,
+    "semantic_scholar": true,
+    "core": true,
+    "pubmed_central": "auto",
+    "web_search": true,
+    "repository_search": true
+  }
+}
+```
+
+- `email`: Used by Unpaywall (required for that API) and OpenAlex (increases rate limit). Also read from `UNPAYWALL_EMAIL` env var.
+- `oa_resolution`: Per-API toggles. All default to `true`. `pubmed_central` defaults to `"auto"` (enabled only for biomedical/clinical domains based on topic keywords).
+- `CORE_API_KEY` env var: Required for CORE API (free registration at core.ac.uk). Skipped if not set.
+- `NCBI_API_KEY` env var: Optional. Increases PubMed rate limit from 3/s to 10/s.
+
 **Architecture**: The `/write-paper` command is a compact orchestrator that reads stage-specific instructions from `pipeline/*.md` files on-demand. Each stage file is read fresh from disk before execution, preventing context compression from degrading late-stage instructions in long-running sessions. Shared protocols (Codex deliberation, provenance logging, tool fallback) live in `pipeline/shared-protocols.md`.
 
 After the pipeline completes, use `/auto [N]` to run additional improvement iterations. Each iteration autonomously assesses the paper, prioritizes changes (including cuts), executes improvements, and verifies no regressions. The provenance ledger (`research/provenance.jsonl`) traces every word back to its origin across both the initial pipeline and all improvement iterations.

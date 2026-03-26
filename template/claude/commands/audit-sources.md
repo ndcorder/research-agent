@@ -24,40 +24,72 @@ This is the standalone version of Stage 1d from `/write-paper`. Use it on existi
 
 ### Phase 2: Automated OA Resolution
 
-For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a free full-text copy:
+For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a free full-text copy. Try each API in order — **stop on first successful PDF download** for that paper. Always collect abstracts from APIs that return them, even if full text isn't found.
 
-1. **If DOI present**, check Semantic Scholar for `openAccessPdf`:
+**Configuration**: Check `.paper.json` for an `oa_resolution` object to see which APIs are enabled (all default to `true`). Check for `email` field or `UNPAYWALL_EMAIL` env var (needed for Unpaywall). Check for `CORE_API_KEY` env var (needed for CORE). Check for `NCBI_API_KEY` env var (optional, increases PubMed rate limit).
+
+1. **Unpaywall** (skip if no email configured; skip if DOI not present):
+   ```
+   WebFetch: https://api.unpaywall.org/v2/<doi>?email=<user_email>
+   ```
+   Check `best_oa_location.url_for_pdf` (prefer) or `best_oa_location.url_for_landing_page`. Rate limit: 100K/day (no concern).
+
+2. **OpenAlex** (no key needed; skip if DOI not present):
+   ```
+   WebFetch: https://api.openalex.org/works/doi:<doi>?select=id,open_access,best_oa_url,abstract_inverted_index&mailto=<user_email>
+   ```
+   Check `open_access.oa_url`. Also extract `abstract_inverted_index` — reconstruct by sorting tokens by position values. Save the abstract even if no PDF found. Adding `mailto` raises rate limit from 10/s to 100/s.
+
+3. **Semantic Scholar** (existing):
    ```
    WebFetch: https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,title,abstract
    ```
-   If `openAccessPdf.url` exists, **download the PDF** (see step 4 below).
+   Check `openAccessPdf.url`. Save `abstract` to source extract if available. Rate limit: 100/5min.
 
-2. **Web search for PDF**:
+4. **CORE** (skip if `CORE_API_KEY` env var not set):
+   ```
+   WebFetch: https://api.core.ac.uk/v3/search/works?q=title:"<exact title>"&limit=3
+   Header: Authorization: Bearer <CORE_API_KEY>
+   ```
+   Check `downloadUrl` field. Rate limit: 10/s with key — add 100ms delay between requests.
+
+5. **PubMed Central** (only if detected domain is Biomedical/Clinical — check `.paper.json` topic keywords; or if `oa_resolution.pubmed_central` is explicitly `true`):
+   ```
+   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pmc&term=<title>&retmode=json
+   ```
+   If PMC ID found, full XML at:
+   ```
+   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=<pmcid>&rettype=xml
+   ```
+   Rate limit: 3/s without key, 10/s with `NCBI_API_KEY` — add 350ms delay between requests.
+
+6. **Web search for PDF** (existing):
    ```
    Use Firecrawl search: "<exact title>" <first author> filetype:pdf
    ```
    Check results for direct PDF links (arxiv.org, biorxiv.org, ssrn.com, .pdf URLs).
-   If found, **download the PDF** (see step 4 below).
 
-3. **Academic repository search**:
+7. **Academic repository search** (existing):
    ```
    Use Firecrawl search: "<exact title>" site:researchgate.net OR site:academia.edu OR site:ssrn.com
    ```
    Note any URLs found — even if behind a login wall, record them for the user.
 
-3b. **Download found PDFs** — For each open-access PDF URL found in steps 1-2:
+**Abstract extraction fallback**: If a paper remains ABSTRACT-ONLY after all steps, ensure the source extract has the actual abstract text from whichever API returned it (OpenAlex, Semantic Scholar, or PubMed).
+
+8. **Download found PDFs** — For each open-access PDF URL found in steps 1-6:
    ```bash
    curl -L -o "attachments/<bibtexkey>.pdf" "<pdf_url>"
    ```
-   Verify the download succeeded (file exists and is > 10KB). If the file is too small or is HTML instead of a PDF, treat it as a failed resolution and note the URL for the user instead.
+   Verify the download succeeded: file exists, > 10KB, and starts with `%PDF` magic bytes. If the file is too small or is HTML instead of a PDF, treat it as a failed resolution and note the URL for the user instead.
    Then read the downloaded PDF (pages 1-5 + last 3-5 pages) and update the source extract with actual paper content.
 
-4. **Log every resolution attempt** in `research/log.md`:
+9. **Log every resolution attempt** in `research/log.md`, including which API resolved each paper:
    ```markdown
    ### [TIMESTAMP] — Source Audit OA Resolution
    - **Paper**: [key] — "[title]"
-   - **Tool**: [tool used]
-   - **Query**: [query]
+   - **API**: [Unpaywall / OpenAlex / Semantic Scholar / CORE / PMC / Web search / Repository search]
+   - **Query**: [query or URL]
    - **Result**: [RESOLVED: found PDF at URL / NOT FOUND / FOUND BUT INACCESSIBLE: URL behind login]
    ```
 
@@ -91,6 +123,17 @@ Generated: [timestamp]
 | Key | Title | Notes |
 |-|-|-|
 | ... | ... | ... |
+
+## Resolution Sources
+| API | Papers Resolved | Papers Attempted |
+|-|-|-|
+| Unpaywall | ... | ... |
+| OpenAlex | ... | ... |
+| Semantic Scholar | ... | ... |
+| CORE | ... | ... |
+| PubMed Central | ... | ... |
+| Web search | ... | ... |
+| Manual (user) | ... | ... |
 ```
 
 ### Phase 4: Offer Acquisition

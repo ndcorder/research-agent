@@ -25,12 +25,19 @@ This is a CRITICAL quality gate. Fabricated references are the single biggest ri
    - Volume, number, pages filled in (for journal articles)
    - DOI present (add if found during verification)
 
-5. **For VERIFIED entries, attempt OA resolution** (if no source extract with FULL-TEXT exists):
-   - **If DOI present**: check Semantic Scholar `openAccessPdf` field via `https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,abstract`
-   - **If open-access PDF found**: fetch it with WebFetch, create or update `research/sources/<key>.md` with `Access Level: FULL-TEXT` and a content snapshot of key sections
-   - **If no OA PDF but abstract available**: create or update `research/sources/<key>.md` with `Access Level: ABSTRACT-ONLY` and the abstract as the content snapshot
-   - **If abstract available from Semantic Scholar response**: always save it to the source extract even if full text isn't available
-   - Use the source extract format from `/write-paper` Stage 1 SOURCE EXTRACTS instructions (Access Level, Content Snapshot, Key Findings Used, Provenance sections).
+5. **For VERIFIED entries, attempt OA resolution** (if no source extract with FULL-TEXT exists). Try each API in order — stop on first successful PDF download. Check `.paper.json` for `email` field or `UNPAYWALL_EMAIL` env var, `CORE_API_KEY`, and `NCBI_API_KEY`.
+
+   a. **Unpaywall** (skip if no email or no DOI): `https://api.unpaywall.org/v2/<doi>?email=<email>` — check `best_oa_location.url_for_pdf`
+   b. **OpenAlex** (skip if no DOI): `https://api.openalex.org/works/doi:<doi>?select=id,open_access,best_oa_url,abstract_inverted_index&mailto=<email>` — check `open_access.oa_url`; reconstruct abstract from `abstract_inverted_index`
+   c. **Semantic Scholar**: `https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,abstract` — check `openAccessPdf.url`; save `abstract`
+   d. **CORE** (skip if `CORE_API_KEY` not set): `https://api.core.ac.uk/v3/search/works?q=title:"<title>"&limit=3` with `Authorization: Bearer <key>` — check `downloadUrl`
+   e. **PubMed Central** (only for biomedical/clinical domains): `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pmc&term=<title>&retmode=json` — if PMC ID found, fetch full XML
+
+   For each resolution:
+   - **If open-access PDF found**: download to `attachments/`, verify (> 10KB, `%PDF` magic bytes), read pages 1-5 + last 3-5 pages, create or update `research/sources/<key>.md` with `Access Level: FULL-TEXT` and a content snapshot
+   - **If no OA PDF but abstract available** (from OpenAlex, Semantic Scholar, or PubMed): create or update `research/sources/<key>.md` with `Access Level: ABSTRACT-ONLY` and the abstract as the content snapshot
+   - Always save abstracts to source extracts even if full text isn't available
+   - Use the source extract format from `/write-paper` Stage 1 SOURCE EXTRACTS instructions (Access Level, Content Snapshot, Key Findings Used, Provenance sections)
    - This step is best-effort — don't let OA failures block the validation. Log attempts in `research/log.md`.
 
 6. **Fix directly**:
