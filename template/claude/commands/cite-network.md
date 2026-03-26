@@ -30,6 +30,25 @@ Analyze citation patterns and identify coverage gaps in the bibliography.
 - References in .bib never cited in text (candidates for removal)
 - Citation keys in text not found in .bib (broken references)
 
+### Co-Citation Analysis
+Use the Semantic Scholar recommendations API to find papers frequently co-cited with your existing references but missing from the bibliography.
+
+For each reference in `references.bib` that has a DOI (up to the top 20 by citation count):
+1. Fetch recommendations: `https://api.semanticscholar.org/recommendations/v1/papers/forpaper/DOI:<doi>?fields=title,authors,year,externalIds,citationCount&limit=10`
+2. If no DOI, search by title first: `https://api.semanticscholar.org/graph/v1/paper/search?query=<title>&limit=1`, then use the paperId for recommendations
+3. If the recommendations API fails, fall back to the citations endpoint and count co-citation overlap manually
+
+For each recommended paper:
+- Count how many existing references it was co-recommended with
+- Filter out papers already in `references.bib` (match by DOI or title similarity)
+- Score: (co-citation link count) × log(citationCount + 1)
+
+Report results in two tiers:
+- **High-confidence missing refs** (co-cited with 3+ of your references): strong candidates for addition
+- **Medium-confidence suggestions** (co-cited with 2 of your references): worth evaluating
+
+Add 3-second delays between API requests. Handle 429 responses with 5-second backoff.
+
 4. **Generate visualizations** if Python with matplotlib is available:
    - Run `python3 -c "import matplotlib"` to check availability
    - If available: save citation timeline and section heatmap to `figures/`

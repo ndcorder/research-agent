@@ -49,6 +49,7 @@ After completing EACH stage or section, update `.paper-state.json`:
   "stages": {
     "research":     { "done": true,  "completed_at": "...", "notes": "45 refs found" },
     "snowballing":  { "done": false, "seeds": 0, "backward_found": 0, "forward_found": 0, "added_to_bib": 0 },
+    "cocitation":   { "done": false, "references_analyzed": 0, "high_confidence_found": 0, "medium_confidence_found": 0, "auto_added": 0 },
     "outline":      { "done": true,  "completed_at": "..." },
     "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "source_acquisition": { "done": false, "full_text": 0, "abstract_only": 0, "metadata_only": 0 },
@@ -123,19 +124,20 @@ For each stage in order:
 |-|-|-|-|
 | 1 | Deep Literature Research | `pipeline/stage-1-research.md` | `stages.research.done` |
 | 2 | Citation Snowballing | `pipeline/stage-1b-snowballing.md` | `stages.snowballing.done` |
-| 3 | Codex Cross-Check | `pipeline/stage-1c-codex-crosscheck.md` | `stages.codex_cross_check.done` |
-| 4 | Source Acquisition | `pipeline/stage-1d-source-acquisition.md` | `stages.source_acquisition.done` |
-| 5 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
-| 6 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
-| 7 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
-| 8 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
-| 9 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
-| 10 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
-| 11 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
-| 12 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
-| 13 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
+| 3 | Co-Citation Analysis | `pipeline/stage-1b2-cocitation.md` | `stages.cocitation.done` |
+| 4 | Codex Cross-Check | `pipeline/stage-1c-codex-crosscheck.md` | `stages.codex_cross_check.done` |
+| 5 | Source Acquisition | `pipeline/stage-1d-source-acquisition.md` | `stages.source_acquisition.done` |
+| 6 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
+| 7 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
+| 8 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
+| 9 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
+| 10 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
+| 11 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
+| 12 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
+| 13 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
+| 14 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
 
-**Important**: The QA Loop (Stage 11) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 12). The quality criteria table below defines the gate for exiting the QA loop.
+**Important**: The QA Loop (Stage 12) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 13). The quality criteria table below defines the gate for exiting the QA loop.
 
 ---
 

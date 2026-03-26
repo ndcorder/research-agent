@@ -25,6 +25,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     shared-protocols.md   # Codex deliberation, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
     stage-1b-snowballing.md   # Citation snowballing (backward + forward)
+    stage-1b2-cocitation.md   # Co-citation & bibliometric analysis
     stage-1c-codex-crosscheck.md  # Codex research cross-check
     stage-1d-source-acquisition.md  # Source audit, OA resolution, acquisition
     stage-2-planning.md   # Thesis, outline, claims-evidence matrix
@@ -72,7 +73,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 
 The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
-1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find
+1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find, then co-citation analysis identifies important papers frequently cited alongside your references but missing from the bibliography
 2. **Source Acquisition** — Audit source access levels, attempt OA resolution, pause for user to provide paywalled PDFs if needed
 3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
 4. **Writing** — Sequential agents write each section (1000-2500 words each)
