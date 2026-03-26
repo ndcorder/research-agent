@@ -49,17 +49,21 @@ You are a domain expert assessing the depth and evidence quality of a research p
 Read main.tex, references.bib, and research/claims_matrix.md completely.
 ITERATION: [N] (this paper has already been through the main pipeline + [N-1] improvement iterations)
 
-Assess:
-1. Which arguments are THIN — stated but not well-supported? Rank by impact on the paper's overall strength.
-2. Which claims need STRONGER evidence — additional citations, deeper analysis, more precise data?
-3. Are there logical leaps — places where the argument jumps from A to C without establishing B?
-4. What would a skeptical expert in this field push back on hardest?
-5. Which paragraphs are REDUNDANT or DILUTING stronger surrounding content? Explicitly recommend cuts.
-6. Are there paragraphs that restate what's already been said without adding new insight?
+The claims matrix includes evidence density scores and strength labels (STRONG >= 6, MODERATE 3-5.9, WEAK 1-2.9, CRITICAL < 1). Use these scores to focus your assessment.
 
-For each issue, specify: section, paragraph (approximate), severity (HIGH/MEDIUM/LOW), and suggested action (strengthen/cut/rewrite/merge).
+Assess:
+1. **WEAK and CRITICAL claims first** — these are the highest-priority targets. For each: is the language appropriately hedged? Could evidence be strengthened by finding additional sources or upgrading abstract-only sources to full-text?
+2. Which arguments are THIN — stated but not well-supported? Rank by impact on the paper's overall strength.
+3. Which claims need STRONGER evidence — additional citations, deeper analysis, more precise data?
+4. Are there logical leaps — places where the argument jumps from A to C without establishing B?
+5. What would a skeptical expert in this field push back on hardest?
+6. Which paragraphs are REDUNDANT or DILUTING stronger surrounding content? Explicitly recommend cuts.
+7. Are there paragraphs that restate what's already been said without adding new insight?
+
+For each issue, specify: section, paragraph (approximate), severity (HIGH/MEDIUM/LOW), evidence density score (if claim-related), and suggested action (strengthen/cut/rewrite/merge).
 
 IMPORTANT: Cutting weak content is as valuable as adding strong content. Recommend cuts explicitly.
+IMPORTANT: Strengthening a WEAK claim from 2.0 to 6.0 is higher priority than polishing prose in a section with all STRONG claims.
 
 Write assessment to reviews/auto_iter[N]_depth.md.
 ```
@@ -141,11 +145,11 @@ Write to `reviews/auto_iter[N]_codex.md`. Apply the Codex Deliberation Protocol.
 
 After all assessment agents complete, read ALL assessment files for this iteration. Build a **prioritized action list**:
 
-1. Read all `reviews/auto_iter[N]_*.md` files
+1. Read all `reviews/auto_iter[N]_*.md` files and `research/claims_matrix.md` (for evidence density scores)
 2. Collect all issues across reviewers, deduplicate similar findings
-3. Rank by impact: HIGH severity issues first, then MEDIUM
+3. Rank by impact, using evidence density scores as a tiebreaker: actions that strengthen WEAK/CRITICAL claims (moving them toward MODERATE/STRONG) outrank polish actions on sections with all STRONG claims
 4. Select the **top 5 actions** for this iteration. Mix of:
-   - Strengthening (rewrite, expand, add evidence)
+   - Strengthening (rewrite, expand, add evidence — prioritize WEAK/CRITICAL claims)
    - Cutting (remove redundant/weak content)
    - Structural (reorder, merge, split)
    - Polish (prose improvements, em dash removal)
@@ -244,8 +248,9 @@ Write verification report to reviews/auto_iter[N]_verify.md.
 
 #### Post-Iteration
 
-1. Count the changes made in this iteration (from the provenance ledger entries with `iteration: N`)
-2. Update `.paper-state.json`:
+1. **Recompute evidence density scores** — if any actions added new evidence, upgraded source access levels, or changed claims, recompute scores in `research/claims_matrix.md` using the scoring model from Stage 2 step 5 of `/write-paper`. This keeps the heatmap current for the next iteration's assessment.
+2. Count the changes made in this iteration (from the provenance ledger entries with `iteration: N`)
+3. Update `.paper-state.json`:
    ```json
    "auto_iterations": {
      "completed": N,
@@ -253,8 +258,8 @@ Write verification report to reviews/auto_iter[N]_verify.md.
      "history": [..., {"iteration": N, "started_at": "...", "completed_at": "...", "changes_made": X, "cuts_made": Y, "research_queries": Z, "summary": "..."}]
    }
    ```
-3. Update `.paper-progress.txt`: "Auto iteration [N]/[total] complete: [summary of changes]"
-4. **Early stop check**: if `changes_made < 3`, stop iterations and report:
+4. Update `.paper-progress.txt`: "Auto iteration [N]/[total] complete: [summary of changes]"
+5. **Early stop check**: if `changes_made < 3`, stop iterations and report:
    ```
    Stopping after iteration [N] — diminishing returns (only [X] meaningful changes found).
    The paper has stabilized. Remaining minor issues from the assessment are in reviews/auto_iter[N]_plan.md under "Deferred".

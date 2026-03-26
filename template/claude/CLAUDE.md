@@ -43,7 +43,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 7. **Cross-references**: Use `\label{}` and `\ref{}` consistently
 8. **No placeholder text**: Remove all `\lipsum`, TODO, TBD, FIXME before finalizing
 9. **No fabricated references**: Every BibTeX entry must be a real, verifiable publication
-10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`
+10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`. Each claim is scored for evidence density (base score by source access level + modifiers for citations, recency, relevance, domain) and labeled: STRONG (>= 6), MODERATE (3-5.9), WEAK (1-2.9), CRITICAL (< 1). Writing agents adjust confidence language by strength. No CRITICAL claims may survive to finalization. WEAK claims must use hedged language.
 11. **No em dashes**: Never use em dashes (—) or en dashes (–) as punctuation. Rewrite using commas, parentheses, colons, or separate sentences. Em dashes are the single most recognizable AI writing pattern.
 12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in write-paper.md.
 
@@ -51,7 +51,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 
 The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
-1. **Deep Research** — Parallel agents search literature across all available sources
+1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find
 2. **Source Acquisition** — Audit source access levels, attempt OA resolution, pause for user to provide paywalled PDFs if needed
 3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification
 4. **Writing** — Sequential agents write each section (1000-2500 words each)
@@ -170,7 +170,7 @@ The `/audit-sources` command can retroactively audit and upgrade source coverage
 
 Each paper can optionally have a knowledge graph built from its source extracts using LightRAG. The graph is stored in `research/knowledge/` (gitignored — rebuilds from sources).
 
-**Build**: `python scripts/knowledge.py build` — reads all `research/sources/*.md`, extracts entities and relationships using an LLM (Gemini Flash via OpenRouter), and builds a queryable graph with semantic embeddings (Qwen3 8B via OpenRouter).
+**Build**: `python scripts/knowledge.py build` — reads all `research/sources/*.md` AND extracts full text from PDFs in `attachments/`, then builds a queryable graph with entities and relationships using an LLM (Gemini Flash via OpenRouter) and semantic embeddings (Qwen3 8B via OpenRouter). PDFs are ingested alongside source extracts so the graph captures the complete content of acquired papers, not just the 500-1500 word snapshots.
 
 **Requires**: `OPENROUTER_API_KEY` environment variable. The knowledge graph is optional — the pipeline works without it.
 

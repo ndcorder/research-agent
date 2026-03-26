@@ -48,6 +48,7 @@ After completing EACH stage or section, update `.paper-state.json`:
   "current_stage": "writing",
   "stages": {
     "research":     { "done": true,  "completed_at": "...", "notes": "45 refs found" },
+    "snowballing":  { "done": false, "seeds": 0, "backward_found": 0, "forward_found": 0, "added_to_bib": 0 },
     "outline":      { "done": true,  "completed_at": "..." },
     "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "source_acquisition": { "done": false, "full_text": 0, "abstract_only": 0, "metadata_only": 0 },
@@ -84,7 +85,8 @@ Read `depth` from `.paper.json` (default: `"standard"`). This controls research 
 | Setting | standard | deep |
 |-|-|-|
 | Stage 1 research agents | 5 | 12 (7 additional specialized agents) |
-| Stage 1d acquisition list | top 5 by citation count | ALL abstract-only papers |
+| Stage 1b snowball seeds | 10 | 20 |
+| Stage 1d acquisition list | top 5 by evidence impact (or citation count if no matrix yet) | ALL abstract-only papers |
 | Reference target | 30-50 | 60-80 |
 | Stage 2c targeted research | skip | thesis-informed second pass (3-4 agents) |
 | Stage 3 per-section lit search | skip | research agent before each writing agent |
@@ -233,10 +235,12 @@ PROVENANCE — When your research findings directly inform a specific claim or a
 
 SOURCE EXTRACTS — When you find a paper that you cite in your output:
 1. Create a file: research/sources/<bibtexkey>.md (e.g., research/sources/smith2024.md)
-2. Determine access level based on what you ACTUALLY accessed:
-   - **FULL-TEXT**: You read the complete paper (PDF in attachments/, open-access HTML, arXiv/bioRxiv full text)
-   - **ABSTRACT-ONLY**: You read the abstract but not the full paper (API metadata, database entry, Perplexity summary)
-   - **METADATA-ONLY**: You only know title/authors/year/venue (CrossRef hit, citation in another paper)
+2. Determine access level based on what you ACTUALLY accessed. Be STRICT — over-reporting FULL-TEXT causes the pipeline to skip source acquisition and degrades paper quality:
+   - **FULL-TEXT**: You read substantial body content of the actual paper (multiple sections, methods, results). This means: PDF in attachments/, a full open-access HTML article body (not just the landing page), or arXiv/bioRxiv full text where you read beyond the abstract.
+   - **ABSTRACT-ONLY**: You read the abstract and/or summaries but NOT the paper body. This includes: Perplexity summaries (even detailed ones), Semantic Scholar/OpenAlex metadata, database entries, web search snippets, paper landing pages, review articles summarizing this work. If you did not read the actual Methods/Results/Discussion sections written by the authors, this is ABSTRACT-ONLY.
+   - **METADATA-ONLY**: You only know title/authors/year/venue (CrossRef hit, citation in another paper, reference list entry)
+
+   ⚠ COMMON MISTAKE: Perplexity and web search results that describe a paper's findings are NOT full text — they are third-party summaries. Mark these ABSTRACT-ONLY even if the summary is detailed.
 3. Format:
 ```markdown
 # <Paper Title>
@@ -560,6 +564,116 @@ RESEARCH LOG: For every verification search, append an entry to research/log.md 
 
 ---
 
+### Stage 1b: Citation Snowballing
+
+**Goal**: Discover papers that keyword search structurally cannot find by following the citation graph one level deep.
+
+This stage takes the top seed papers from `references.bib` and chases their citations (backward) and citing papers (forward) via the Semantic Scholar API.
+
+#### Seed Selection
+
+Select seed papers from `references.bib` by three criteria:
+1. **Most-cited in research files** — papers referenced across multiple research agent outputs (survey.md, methods.md, etc.)
+2. **Foundational papers** — oldest papers in the bibliography (likely seminal works)
+3. **Most recent papers** — 2024-2026 papers whose citation graphs contain the latest work
+
+Standard mode: 10 seed papers. Deep mode: 20 seed papers.
+
+#### Backward and Forward Snowballing Agents
+
+Spawn both agents in parallel.
+
+**Backward Snowballing Agent** (model: claude-sonnet-4-6[1m])
+```
+You are a citation analyst performing backward snowballing.
+TOPIC: [TOPIC]
+SEED PAPERS: [list of seed BibTeX keys with titles and DOIs from references.bib]
+
+For each seed paper:
+1. Fetch its reference list using Semantic Scholar API:
+   https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=references.title,references.authors,references.year,references.externalIds,references.citationCount
+2. If DOI not available, search by title:
+   https://api.semanticscholar.org/graph/v1/paper/search?query=<title>&fields=references.title,references.authors,references.year,references.externalIds,references.citationCount
+3. From each paper's reference list, identify references that are:
+   - Relevant to [TOPIC] (title/author match)
+   - NOT already in references.bib
+   - Highly cited (citationCount > 50) OR very recent (2024-2026)
+4. For each candidate, check if it's already in references.bib by title similarity and DOI match
+
+Handle 429 responses with a 5-second backoff and retry.
+Maximum new papers to report: 15 (standard) / 30 (deep).
+
+Output: A deduplicated list of discovered papers with full metadata (authors, title, venue, year, DOI, citation count, which seed paper led to them).
+Write to research/snowball_backward.md.
+Create source extracts in research/sources/ for each new paper found (access level: METADATA-ONLY unless abstract is available from the API response).
+RESEARCH LOG: Log every API call to research/log.md with timestamp, tool, query, result summary, and URLs/DOIs found.
+```
+
+**Forward Snowballing Agent** (model: claude-sonnet-4-6[1m])
+```
+You are a citation analyst performing forward snowballing.
+TOPIC: [TOPIC]
+SEED PAPERS: [list of seed BibTeX keys with titles and DOIs — focus on seminal/older papers]
+
+For each seed paper:
+1. Fetch papers that cite it using Semantic Scholar API:
+   https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=citations.title,citations.authors,citations.year,citations.externalIds,citations.citationCount
+2. If DOI not available, search by title first to get the Semantic Scholar paper ID, then fetch citations.
+3. From the citing papers, identify those that are:
+   - Relevant to [TOPIC]
+   - NOT already in references.bib
+   - Recent: 2023-2026 (standard) / 2020-2026 (deep)
+4. Prioritize papers with high citation counts (emerging influential work)
+5. For very old seminal papers with thousands of citations, cap at top 50 by citation count and filter by recency
+
+Handle 429 responses with a 5-second backoff and retry.
+Maximum new papers to report: 15 (standard) / 30 (deep).
+
+Output: A deduplicated list of discovered papers with full metadata (authors, title, venue, year, DOI, citation count, which seed paper led to them).
+Write to research/snowball_forward.md.
+Create source extracts in research/sources/ for each new paper found (access level: METADATA-ONLY unless abstract is available from the API response).
+RESEARCH LOG: Log every API call to research/log.md with timestamp, tool, query, result summary, and URLs/DOIs found.
+```
+
+#### Integration
+
+After both agents complete, spawn a **Snowball Bibliography Builder** (model: haiku):
+```
+You are a meticulous bibliographer processing snowballing results.
+Read research/snowball_backward.md and research/snowball_forward.md.
+Read the current references.bib.
+
+For each discovered paper:
+1. Verify it is not already in references.bib (check by DOI, title similarity, and author last names)
+2. Search to verify it is a real publication (use Perplexity, web search, or domain databases)
+3. Find complete metadata and generate a BibTeX entry
+4. Add verified entries to references.bib under a new % Snowballing section
+
+Report: total candidates from backward, total from forward, duplicates removed, new entries added.
+RESEARCH LOG: Log every verification to research/log.md.
+```
+
+Update `research/source_coverage.md` counts after new papers are added.
+
+#### Depth Mode Differences
+
+| Setting | Standard | Deep |
+|-|-|-|
+| Seed papers | 10 | 20 |
+| Max new papers per direction | 15 | 30 |
+| Citation depth | 1 level | 1 level |
+| Forward snowball time window | 2023-2026 | 2020-2026 |
+
+#### Rate Limiting
+
+Semantic Scholar API allows 100 requests/5 minutes without a key. With 10 seeds x 2 directions = 20 requests, well within limits. Deep mode (20 seeds) may need brief pauses — the agents handle 429 responses with 5-second backoff.
+
+**Checkpoint**: Verify `research/snowball_backward.md` and `research/snowball_forward.md` exist. Log snowballing stats in `.paper-state.json`.
+
+Update `.paper-state.json`: mark `snowballing` as done with stats.
+
+---
+
 ### Stage 1c: Codex Research Cross-Check
 
 **This is a standalone stage. Do NOT skip it. Do NOT merge it into another stage.**
@@ -659,19 +773,25 @@ For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a legal open-ac
    If found on these sites, note the URL — it may require a free account to download, which goes on the user's acquisition list.
 
 4. **For each successfully resolved paper**:
-   - Fetch the content (WebFetch on the PDF/HTML URL)
-   - Update or create `research/sources/<key>.md` with Access Level: FULL-TEXT and the content snapshot
-   - Log the resolution in `research/log.md`
+   - **Download the PDF** to `attachments/` so there is a persistent local copy:
+     ```bash
+     curl -L -o "attachments/<bibtexkey>.pdf" "<pdf_url>"
+     ```
+     Verify the download succeeded (file exists and is > 10KB). If the URL returns HTML instead of a PDF (common with login walls), treat it as a failed download and move to step 5.
+   - **Read the downloaded PDF** using the Read tool (pages 1-5 + last 3-5 pages) to extract actual paper content
+   - Update or create `research/sources/<key>.md` with Access Level: FULL-TEXT, Accessed Via: "Downloaded PDF from <url>", and a content snapshot from the PDF
+   - Log the resolution in `research/log.md` including the download path
 
-5. **For each paper where a URL was found but content couldn't be fetched** (login wall, expired link, CAPTCHA):
+5. **For each paper where a URL was found but content couldn't be fetched** (login wall, expired link, CAPTCHA, HTML instead of PDF):
    - Note the URL in the acquisition list with a hint: "Found on Academia.edu — free account required"
+   - Do NOT mark the source as FULL-TEXT — it remains ABSTRACT-ONLY until the PDF is actually read
 
-#### Phase 3: Human Acquisition (pause if needed)
+#### Phase 3: Human Acquisition (MANDATORY pause)
 
-After automated resolution, re-count access levels. If there are still ABSTRACT-ONLY or METADATA-ONLY papers:
+After automated resolution, re-count access levels. **This pause is MANDATORY if any sources remain ABSTRACT-ONLY or METADATA-ONLY.** Do NOT skip it, do NOT proceed to Stage 2 without it. The user must explicitly say "skip" or "continue" before the pipeline advances.
 
-1. **Prioritize the acquisition list** — sort by how many times each paper is cited in the research files (more citations = more important to have full text for). In standard mode, present only the **top 5** papers. In deep mode, present ALL abstract-only and metadata-only papers.
-2. **Use AskUserQuestion** to present the list and pause:
+1. **Prioritize the acquisition list** — If `research/claims_matrix.md` exists and has evidence density scores, sort by evidence impact: papers that support WEAK or CRITICAL claims get highest priority (upgrading a source from ABSTRACT-ONLY to FULL-TEXT has the most impact on under-supported claims). Otherwise (first pipeline run, no matrix yet), fall back to citation frequency in the research files. In standard mode, present only the **top 5** papers. In deep mode, present ALL abstract-only and metadata-only papers.
+2. **Use AskUserQuestion** to present the list and pause. This is a BLOCKING call — the pipeline STOPS here until the user responds:
 
 ```
 I've completed the literature research and found [N] references. Here's the source coverage:
@@ -702,7 +822,7 @@ Or say "skip" to proceed with abstract-level sources (I'll flag thin evidence in
    - If "continue" or similar: scan `attachments/` for new PDFs, run the ingestion logic (same as `/ingest-papers`), update source extracts to FULL-TEXT with content snapshots
    - If "skip" or similar: proceed, but mark all abstract-only sources with a warning flag in the claims-evidence matrix
 
-4. **If ALL sources already have full text** after Phase 2, skip the pause entirely — no need to bother the user.
+4. **If ALL sources already have full text** after Phase 2 (every single reference in `references.bib` has a corresponding `research/sources/<key>.md` with `Access Level: FULL-TEXT`), skip the pause. But this should be RARE — verify the count before skipping. If even ONE source is ABSTRACT-ONLY or METADATA-ONLY, you MUST pause.
 
 #### Phase 4: Update Coverage Report
 
@@ -736,6 +856,10 @@ This creates a queryable knowledge graph in `research/knowledge/` from all files
 **If `scripts/knowledge.py` does not exist or `OPENROUTER_API_KEY` is not set**, skip this step silently — the knowledge graph is optional. The pipeline works without it; agents fall back to reading research/ files directly.
 
 Update `.paper-state.json`: add `"knowledge_graph": { "done": true, "entities": N, "relationships": N }` to the stages object.
+
+#### Evidence Score Recomputation
+
+If `research/claims_matrix.md` exists (e.g., re-running Stage 1d on a paper that already has a claims matrix), recompute evidence density scores now. Source access levels may have changed (ABSTRACT-ONLY → FULL-TEXT), which affects claim scores. Use the scoring model from Stage 2 step 5 to update the Score and Strength columns. This ensures the acquisition list in Phase 3 reflects the latest evidence state.
 
 ---
 
@@ -772,12 +896,13 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - Flag any claims that lack evidence — these must be either supported or removed before writing begins
    - Format as a markdown table:
      ```
-     | # | Claim | Evidence Type | Evidence Source | Source Access | Section | Status |
-     |-|-|-|-|-|-|-|
-     | 1 | Our method improves X by Y% | Experiment | Table 2, benchmark Z | N/A (own data) | Results | Planned |
-     | 2 | Prior approaches fail because... | Citation | smith2024, jones2025 | smith2024: FULL-TEXT, jones2025: ABSTRACT-ONLY ⚠ | Related Work | Supported |
+     | # | Claim | Evidence Type | Evidence Sources | Score | Strength | Section | Status |
+     |-|-|-|-|-|-|-|-|
+     | 1 | Our method improves X by Y% | Experiment | Own experiments (N/A, direct) = 3 | 3.0 | WEAK | Results | Planned |
+     | 2 | Prior approaches fail because... | Citation | smith2024 (FULL-TEXT, direct) = 4, jones2025 (ABSTRACT-ONLY, tangential) = 1 | 5.0 | MODERATE | Related Work | Supported |
      ```
-   - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA
+     Each evidence source entry uses compact notation: `key (access_level, relevance) = N pts`
+   - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA, and no CRITICAL-strength claims may survive to finalization
    - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
    - **If the knowledge graph is available** (`research/knowledge/` exists), use it to verify evidence:
      ```bash
@@ -786,7 +911,36 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      ```
      Update the matrix with any additional evidence or contradictions the graph surfaces.
 
-5. **Codex reviews the Claims-Evidence Matrix**:
+5. **Score the Claims-Evidence Matrix** — compute evidence density scores for every claim:
+
+   **Base score per source** (by access level):
+   | Access Level | Score | Rationale |
+   |-|-|-|
+   | FULL-TEXT, primary data | 3 | Actual results read |
+   | FULL-TEXT, secondary/review | 2 | Full argument read but not primary evidence |
+   | ABSTRACT-ONLY | 1 | Summary only, not the real content |
+   | METADATA-ONLY | 0 | Paper exists, nothing more |
+
+   **Modifiers** (per source, cumulative):
+   - Highly cited (>100 citations): +0.5
+   - Recent (2024-2026): +0.5
+   - Finding directly matches the claim (not tangential): +1
+   - Same domain/methodology as the paper: +0.5
+
+   **Claim score** = sum of all supporting source scores. **Thresholds**:
+   | Score | Strength | Meaning |
+   |-|-|-|
+   | >= 6 | STRONG | Well-supported, multiple strong sources |
+   | 3-5.9 | MODERATE | Adequately supported but could be stronger |
+   | 1-2.9 | WEAK | Under-supported, needs more evidence or hedging |
+   | 0-0.9 | CRITICAL | Essentially unsupported, must be addressed |
+
+   Compute the score for each claim, fill in the Score and Strength columns, then:
+   - Flag WEAK claims with ⚠ and note whether they need additional evidence or hedged language
+   - Flag CRITICAL claims with ⛔ — these must be either supported with new evidence, hedged heavily, or removed before writing begins
+   - The scored matrix drives downstream behavior: writing confidence (Stage 3), QA focus (Stage 5), and `/auto` prioritization
+
+6. **Codex reviews the Claims-Evidence Matrix**:
    ```
    mcp__codex-bridge__codex_ask({
      prompt: "Review this claims-evidence matrix for a research paper. For each claim, assess: (1) Is the proposed evidence actually sufficient to support this claim? (2) Are there claims that are too strong for the evidence type? (e.g., claiming 'proves' based on empirical results) (3) Are there obvious missing claims that the paper should make but doesn't? (4) Are any claims redundant or overlapping?",
@@ -795,9 +949,9 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    ```
    Apply the **Codex Deliberation Protocol**. Update the matrix based on agreed feedback. Log deliberation.
 
-6. Use the `scientific-writing` skill for IMRAD structure guidance.
-7. Use the `venue-templates` skill if targeting a specific venue.
-8. **Log planning provenance** — append entries to `research/provenance.jsonl` for key planning decisions:
+7. Use the `scientific-writing` skill for IMRAD structure guidance.
+8. Use the `venue-templates` skill if targeting a specific venue.
+9. **Log planning provenance** — append entries to `research/provenance.jsonl` for key planning decisions:
    - Thesis selection: action `plan`, target `thesis`, reasoning explaining why this contribution was chosen over alternatives from gaps.md
    - Section structure: action `plan`, target `outline`, reasoning explaining structural decisions (why these sections, why this order)
    - Each claim in the claims matrix: action `plan`, target `claims/C[N]`, reasoning explaining the evidence strategy for this claim
@@ -969,6 +1123,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
+- Instruction to read `research/claims_matrix.md` for the scored claims-evidence matrix. **Adjust writing confidence based on claim strength**: STRONG claims (score >= 6) use confident language ("demonstrates", "establishes"). MODERATE claims (3-5.9) use standard academic language ("shows", "indicates"). WEAK claims (1-2.9) MUST use hedged language ("suggests", "preliminary evidence indicates") and note the limitation. CRITICAL claims (< 1) should not appear in the final text without explicit qualification.
 - If `research/knowledge/` exists, instruction to query the knowledge graph for section-specific evidence:
   `python scripts/knowledge.py query "question relevant to this section"` — use this to find specific evidence, check for contradictions, and ensure comprehensive coverage.
 - Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
@@ -1135,7 +1290,7 @@ Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
 ```
 You are a rigorous peer reviewer. Invoke the `peer-review` skill for structured evaluation.
 Also invoke `scientific-critical-thinking` for evidence assessment.
-Read main.tex and references.bib completely.
+Read main.tex, references.bib, and research/claims_matrix.md completely.
 
 Evaluate:
 - Claims supported by evidence or citations?
@@ -1145,11 +1300,13 @@ Evaluate:
 - Argument logically coherent Introduction → Conclusion?
 - Mathematical notation defined and consistent?
 - Appropriate use of domain-specific terminology?
+- **Evidence density**: Check the scored claims-evidence matrix. Any WEAK (score 1-2.9) or CRITICAL (score < 1) claims that appear in the manuscript MUST use appropriately hedged language. Flag any WEAK/CRITICAL claims written with unjustified confidence as CRITICAL issues. Flag any CRITICAL claims that survived to Stage 5 without being addressed as mandatory fix items.
 
 Write a detailed review to reviews/technical.md:
 - CRITICAL issues (list with line references and specific fixes)
 - MAJOR issues (list with line references and specific fixes)
 - MINOR issues (list)
+- Evidence density heatmap: list all claims by strength (STRONG/MODERATE/WEAK/CRITICAL) with their scores
 ```
 
 **Writing Quality Reviewer:**
@@ -1217,11 +1374,12 @@ If `reviews/codex_adversarial.md` is missing, you skipped the Codex review — g
 
 #### Step 5b: Synthesize Reviews
 
-Read ALL files in `reviews/` including `codex_adversarial.md`. Build a prioritized fix list:
-1. All CRITICAL issues (must fix)
-2. All MAJOR issues (should fix)
+Read ALL files in `reviews/` including `codex_adversarial.md`. Also read `research/claims_matrix.md` for the evidence density heatmap. Build a prioritized fix list:
+1. All CRITICAL issues (must fix) — including any CRITICAL-strength claims that must be removed, supported, or heavily hedged
+2. All MAJOR issues (should fix) — including WEAK claims written with unjustified confidence
 3. Word count shortfalls
 4. Missing citations
+5. Evidence density upgrades — actions that would move WEAK claims toward MODERATE (e.g., finding additional sources, strengthening evidence descriptions)
 
 #### Step 5c: Revision Agent
 
@@ -1505,6 +1663,7 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 | Conclusion | Concise summary with specific results |
 | Abstract | Self-contained, specific, quantitative where possible |
 | Claims-Evidence Matrix | Every claim in research/claims_matrix.md has status "Supported" |
+| Evidence Density | No CRITICAL-strength claims (score < 1) in the manuscript. WEAK claims (1-2.9) use hedged language. |
 | References in .bib | 25+ verified entries |
 | Placeholder text | 0 (no TODO/TBD/FIXME/lipsum/mbox{}) |
 | LaTeX compilation | No errors |

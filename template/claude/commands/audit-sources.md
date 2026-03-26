@@ -30,20 +30,27 @@ For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a free full-tex
    ```
    WebFetch: https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,title,abstract
    ```
-   If `openAccessPdf.url` exists, fetch and snapshot the content.
+   If `openAccessPdf.url` exists, **download the PDF** (see step 4 below).
 
 2. **Web search for PDF**:
    ```
    Use Firecrawl search: "<exact title>" <first author> filetype:pdf
    ```
    Check results for direct PDF links (arxiv.org, biorxiv.org, ssrn.com, .pdf URLs).
-   If found, fetch with WebFetch and update the source extract.
+   If found, **download the PDF** (see step 4 below).
 
 3. **Academic repository search**:
    ```
    Use Firecrawl search: "<exact title>" site:researchgate.net OR site:academia.edu OR site:ssrn.com
    ```
    Note any URLs found — even if behind a login wall, record them for the user.
+
+3b. **Download found PDFs** — For each open-access PDF URL found in steps 1-2:
+   ```bash
+   curl -L -o "attachments/<bibtexkey>.pdf" "<pdf_url>"
+   ```
+   Verify the download succeeded (file exists and is > 10KB). If the file is too small or is HTML instead of a PDF, treat it as a failed resolution and note the URL for the user instead.
+   Then read the downloaded PDF (pages 1-5 + last 3-5 pages) and update the source extract with actual paper content.
 
 4. **Log every resolution attempt** in `research/log.md`:
    ```markdown
@@ -94,10 +101,16 @@ If there are ABSTRACT-ONLY or METADATA-ONLY papers, present the acquisition list
 
 ### Phase 5: Update Claims-Evidence Matrix (if it exists)
 
-If `research/claims_matrix.md` exists, add or update a `Source Access` column:
-- For each claim, check which sources support it
-- Mark whether each supporting source is `full-text` or `abstract-only`
-- Flag any claims supported ONLY by abstract-only sources with ⚠
+If `research/claims_matrix.md` exists:
+1. **Update source access levels** — for each claim, check which sources support it and update access levels based on the audit results (sources may have been upgraded from ABSTRACT-ONLY to FULL-TEXT)
+2. **Recompute evidence density scores** — use the scoring model from `/write-paper` Stage 2 step 5:
+   - Base score per source: FULL-TEXT primary = 3, FULL-TEXT secondary = 2, ABSTRACT-ONLY = 1, METADATA-ONLY = 0
+   - Modifiers: highly cited (+0.5), recent 2024-2026 (+0.5), direct relevance (+1), same domain (+0.5)
+   - Claim score = sum of all supporting source scores
+   - Thresholds: STRONG >= 6, MODERATE 3-5.9, WEAK 1-2.9, CRITICAL < 1
+3. **Update Score and Strength columns** in the matrix
+4. Flag WEAK claims with ⚠ and CRITICAL claims with ⛔
+5. Flag any claims supported ONLY by abstract-only sources with ⚠
 
 ## Arguments
 
