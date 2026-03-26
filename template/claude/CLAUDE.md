@@ -19,7 +19,24 @@ provenance/       # Provenance audit trail (cuts archive, auto-iteration artifac
   cuts/           # Archived text from content that was cut (never delete without archiving)
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
-.claude/skills/   # -> vendor/claude-scientific-skills (177 scientific skills)
+.claude/
+  commands/       # Slash commands (30 commands)
+  pipeline/       # Stage-specific instructions for /write-paper (read on-demand per stage)
+    shared-protocols.md   # Codex deliberation, provenance logging, domain detection, tool fallback
+    stage-1-research.md   # Deep literature research (agents 1-12)
+    stage-1b-snowballing.md   # Citation snowballing (backward + forward)
+    stage-1c-codex-crosscheck.md  # Codex research cross-check
+    stage-1d-source-acquisition.md  # Source audit, OA resolution, acquisition
+    stage-2-planning.md   # Thesis, outline, claims-evidence matrix
+    stage-2b-codex-thesis.md  # Codex thesis stress-test
+    stage-2c-targeted-research.md  # Deep mode targeted research
+    stage-2d-novelty-check.md  # Novelty verification
+    stage-3-writing.md    # Section-by-section writing
+    stage-4-figures.md    # Figures, tables, visual elements
+    stage-5-qa.md         # QA review loop
+    stage-5-post-qa.md    # Post-QA audits, ref validation, risk radar
+    stage-6-finalization.md  # Final polish, de-AI, provenance report
+  skills/         # -> vendor/claude-scientific-skills (177 scientific skills)
 ```
 
 ## LaTeX Compilation
@@ -45,7 +62,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 9. **No fabricated references**: Every BibTeX entry must be a real, verifiable publication
 10. **Claims-Evidence Matrix**: Every major claim must map to specific evidence (experiment, citation, or proof) in `research/claims_matrix.md`. Each claim is scored for evidence density (base score by source access level + modifiers for citations, recency, relevance, domain) and labeled: STRONG (>= 6), MODERATE (3-5.9), WEAK (1-2.9), CRITICAL (< 1). Writing agents adjust confidence language by strength. No CRITICAL claims may survive to finalization. WEAK claims must use hedged language.
 11. **No em dashes**: Never use em dashes (—) or en dashes (–) as punctuation. Rewrite using commas, parentheses, colons, or separate sentences. Em dashes are the single most recognizable AI writing pattern.
-12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in write-paper.md.
+12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in `pipeline/shared-protocols.md`.
 
 ## Autonomous Pipeline: /write-paper
 
@@ -59,7 +76,9 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 6. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
 7. **Finalization** — Polish, compile, archive all artifacts, report
 
-This runs for 1-4 hours (standard) or 3-8 hours (deep). Three model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review, `haiku` for mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3× research effort.
+This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
+
+**Architecture**: The `/write-paper` command is a compact orchestrator that reads stage-specific instructions from `pipeline/*.md` files on-demand. Each stage file is read fresh from disk before execution, preventing context compression from degrading late-stage instructions in long-running sessions. Shared protocols (Codex deliberation, provenance logging, tool fallback) live in `pipeline/shared-protocols.md`.
 
 After the pipeline completes, use `/auto [N]` to run additional improvement iterations. Each iteration autonomously assesses the paper, prioritizes changes (including cuts), executes improvements, and verifies no regressions. The provenance ledger (`research/provenance.jsonl`) traces every word back to its origin across both the initial pipeline and all improvement iterations.
 
@@ -149,7 +168,7 @@ When spawning agents for paper work:
 - **Research agents**: Run in parallel. Each writes to a separate file in `research/`. Use `model: "claude-sonnet-4-6[1m]"`.
 - **Review agents**: Run in parallel. Each writes to a separate file in `reviews/`. Use `model: "claude-sonnet-4-6[1m]"`.
 - **Gap analysis agent**: Uses `model: "claude-opus-4-6[1m]"` — requires deep reasoning about what's missing.
-- **Bibliography, reference validation, lay summary, reproducibility, section lit searches**: Use `model: "haiku"`. Mechanical lookup and formatting tasks.
+- **Bibliography, reference validation, lay summary, reproducibility, section lit searches**: Use `model: "claude-sonnet-4-6[1m]"`. Mechanical lookup and formatting tasks.
 - Always include detailed, specific prompts for each agent — they have no shared context.
 
 ## Source Extracts
