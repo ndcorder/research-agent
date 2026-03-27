@@ -6,154 +6,50 @@ This is the standalone version of Stage 1d from `/write-paper`. Use it on existi
 
 ## Instructions
 
-### Phase 1: Audit Current Coverage
+**Read `pipeline/stage-1d-source-acquisition.md` now.** This command executes the same phases defined there. The stage file is the authoritative reference for all resolver details, API calls, rate limits, and validation protocols. Do not duplicate that logic here — read it fresh each time.
 
-1. **Read `references.bib`** — extract every BibTeX key, title, authors, year, DOI
-2. **Scan `research/sources/`** — check which keys have source extract files
-3. **For each reference, determine access level**:
-   - Has source file with `Access Level: FULL-TEXT` → ✓ full-text
-   - Has PDF in `attachments/` matching this paper → ✓ full-text (run `/ingest-papers` if no source file)
-   - Has source file with `Access Level: ABSTRACT-ONLY` → ⚠ abstract-only
-   - Has source file with `Access Level: METADATA-ONLY` → ✗ metadata-only
-   - No source file at all → ✗ unknown (treat as metadata-only)
-4. **For references with no source file**, create a minimal one:
-   - Read `research/survey.md`, `research/methods.md`, `research/empirical.md`, `research/theory.md`, `research/gaps.md` (and any other research files)
-   - Search for mentions of the paper's title or BibTeX key
-   - Extract whatever context exists about this paper from the research files
-   - Create `research/sources/<key>.md` using the format from `/write-paper` Stage 1 SOURCE EXTRACTS instructions (Access Level, Content Snapshot, Key Findings Used, Provenance sections), with whatever content is available as the snapshot
+### Execute Stage 1d Phases
 
-### Phase 2: Automated OA Resolution
+Run the following phases from `stage-1d-source-acquisition.md`:
 
-For each ABSTRACT-ONLY and METADATA-ONLY source, attempt to find a free full-text copy. Try each API in order — **stop on first successful PDF download** for that paper. Always collect abstracts from APIs that return them, even if full text isn't found.
+1. **Phase 1: Audit** — Classify every reference by access level (FULL-TEXT / ABSTRACT-ONLY / METADATA-ONLY)
 
-**Configuration**: Check `.paper.json` for an `oa_resolution` object to see which APIs are enabled (all default to `true`). Check for `email` field or `UNPAYWALL_EMAIL` env var (needed for Unpaywall). Check for `CORE_API_KEY` env var (needed for CORE). Check for `NCBI_API_KEY` env var (optional, increases PubMed rate limit).
+2. **Phase 1b: Source Type Detection** — Classify each reference by source type (journal_article, book, conference_paper, etc.) from BibTeX entry types
 
-1. **Unpaywall** (skip if no email configured; skip if DOI not present):
-   ```
-   WebFetch: https://api.unpaywall.org/v2/<doi>?email=<user_email>
-   ```
-   Check `best_oa_location.url_for_pdf` (prefer) or `best_oa_location.url_for_landing_page`. Rate limit: 100K/day (no concern).
+3. **Phase 2: Modular Resolver Cascade** — Run the full resolver cascade (Unpaywall, OpenAlex, Semantic Scholar, CrossRef, CORE, PubMed, arXiv, DBLP, BASE, Internet Archive, DOAB, Google Books, web search, repository search) with PDF validation on every download
 
-2. **OpenAlex** (no key needed; skip if DOI not present):
-   ```
-   WebFetch: https://api.openalex.org/works/doi:<doi>?select=id,open_access,best_oa_url,abstract_inverted_index&mailto=<user_email>
-   ```
-   Check `open_access.oa_url`. Also extract `abstract_inverted_index` — reconstruct by sorting tokens by position values. Save the abstract even if no PDF found. Adding `mailto` raises rate limit from 10/s to 100/s.
+4. **Phase 2b: Content Enrichment** — For remaining METADATA-ONLY and thin ABSTRACT-ONLY sources, gather secondary content (Wikipedia, book reviews, executive summaries, citation context, publisher descriptions)
 
-3. **Semantic Scholar** (existing):
-   ```
-   WebFetch: https://api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=openAccessPdf,title,abstract
-   ```
-   Check `openAccessPdf.url`. Save `abstract` to source extract if available. Rate limit: 100/5min.
+5. **Phase 3: Human Acquisition** — Present prioritized list of remaining gaps to the user. Include which resolvers were attempted and suggestions for where to find the source.
 
-4. **CORE** (skip if `CORE_API_KEY` env var not set):
-   ```
-   WebFetch: https://api.core.ac.uk/v3/search/works?q=title:"<exact title>"&limit=3
-   Header: Authorization: Bearer <CORE_API_KEY>
-   ```
-   Check `downloadUrl` field. Rate limit: 10/s with key — add 100ms delay between requests.
+6. **Phase 4: Update Coverage Report** — Write `research/source_coverage.md` with final counts, resolution sources table, and PDF validation summary.
 
-5. **PubMed Central** (only if detected domain is Biomedical/Clinical — check `.paper.json` topic keywords; or if `oa_resolution.pubmed_central` is explicitly `true`):
-   ```
-   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pmc&term=<title>&retmode=json
-   ```
-   If PMC ID found, full XML at:
-   ```
-   WebFetch: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pmc&id=<pmcid>&rettype=xml
-   ```
-   Rate limit: 3/s without key, 10/s with `NCBI_API_KEY` — add 350ms delay between requests.
+### Additional Steps (standalone-only)
 
-6. **Web search for PDF** (existing):
-   ```
-   Use Firecrawl search: "<exact title>" <first author> filetype:pdf
-   ```
-   Check results for direct PDF links (arxiv.org, biorxiv.org, ssrn.com, .pdf URLs).
+These steps are specific to `/audit-sources` and not part of the `/write-paper` pipeline:
 
-7. **Academic repository search** (existing):
-   ```
-   Use Firecrawl search: "<exact title>" site:researchgate.net OR site:academia.edu OR site:ssrn.com
-   ```
-   Note any URLs found — even if behind a login wall, record them for the user.
+**For references with no source file at all**, create a minimal one before running resolvers:
+- Read `research/survey.md`, `research/methods.md`, `research/empirical.md`, `research/theory.md`, `research/gaps.md` (and any other research files)
+- Search for mentions of the paper's title or BibTeX key
+- Extract whatever context exists about this paper from the research files
+- Create `research/sources/<key>.md` with whatever content is available as the snapshot
 
-**Abstract extraction fallback**: If a paper remains ABSTRACT-ONLY after all steps, ensure the source extract has the actual abstract text from whichever API returned it (OpenAlex, Semantic Scholar, or PubMed).
-
-8. **Download found PDFs** — For each open-access PDF URL found in steps 1-6:
-   ```bash
-   curl -L -o "attachments/<bibtexkey>.pdf" "<pdf_url>"
-   ```
-   Verify the download succeeded: file exists, > 10KB, and starts with `%PDF` magic bytes. If the file is too small or is HTML instead of a PDF, treat it as a failed resolution and note the URL for the user instead.
-   Then read the downloaded PDF (pages 1-5 + last 3-5 pages) and update the source extract with actual paper content.
-
-9. **Log every resolution attempt** in `research/log.md`, including which API resolved each paper:
-   ```markdown
-   ### [TIMESTAMP] — Source Audit OA Resolution
-   - **Paper**: [key] — "[title]"
-   - **API**: [Unpaywall / OpenAlex / Semantic Scholar / CORE / PMC / Web search / Repository search]
-   - **Query**: [query or URL]
-   - **Result**: [RESOLVED: found PDF at URL / NOT FOUND / FOUND BUT INACCESSIBLE: URL behind login]
-   ```
-
-### Phase 3: Report
-
-Write `research/source_coverage.md`:
-
-```markdown
-# Source Coverage Audit
-Generated: [timestamp]
-
-## Summary
-- Total references: N
-- Full-text accessed: N (X%)
-- Abstract-only: N (Y%)
-- Metadata-only: N (Z%)
-- Upgraded in this audit: N (from abstract→full-text via OA resolution)
-
-## Full-Text Sources
-| Key | Title | Access Method |
-|-|-|-|
-| ... | ... | ... |
-
-## Abstract-Only Sources — Acquisition List
-| # | Key | Title | DOI | Citations in Paper | Suggested Action |
-|-|-|-|-|-|-|
-| 1 | davis1997 | "Toward a Stewardship..." | 10.5465/... | 5 | Found on Academia.edu: [url] |
-| 2 | jensen1976 | "Theory of the Firm..." | 10.1016/... | 3 | Try: "Theory of the Firm" filetype:pdf on Bing |
-
-## Metadata-Only Sources
-| Key | Title | Notes |
-|-|-|-|
-| ... | ... | ... |
-
-## Resolution Sources
-| API | Papers Resolved | Papers Attempted |
-|-|-|-|
-| Unpaywall | ... | ... |
-| OpenAlex | ... | ... |
-| Semantic Scholar | ... | ... |
-| CORE | ... | ... |
-| PubMed Central | ... | ... |
-| Web search | ... | ... |
-| Manual (user) | ... | ... |
-```
-
-### Phase 4: Offer Acquisition
-
-If there are ABSTRACT-ONLY or METADATA-ONLY papers, present the acquisition list to the user:
-
-"I found [N] papers where I only had the abstract. Drop any PDFs you find into `attachments/` and run `/ingest-papers` to upgrade them to full-text with snapshots."
-
-### Phase 5: Update Claims-Evidence Matrix (if it exists)
-
-If `research/claims_matrix.md` exists:
-1. **Update source access levels** — for each claim, check which sources support it and update access levels based on the audit results (sources may have been upgraded from ABSTRACT-ONLY to FULL-TEXT)
+**Update Claims-Evidence Matrix** (if `research/claims_matrix.md` exists):
+1. **Update source access levels** — for each claim, check which sources support it and update access levels based on the audit results (sources may have been upgraded)
 2. **Recompute evidence density scores** — use the scoring model from `/write-paper` Stage 2 step 5:
-   - Base score per source: FULL-TEXT primary = 3, FULL-TEXT secondary = 2, ABSTRACT-ONLY = 1, METADATA-ONLY = 0
+   - Base score per source: FULL-TEXT primary = 3, FULL-TEXT secondary = 2, ABSTRACT-ONLY = 1, Enriched ABSTRACT-ONLY (secondary sources) = 0.5, METADATA-ONLY = 0
    - Modifiers: highly cited (+0.5), recent 2024-2026 (+0.5), direct relevance (+1), same domain (+0.5)
    - Claim score = sum of all supporting source scores
    - Thresholds: STRONG >= 6, MODERATE 3-5.9, WEAK 1-2.9, CRITICAL < 1
 3. **Update Score and Strength columns** in the matrix
 4. Flag WEAK claims with ⚠ and CRITICAL claims with ⛔
 5. Flag any claims supported ONLY by abstract-only sources with ⚠
+
+**Rebuild Knowledge Graph** (if `scripts/knowledge.py` exists and `OPENROUTER_API_KEY` is set):
+```bash
+python scripts/knowledge.py build
+```
+Run with `run_in_background: true`. The graph should be rebuilt after source acquisition to incorporate new content.
 
 ## Arguments
 

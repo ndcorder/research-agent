@@ -21,7 +21,7 @@ provenance/       # Provenance audit trail (cuts archive, auto-iteration artifac
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/
-  commands/       # Slash commands (30 commands)
+  commands/       # Slash commands (35 commands)
   pipeline/       # Stage-specific instructions for /write-paper and /auto (read on-demand per stage/phase)
     shared-protocols.md   # Codex deliberation, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
@@ -80,7 +80,7 @@ archive/          # Browsable research archive with index (created at end of /wr
 The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find, then co-citation analysis identifies important papers frequently cited alongside your references but missing from the bibliography
-2. **Source Acquisition** — Audit source access levels, attempt OA resolution, pause for user to provide paywalled PDFs if needed
+2. **Source Acquisition** — Audit source access levels, detect source types (article/book/report/etc.), run a 14-resolver cascade (Unpaywall, OpenAlex, Semantic Scholar, CrossRef, CORE, PubMed, arXiv, DBLP, BASE, Internet Archive, DOAB, Google Books, web search, repository search) with PDF validation, then content enrichment for remaining gaps (Wikipedia, book reviews, executive summaries, citation context), pause for user to provide remaining sources
 3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
 4. **Writing** — Sequential agents write each section (1000-2500 words each); Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
 5. **Figures & Tables** — Ensure adequate visual elements
@@ -95,7 +95,7 @@ Required fields: `topic`, `depth` (`"standard"` or `"deep"`).
 
 Optional field: `abstract_strategy` (`"first"` or `"last"`, default: `"last"`). When `"first"`, a draft abstract is written after Stage 2 and used as an alignment tool during section writing. The final abstract is still rewritten after all sections are complete.
 
-Optional fields for enhanced OA resolution:
+Optional fields for source acquisition:
 ```json
 {
   "email": "user@example.com",
@@ -103,18 +103,27 @@ Optional fields for enhanced OA resolution:
     "unpaywall": true,
     "openalex": true,
     "semantic_scholar": true,
+    "crossref": true,
     "core": true,
     "pubmed_central": "auto",
+    "arxiv": "auto",
+    "dblp": "auto",
+    "base": true,
+    "internet_archive": true,
+    "doab": true,
+    "google_books": true,
     "web_search": true,
-    "repository_search": true
+    "repository_search": true,
+    "content_enrichment": true
   }
 }
 ```
 
-- `email`: Used by Unpaywall (required for that API) and OpenAlex (increases rate limit). Also read from `UNPAYWALL_EMAIL` env var.
-- `oa_resolution`: Per-API toggles. All default to `true`. `pubmed_central` defaults to `"auto"` (enabled only for biomedical/clinical domains based on topic keywords).
+- `email`: Used by Unpaywall (required for that API), OpenAlex, and CrossRef polite pool (increases rate limits). Also read from `UNPAYWALL_EMAIL` env var.
+- `oa_resolution`: Per-resolver toggles. All default to `true` unless noted. `"auto"` resolvers are enabled based on domain detection: `pubmed_central` for biomedical, `arxiv` for CS/physics/math, `dblp` for CS. `content_enrichment` controls the Phase 2b secondary source gathering (Wikipedia, book reviews, executive summaries).
 - `CORE_API_KEY` env var: Required for CORE API (free registration at core.ac.uk). Skipped if not set.
 - `NCBI_API_KEY` env var: Optional. Increases PubMed rate limit from 3/s to 10/s.
+- `GOOGLE_BOOKS_API_KEY` env var: Optional. Increases Google Books quota from 1000/day.
 
 **Architecture**: The `/write-paper` command is a compact orchestrator that reads stage-specific instructions from `pipeline/*.md` files on-demand. Each stage file is read fresh from disk before execution, preventing context compression from degrading late-stage instructions in long-running sessions. Shared protocols (Codex deliberation, provenance logging, tool fallback) live in `pipeline/shared-protocols.md`.
 
@@ -134,7 +143,7 @@ For interactive, step-by-step work:
 - `/add-citation` — Add a properly formatted BibTeX entry
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
-- `/audit-sources` — Audit source coverage: classify every reference by access level (full-text/abstract/metadata), attempt OA resolution, generate acquisition list
+- `/audit-sources` — Audit source coverage: classify every reference by access level and source type, run the full 14-resolver cascade with PDF validation, enrich remaining gaps with secondary sources, generate prioritized acquisition list
 - `/export-sources` — Export source extracts and references to the shared knowledge base (~/.research-agent/shared-sources/)
 - `/import-sources` — Import relevant sources from the shared knowledge base into the current paper
 - `/knowledge` — Query the per-paper knowledge graph: semantic search, contradiction detection, evidence for/against claims, entity/relationship exploration
@@ -218,14 +227,17 @@ When spawning agents for paper work:
 Every cited paper gets a source extract file in `research/sources/<bibtexkey>.md`. These files serve as the verifiable ground truth for what the pipeline actually read.
 
 Each source extract includes:
-- **Access Level**: `FULL-TEXT` (read the paper), `ABSTRACT-ONLY` (read the abstract), `METADATA-ONLY` (title/authors only)
+- **Access Level**: `FULL-TEXT` (read the paper), `ABSTRACT-ONLY` (read the abstract or secondary summary), `METADATA-ONLY` (title/authors only)
+- **Source Type**: `journal_article`, `book`, `book_chapter`, `conference_paper`, `technical_report`, `industry_report`, `thesis`, `grey_literature`, `web_resource`, `unknown` (fallback, treated as journal article)
 - **Content Snapshot**: Verbatim or near-verbatim text that was actually accessed — the raw material behind any claims
 - **Key Findings**: The pipeline's interpretation of what's relevant
 - **Provenance**: Which tool found it, what query, when
+- **Enrichment** (if applicable): `secondary` flag indicating content was gathered from secondary sources (Wikipedia, book reviews, publisher descriptions) rather than the original work. Enriched sources score lower than direct-access sources in the evidence matrix (0.5x ABSTRACT-ONLY base score).
+- **Enrichment Sources** (if applicable): List of secondary sources used (e.g., "Wikipedia, book review in Academy of Management Review, publisher description")
 
-The Content Snapshot is the critical field. It answers: "What did the pipeline actually read before making this claim?" If the snapshot only contains an abstract, any claims that go beyond the abstract are suspect.
+The Content Snapshot is the critical field. It answers: "What did the pipeline actually read before making this claim?" If the snapshot only contains an abstract, any claims that go beyond the abstract are suspect. For enriched sources, the snapshot clearly labels content as secondary.
 
-The `/audit-sources` command can retroactively audit and upgrade source coverage on existing papers.
+The `/audit-sources` command runs the full 14-resolver cascade and content enrichment, and can retroactively upgrade source coverage on existing papers.
 
 ## Shared Knowledge Base
 
