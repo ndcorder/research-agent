@@ -43,15 +43,16 @@ EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
 EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32768"))
 OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-# Concurrency settings — aggressive defaults for OpenRouter.
+# Concurrency settings — conservative defaults to avoid OpenRouter rate limits.
 # Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC
-MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "32"))
-LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "64"))
-EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "64"))
+# Override via env vars if your API plan supports higher throughput.
+MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "8"))
+LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "8"))
+EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "16"))
 
 # Timeout settings (seconds) — full PDFs need more time than short extracts.
 LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "300"))
-EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "120"))
+EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "300"))
 
 
 def get_api_key():
@@ -96,7 +97,7 @@ def _get_cache_path(query: str, mode: str) -> Path:
     """Get cache file path for a query."""
     import hashlib
 
-    key = hashlib.md5(f"{query}|{mode}".encode()).hexdigest()
+    key = hashlib.sha256(f"{query}|{mode}".encode()).hexdigest()[:32]
     return Path(CACHE_DIR) / f"{key}.txt"
 
 

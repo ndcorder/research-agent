@@ -1,3 +1,4 @@
 [submodule "vendor/claude-scientific-skills"]
 	path = vendor/claude-scientific-skills
 	url = https://github.com/K-Dense-AI/claude-scientific-skills.git
+	branch = v2.28.0

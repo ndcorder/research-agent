@@ -29,5 +29,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# Runtime state (auto-managed by pipeline, not for version control)
+.paper-state.json
+.paper-progress.txt
+
 # Knowledge graph (LightRAG working directory — rebuild from sources)
 research/knowledge/

@@ -98,7 +98,7 @@ Optional field: `abstract_strategy` (`"first"` or `"last"`, default: `"last"`). 
 Optional fields for source acquisition:
 ```json
 {
-  "email": "user@example.com",
+  "email": "ndcorder@pm.me",
   "oa_resolution": {
     "unpaywall": true,
     "openalex": true,

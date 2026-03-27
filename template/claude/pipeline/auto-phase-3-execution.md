@@ -29,7 +29,7 @@ Create source extracts in research/sources/ for any new papers.
 ```bash
 python scripts/knowledge.py update
 ```
-Skip silently if `research/knowledge/` does not exist.
+**Run with `run_in_background: true`** — incremental updates can take several minutes. You will be notified when it completes. Skip silently if `research/knowledge/` does not exist.
 
 ### Revision phase
 

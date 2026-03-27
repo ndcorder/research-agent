@@ -20,6 +20,8 @@
       "Bash(pdfinfo*)",
       "Bash(wc*)",
       "Bash(mkdir*)",
+      "Bash(mkdir -p *)",
+      "Bash(mkdir -p \"*)",
       "Bash(ls*)",
       "Bash(cat*)",
       "Bash(cp*)",

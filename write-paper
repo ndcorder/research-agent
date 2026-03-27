@@ -64,4 +64,4 @@ else
 fi
 echo ""
 
-exec claude "/write-paper ${TOPIC}"
+exec claude --dangerously-skip-permissions "/write-paper ${TOPIC}"

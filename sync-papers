@@ -76,7 +76,7 @@ for project in "$TARGET_BASE"/*/; do
     if [[ -L "$project/.claude/commands" ]]; then
         : # Already a symlink, nothing to do
     elif [[ -d "$project/.claude/commands" ]]; then
-        rm -rf "$project/.claude/commands"
+        rm -rf "$project/.claude/commands/"
         ln -s "$TEMPLATE_DIR/claude/commands" "$project/.claude/commands"
         changed=true
     else

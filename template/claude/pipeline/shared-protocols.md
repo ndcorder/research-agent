@@ -4,6 +4,19 @@ Reusable protocols referenced across multiple pipeline stages. The orchestrator 
 
 ---
 
+## Bash Timeout Protocol
+
+Some commands can run for minutes. To avoid the default 2-minute Bash timeout killing them:
+
+- **`latexmk` / `pdflatex` / `bibtex`**: Always use `timeout: 600000` (10 minutes). Large papers with many references and figures can take 5-10 minutes to compile.
+- **`python3 -m pip install`**: Use `run_in_background: true`. Package installation can be slow on first run and Claude can proceed with other work.
+- **`python scripts/knowledge.py build`**: Use `run_in_background: true`. Graph building scales with source count and can take 10-30+ minutes.
+- **`python scripts/knowledge.py update`**: Use `run_in_background: true`. Incremental updates can take several minutes.
+
+All other Bash commands (curl, wc, ls, mkdir, cat, cp, rm, which, pdfinfo) complete in seconds and need no special timeout.
+
+---
+
 ## Codex Deliberation Protocol
 
 When Codex provides feedback at any stage, do NOT blindly accept it. Follow this deliberation process:

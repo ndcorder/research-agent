@@ -270,7 +270,7 @@ else
     warn "Praxis clone failed — skipping (figures and analysis still work via matplotlib)"
 fi
 
-# Initial commit (skip GPG signing for bootstrap — it's local-only)
+# Initial commit (skip GPG signing — this is a local bootstrap commit in a fresh repo)
 git add -A
 git -c commit.gpgsign=false commit -q -m "Initial paper project ($VENUE_NAME format)"
 ok "Initial commit created"
