@@ -3,6 +3,10 @@
 An autonomous research paper writing toolkit for Claude Code. From a topic prompt, it produces a publication-ready, journal-quality LaTeX paper through multi-agent orchestration — running for 1-4 hours (standard) or 3-8 hours (deep mode).
 
 > **New here?** See [QUICKSTART.md](QUICKSTART.md) for the 3-minute setup.
+>
+> **Visual overview?** Open [docs/pipeline-diagram.html](docs/pipeline-diagram.html) in a browser.
+>
+> **Security model?** See [SECURITY.md](SECURITY.md). Additional docs: [Architecture](docs/ARCHITECTURE.md), [Developer Guide](docs/DEVELOPER-GUIDE.md), [Venue Reference](docs/VENUE-REFERENCE.md).
 
 ---
 
@@ -81,7 +85,7 @@ Everything produced is traced. Every paragraph in the final paper links back to 
 Symlink the two launcher scripts to somewhere on your PATH:
 
 ```bash
-git clone https://github.com/your-org/research-agent
+git clone https://github.com/ndcorder/research-agent
 cd research-agent
 ln -s $(pwd)/create-paper ~/.local/bin/create-paper
 ln -s $(pwd)/write-paper ~/.local/bin/write-paper

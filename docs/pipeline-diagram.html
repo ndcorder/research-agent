@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Agent Pipeline</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+    --pink: #f778ba;
+    --yellow: #e3b341;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .pipeline {
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .stage-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .stage-group::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -1.5rem;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 1.5rem;
+    background: var(--border);
+  }
+  .stage-group:last-child::after { display: none; }
+  .stage-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .stage-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .stage-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .stage-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .stage-body {
+    margin-left: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .agents-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .agent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.8rem;
+    flex: 1;
+    min-width: 140px;
+    max-width: 220px;
+    position: relative;
+  }
+  .agent-card .agent-name {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    padding-right: 3.5rem;
+  }
+  .agent-card .agent-desc {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+  .agent-card .model-badge {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.5rem;
+    font-size: 0.55rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+  }
+  .model-badge.inline {
+    position: static;
+    display: inline-block;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    font-size: 0.55rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1;
+  }
+  .agent-card .output-file {
+    font-size: 0.6rem;
+    color: var(--cyan);
+    margin-top: 0.25rem;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+  }
+  .model-opus { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+  .model-sonnet { background: rgba(88,166,255,0.15); color: var(--blue); border: 1px solid rgba(88,166,255,0.3); }
+  .model-codex { background: rgba(247,120,186,0.15); color: var(--pink); border: 1px solid rgba(247,120,186,0.3); }
+  .parallel-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.2rem;
+  }
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.8rem;
+  }
+  .step-card .step-name {
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+  .step-card .step-desc {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+  .optional-badge {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(210,153,34,0.15);
+    color: var(--orange);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 0.4rem;
+  }
+  .deep-badge {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(248,81,73,0.15);
+    color: var(--red);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 0.4rem;
+  }
+  .decision {
+    background: rgba(210,153,34,0.08);
+    border: 1px dashed var(--orange);
+    border-radius: 8px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.78rem;
+    color: var(--orange);
+    text-align: center;
+  }
+  .loop-container {
+    border: 1px dashed var(--purple);
+    border-radius: 10px;
+    padding: 0.75rem;
+    position: relative;
+  }
+  .loop-label {
+    position: absolute;
+    top: -0.55rem;
+    left: 1rem;
+    background: var(--bg);
+    padding: 0 0.4rem;
+    font-size: 0.65rem;
+    color: var(--purple);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .outputs-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .output-card {
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.3);
+    border-radius: 8px;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.78rem;
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+  }
+  .output-card .output-name {
+    font-weight: 600;
+    color: var(--green);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-size: 0.75rem;
+  }
+  .output-card .output-desc {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+  .section-divider {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.5rem 0;
+    position: relative;
+  }
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 60px);
+    height: 1px;
+    background: var(--border);
+  }
+  .section-divider::before { left: 0; }
+  .section-divider::after { right: 0; }
+  .arrow-down {
+    text-align: center;
+    color: var(--border);
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0.2rem 0;
+  }
+  .tools-list {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.3rem;
+  }
+  .tool-tag {
+    background: rgba(255,255,255,0.05);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+  .provenance-note {
+    font-size: 0.65rem;
+    color: var(--cyan);
+    font-style: italic;
+    padding: 0.3rem 0;
+  }
+  .deep-agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    gap: 0.5rem;
+  }
+  .deep-agents-grid .agent-card {
+    max-width: none;
+    border-color: rgba(248,81,73,0.25);
+  }
+  .venue-tags {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-top: 0.3rem;
+  }
+  .venue-tag {
+    font-size: 0.55rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .mode-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .mode-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+  }
+  .mode-card h3 {
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .mode-card ul {
+    list-style: none;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .mode-card ul li::before {
+    content: '>';
+    color: var(--border);
+    margin-right: 0.4rem;
+  }
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .agent-card { min-width: 100%; max-width: 100%; }
+    .deep-agents-grid { grid-template-columns: 1fr; }
+    .stage-body { margin-left: 0; }
+    .mode-comparison { grid-template-columns: 1fr; }
+
+  }
+</style>
+</head>
+<body>
+
+<h1>Research Agent Pipeline</h1>
+<p class="subtitle">Autonomous multi-agent paper writing system for Claude Code</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Opus 4.6 (writing/reasoning)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Sonnet 4.6 (research/review)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--pink)"></div> Codex (adversarial AI)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Optional</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Deep mode only</div>
+</div>
+
+<!-- Mode comparison -->
+<div class="pipeline">
+<div class="mode-comparison" style="margin-bottom:2rem">
+  <div class="mode-card">
+    <h3 style="color:var(--blue)">Standard Mode</h3>
+    <ul>
+      <li>5 research agents</li>
+      <li>30-50 reference target</li>
+      <li>5 QA iterations max</li>
+      <li>Evidence gap threshold: 3</li>
+      <li>2-4 hours, ~$50</li>
+    </ul>
+  </div>
+  <div class="mode-card" style="border-color:rgba(248,81,73,0.3)">
+    <h3 style="color:var(--red)">Deep Mode</h3>
+    <ul>
+      <li>12 research agents + targeted 2nd pass</li>
+      <li>60-80 reference target</li>
+      <li>8 QA iterations max</li>
+      <li>Evidence gap threshold: 1</li>
+      <li>4-8 hours, ~$150</li>
+    </ul>
+  </div>
+</div>
+
+<div class="section-divider">Research Phase</div>
+
+  <!-- STAGE 1: Research -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(88,166,255,0.15);color:var(--blue)">1</div>
+      <div class="stage-title">Deep Literature Research</div>
+      <div class="stage-time">30 min - 2 hrs</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card" style="border-color:rgba(57,210,192,0.3)">
+        <div class="step-name" style="color:var(--cyan)">Domain Detection</div>
+        <div class="step-desc">Analyzes topic to route agents to the right databases and skills. Supports: Biomedical, Chemistry, CS/AI, Physics, Materials Science, Ecology, Economics, Clinical, and General.</div>
+        <div class="tools-list" style="margin-top:0.4rem">
+          <span class="tool-tag">177 scientific skills</span>
+          <span class="tool-tag">9 domain categories</span>
+          <span class="tool-tag">40+ database connectors</span>
+        </div>
+      </div>
+      <div class="parallel-label" style="margin-top:0.5rem">Parallel research agents (all run simultaneously)</div>
+      <div class="agents-row">
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">1. Field Survey</div>
+          <div class="agent-desc">10-15 most influential papers, major research threads, active debates</div>
+          <div class="output-file">research/survey.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">2. Methodology</div>
+          <div class="agent-desc">5+ distinct approaches, SOTA comparison, mathematical formulations</div>
+          <div class="output-file">research/methods.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">3. Empirical Evidence</div>
+          <div class="agent-desc">Benchmarks, SOTA leaderboards, reproducibility concerns</div>
+          <div class="output-file">research/empirical.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">4. Theory</div>
+          <div class="agent-desc">Foundational theorems, formal definitions, open questions</div>
+          <div class="output-file">research/theory.md</div>
+        </div>
+      </div>
+      <div class="parallel-label" style="margin-top:0.5rem">Deep mode: +7 specialized agents (run in parallel with agents 1-4)<span class="deep-badge" style="margin-left:0.5rem">Deep</span></div>
+      <div class="deep-agents-grid">
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">6. Recent Frontiers</div>
+          <div class="agent-desc">2024-2026 only. Emerging trends, paradigm shifts, preprints</div>
+          <div class="output-file">research/recent_frontiers.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">7. Negative Results</div>
+          <div class="agent-desc">Failed approaches, null findings, replication failures, known pitfalls</div>
+          <div class="output-file">research/negative_results.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">8. Cross-Disciplinary</div>
+          <div class="agent-desc">Insights from adjacent fields, analogous problems, hybrid methods</div>
+          <div class="output-file">research/cross_disciplinary.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">9. Datasets & Repro</div>
+          <div class="agent-desc">All standard datasets, open-source code, reproducibility audits</div>
+          <div class="output-file">research/datasets_reproducibility.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">10. Industry & Applied</div>
+          <div class="agent-desc">Deployed systems, patents, real-world vs. academic performance gaps</div>
+          <div class="output-file">research/industry_applied.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">11. Competing Hypotheses</div>
+          <div class="agent-desc">Active debates, rival schools of thought, strongest arguments per side</div>
+          <div class="output-file">research/competing_hypotheses.md</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">12. Intellectual Lineage</div>
+          <div class="agent-desc">Seminal papers, citation lineage, paradigm shifts and their causes</div>
+          <div class="output-file">research/intellectual_lineage.md</div>
+        </div>
+      </div>
+
+      <div style="height:0.3rem"></div>
+      <div class="step-card">
+        <div class="step-name">5. Gap Analysis & Positioning<span class="model-badge model-opus inline">Opus</span></div>
+        <div class="step-desc">Runs AFTER all other agents complete. Reads every research file. Identifies unsolved problems, proposes thesis and contribution statement.</div>
+        <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">research/gaps.md</div>
+      </div>
+
+      <div class="agents-row">
+        <div class="step-card" style="flex:1;border-color:rgba(247,120,186,0.3)">
+          <div class="step-name">Codex Literature Contribution<span class="optional-badge">Optional</span></div>
+          <div class="step-desc">Different AI, different training data. Codex independently suggests papers Claude may have missed. Verified before inclusion.</div>
+          <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">research/codex_independent_research.md</div>
+        </div>
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Bibliography Builder<span class="model-badge model-sonnet inline">Sonnet</span></div>
+          <div class="step-desc">Deduplicates all findings, verifies each paper against CrossRef, generates BibTeX entries, creates source extracts for every cited paper.</div>
+          <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">references.bib + research/sources/*.md</div>
+        </div>
+      </div>
+      <div class="tools-list">
+        <span class="tool-tag">Perplexity</span>
+        <span class="tool-tag">WebSearch</span>
+        <span class="tool-tag">Firecrawl</span>
+        <span class="tool-tag">Domain Skills</span>
+        <span class="tool-tag">CrossRef API</span>
+      </div>
+      <div class="provenance-note">Every tool call logged to research/log.md. Every source gets a provenance-tracked extract in research/sources/.</div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- STAGE 1b: Snowballing -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(88,166,255,0.15);color:var(--blue)">1b</div>
+      <div class="stage-title">Citation Snowballing & Co-Citation</div>
+      <div class="stage-time">15-45 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card" style="margin-bottom:0.3rem">
+        <div class="step-desc" style="color:var(--text)">Discovers papers that keyword search cannot find by following the citation graph from the top 10-20 seed papers.</div>
+      </div>
+      <div class="agents-row">
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Backward Snowball</div>
+          <div class="agent-desc">What do our top papers cite? Traverse reference lists to find foundational work</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Forward Snowball</div>
+          <div class="agent-desc">Who cites our top papers? Find recent work building on key findings</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Co-Citation Analysis</div>
+          <div class="agent-desc">Papers frequently cited alongside ours but missing from bibliography. Ranked by co-citation frequency.</div>
+        </div>
+      </div>
+      <div class="tools-list">
+        <span class="tool-tag">Semantic Scholar API</span>
+        <span class="tool-tag">Recommendations API</span>
+        <span class="tool-tag">Rate-limited (3s delay between requests)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- STAGE 1c: Codex Cross-Check -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(247,120,186,0.15);color:var(--pink)">1c</div>
+      <div class="stage-title">Codex Cross-Check<span class="optional-badge">Optional</span></div>
+      <div class="stage-time">10-20 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card" style="border-color:rgba(247,120,186,0.3)">
+        <div class="step-name">Independent Validation via Deliberation Protocol</div>
+        <div class="step-desc">Codex reviews ALL research files for accuracy, missing perspectives, and inaccuracies. Claude evaluates each point: AGREE (implement), PARTIALLY AGREE (adapt), or DISAGREE (push back with reasoning). Codex gets one rebuttal. Unresolved disagreements logged for user to decide.</div>
+        <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">reviews/codex_deliberation_log.md</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- STAGE 1d: Source Acquisition -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(88,166,255,0.15);color:var(--blue)">1d</div>
+      <div class="stage-title">Source Acquisition & Audit</div>
+      <div class="stage-time">20-60 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card">
+        <div class="step-name">Access Level Audit<span class="model-badge model-sonnet inline">Sonnet</span></div>
+        <div class="step-desc">Classify every reference by what the pipeline actually read. Strict rules: Perplexity summaries = ABSTRACT-ONLY, not FULL-TEXT.</div>
+        <div class="tools-list" style="margin-top:0.3rem">
+          <span class="tool-tag" style="color:var(--green)">FULL-TEXT: read paper body</span>
+          <span class="tool-tag" style="color:var(--orange)">ABSTRACT-ONLY: summaries only</span>
+          <span class="tool-tag" style="color:var(--red)">METADATA-ONLY: title/authors only</span>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Open Access Resolution (7 APIs)<span class="model-badge model-sonnet inline">Sonnet</span></div>
+        <div class="step-desc">For every non-full-text paper, systematically attempt to find and download the full text.</div>
+        <div class="tools-list" style="margin-top:0.3rem">
+          <span class="tool-tag">Unpaywall</span>
+          <span class="tool-tag">OpenAlex</span>
+          <span class="tool-tag">Semantic Scholar</span>
+          <span class="tool-tag">CORE (200M+ papers)</span>
+          <span class="tool-tag">PubMed Central</span>
+          <span class="tool-tag">Web Search</span>
+          <span class="tool-tag">Repository Search</span>
+        </div>
+      </div>
+      <div class="decision">Human-in-the-loop pause: user can provide paywalled PDFs in attachments/</div>
+      <div class="step-card" style="border-color:rgba(210,153,34,0.3)">
+        <div class="step-name">Knowledge Graph Build<span class="optional-badge">Optional</span></div>
+        <div class="step-desc">LightRAG extracts entities (papers, theories, methods, findings, authors) and relationships (cites, contradicts, supports, extends) from all sources + full-text PDFs. Enables semantic search during writing. Runs in background.</div>
+        <div class="tools-list" style="margin-top:0.3rem">
+          <span class="tool-tag">Gemini Flash (entity extraction)</span>
+          <span class="tool-tag">Qwen3 8B (embeddings)</span>
+          <span class="tool-tag">OpenRouter API</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+  <div class="section-divider">Planning Phase</div>
+
+  <!-- STAGE 2: Planning -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(188,140,255,0.15);color:var(--purple)">2</div>
+      <div class="stage-title">Thesis, Outline & Claims Matrix</div>
+      <div class="stage-time">20-45 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="agents-row">
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Thesis & Contribution<span class="model-badge model-opus inline">Opus</span></div>
+          <div class="step-desc">Central argument, novelty statement, scope. Informed by gap analysis.</div>
+        </div>
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Detailed Outline<span class="model-badge model-opus inline">Opus</span></div>
+          <div class="step-desc">Section structure with per-section word targets, citation keys, and OUTLINE comments in LaTeX.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Claims-Evidence Matrix<span class="model-badge model-opus inline">Opus</span></div>
+        <div class="step-desc">Every major claim mapped to specific evidence. Each claim scored for evidence density and includes three argumentation columns.</div>
+        <div class="tools-list" style="margin-top:0.3rem">
+          <span class="tool-tag" style="color:var(--green)">STRONG >= 6.0</span>
+          <span class="tool-tag" style="color:var(--blue)">MODERATE 3.0-5.9</span>
+          <span class="tool-tag" style="color:var(--orange)">WEAK 1.0-2.9</span>
+          <span class="tool-tag" style="color:var(--red)">CRITICAL < 1.0</span>
+        </div>
+        <div class="step-desc" style="margin-top:0.3rem"><b>Warrant</b>: why evidence supports the claim (rated Sound/Reasonable/Weak/Missing). <b>Qualifier</b>: scope limitations. <b>Rebuttal</b>: anticipated counterarguments.</div>
+        <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">research/claims_matrix.md</div>
+      </div>
+      <div class="agents-row">
+        <div class="step-card" style="flex:1;border-color:rgba(247,120,186,0.3)">
+          <div class="step-name">Codex Thesis Stress-Test<span class="optional-badge">Optional</span></div>
+          <div class="step-desc">Challenges novelty, argument structure, identifies reviewer attack vectors. Reviews assumptions if available.</div>
+        </div>
+        <div class="step-card" style="flex:1;border-color:rgba(248,81,73,0.3)">
+          <div class="step-name">Targeted 2nd Research Pass<span class="model-badge model-sonnet inline">Sonnet</span><span class="deep-badge">Deep</span></div>
+          <div class="step-desc">3 focused agents search for: (1) direct supporting evidence, (2) counterarguments, (3) methodological precedents</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Novelty Verification<span class="model-badge model-sonnet inline">Sonnet</span></div>
+        <div class="step-desc">Searches arXiv, Semantic Scholar, and DBLP to confirm the contribution hasn't been published. Compares against overlapping papers.</div>
+      </div>
+      <div class="decision">Pipeline stops if novelty is questionable. User must decide whether to proceed.</div>
+      <div class="step-card">
+        <div class="step-name">Methodological Assumptions Analysis<span class="model-badge model-opus inline">Opus</span></div>
+        <div class="step-desc">Enumerates every assumption. Categorizes as STANDARD (widely accepted), REASONABLE (defensible), RISKY (needs justification), or CRITICAL (could invalidate results). RISKY/CRITICAL assumptions are addressed in Discussion > Limitations.</div>
+        <div class="output-file" style="font-size:0.6rem;color:var(--cyan);font-family:monospace;margin-top:0.25rem">research/assumptions.md</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+  <div class="section-divider">Writing Phase</div>
+
+  <!-- STAGE 3: Writing -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(188,140,255,0.15);color:var(--purple)">3</div>
+      <div class="stage-title">Section-by-Section Writing</div>
+      <div class="stage-time">45 min - 2 hrs</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card" style="margin-bottom:0.3rem">
+        <div class="step-desc" style="color:var(--text)">Each section written by a dedicated Opus agent with full context: claims matrix, assumptions, knowledge graph, source extracts, and venue-specific writing guide. Section order adapts to venue (Nature: Results before Methods).</div>
+      </div>
+      <div class="parallel-label">Sequential dedicated agents (each 1000-2500 words)</div>
+      <div class="agents-row">
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Introduction</div>
+          <div class="agent-desc">Problem, motivation, contribution, paper structure</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Related Work</div>
+          <div class="agent-desc">Organized by theme, positions paper vs. prior art</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Methods</div>
+          <div class="agent-desc">States assumptions explicitly, full reproducibility detail</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Results</div>
+          <div class="agent-desc">Data presentation, statistical tests, significance</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Discussion</div>
+          <div class="agent-desc">Implications, limitations (addresses RISKY/CRITICAL assumptions), future work</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Conclusion</div>
+          <div class="agent-desc">Key contributions, takeaways</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-opus">Opus</span>
+          <div class="agent-name">Abstract</div>
+          <div class="agent-desc">Written last (or first, if configured). Respects venue word limit.</div>
+        </div>
+      </div>
+      <div class="step-card" style="border-color:rgba(247,120,186,0.3)">
+        <div class="step-name">Codex Section Spot-Checks<span class="optional-badge">Optional</span></div>
+        <div class="step-desc">Codex reviews each section as it's written. Also drafts the Limitations subsection from an adversarial perspective.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Evidence Check<span class="model-badge model-sonnet inline">Sonnet</span></div>
+        <div class="step-desc">Scans completed manuscript for unsupported claims. Triggers micro-research agents if gaps exceed threshold (>3 standard, >1 deep). Per-section literature deep-dives in deep mode.</div>
+      </div>
+      <div class="provenance-note">Every paragraph logged to research/provenance.jsonl with: stage, agent, action, target section, reasoning, source keys, and claim IDs.</div>
+      <div class="venue-tags">
+        <span class="venue-tag">Generic</span>
+        <span class="venue-tag">IEEE</span>
+        <span class="venue-tag">ACM</span>
+        <span class="venue-tag">NeurIPS</span>
+        <span class="venue-tag">Nature</span>
+        <span class="venue-tag">arXiv</span>
+        <span class="venue-tag">APA</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- STAGE 4: Figures -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(57,210,192,0.15);color:var(--cyan)">4</div>
+      <div class="stage-title">Figures & Tables</div>
+      <div class="stage-time">15-30 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="agents-row">
+        <div class="step-card" style="flex:1;border-color:rgba(210,153,34,0.3)">
+          <div class="step-name">Praxis Scientific Analysis<span class="optional-badge">Optional</span></div>
+          <div class="step-desc">Auto-detects data in attachments/. 50+ characterization techniques (XRD, DSC, TGA, FTIR, Raman, XPS, EIS, AFM, SEM, VSM, BET...) with venue-matched journal figures, colourblind-safe palettes, and technique-specific metrics.</div>
+          <div class="tools-list" style="margin-top:0.3rem">
+            <span class="tool-tag">9 journal styles (Nature, Science, ACS, Elsevier, Wiley, RSC, Springer, IEEE, MDPI)</span>
+          </div>
+        </div>
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Structural Figures<span class="model-badge model-opus inline">Opus</span></div>
+          <div class="step-desc">Architecture diagrams, flowcharts, comparison tables, conceptual illustrations via matplotlib/TikZ. Minimum figure/table count enforced.</div>
+        </div>
+      </div>
+      <div class="step-card" style="border-color:rgba(247,120,186,0.3)">
+        <div class="step-name">Codex Figure-Claims Audit<span class="optional-badge">Optional</span></div>
+        <div class="step-desc">Verifies every figure's claims match the text. Catches mismatches between visual data and written descriptions.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+  <div class="section-divider">Quality Assurance Phase</div>
+
+  <!-- STAGE 5: QA -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(248,81,73,0.15);color:var(--red)">5</div>
+      <div class="stage-title">QA Review Loop</div>
+      <div class="stage-time">30 min - 1.5 hrs</div>
+    </div>
+    <div class="stage-body">
+      <div class="loop-container">
+        <div class="loop-label">Up to 5 iterations (8 in deep mode)</div>
+        <div class="parallel-label">Parallel review agents</div>
+        <div class="agents-row">
+          <div class="agent-card">
+            <span class="model-badge model-sonnet">Sonnet</span>
+            <div class="agent-name">Technical Reviewer</div>
+            <div class="agent-desc">Correctness, methodology soundness, logical consistency, warrant quality</div>
+          </div>
+          <div class="agent-card">
+            <span class="model-badge model-sonnet">Sonnet</span>
+            <div class="agent-name">Writing Reviewer</div>
+            <div class="agent-desc">Clarity, flow, transitions, academic tone, venue conventions</div>
+          </div>
+          <div class="agent-card">
+            <span class="model-badge model-sonnet">Sonnet</span>
+            <div class="agent-name">Completeness Reviewer</div>
+            <div class="agent-desc">Gaps, placeholders, cross-refs, compilation, TODO/TBD/FIXME scan</div>
+          </div>
+          <div class="agent-card" style="border-color:rgba(247,120,186,0.3)">
+            <span class="model-badge model-codex">Codex</span>
+            <div class="agent-name">Adversarial Reviewer<span class="optional-badge" style="margin-left:0.2rem;position:static">Optional</span></div>
+            <div class="agent-desc">Challenges assumptions, finds logical gaps, applies Deliberation Protocol</div>
+          </div>
+        </div>
+        <div style="height:0.5rem"></div>
+        <div class="step-card">
+          <div class="step-name">Revision Agent<span class="model-badge model-opus inline">Opus</span></div>
+          <div class="step-desc">Synthesizes all reviews into prioritized fix list. Executes CRITICAL and MAJOR fixes. Content removal archived to provenance/cuts/ before deletion. Re-compiles after each iteration.</div>
+        </div>
+        <div class="step-card" style="margin-top:0.5rem;border-color:rgba(63,185,80,0.3)">
+          <div class="step-name" style="color:var(--green)">Quality Gates (must all pass to exit loop)</div>
+          <div class="step-desc">Substantive completeness, zero placeholder text, 2+ tables, all refs resolve, no CRITICAL claims, no Missing warrants, clean compilation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- STAGE 5+: Post-QA -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(248,81,73,0.15);color:var(--red)">5+</div>
+      <div class="stage-title">Post-QA Audits</div>
+      <div class="stage-time">20-45 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="agents-row">
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Consistency Check</div>
+          <div class="agent-desc">Notation, terminology, tense, abbreviation first-use, heading capitalization</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Claims Audit</div>
+          <div class="agent-desc">Softens overclaims, adds hedging for WEAK evidence, flags missing significance tests</div>
+        </div>
+        <div class="agent-card">
+          <span class="model-badge model-sonnet">Sonnet</span>
+          <div class="agent-name">Reproducibility</div>
+          <div class="agent-desc">NeurIPS/ICML-style completeness checklist for methods, data, and code</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Reference Validation<span class="model-badge model-sonnet inline">Sonnet</span></div>
+        <div class="step-desc">Every citation verified against CrossRef and web search. Each reference marked: VERIFIED, METADATA MISMATCH, SUSPICIOUS, or FABRICATED. Fabricated references are removed. Codex independently verifies a sample.</div>
+      </div>
+      <div class="step-card" style="border-color:rgba(247,120,186,0.3)">
+        <div class="step-name">Codex Risk Radar<span class="optional-badge">Optional</span></div>
+        <div class="step-desc">Independent assessment across four dimensions: scientific risk, ethical risk, reproducibility risk, and novelty risk. Each scored and explained.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+  <div class="section-divider">Finalization Phase</div>
+
+  <!-- STAGE 6: Finalization -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(63,185,80,0.15);color:var(--green)">6</div>
+      <div class="stage-title">Finalization</div>
+      <div class="stage-time">15-30 min</div>
+    </div>
+    <div class="stage-body">
+      <div class="agents-row">
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Scooping Check<span class="model-badge model-sonnet inline">Sonnet</span></div>
+          <div class="step-desc">Searches arXiv and preprint servers for very recent papers that overlap with the contribution. Alerts if scooped.</div>
+        </div>
+        <div class="step-card" style="flex:1">
+          <div class="step-name">De-AI Polish<span class="model-badge model-opus inline">Opus</span></div>
+          <div class="step-desc">Removes AI writing patterns: em dashes (most recognizable), hedging overuse, AI vocabulary ("delve", "crucial", "innovative"), uniform paragraph lengths, filler phrases.</div>
+        </div>
+        <div class="step-card" style="flex:1">
+          <div class="step-name">Lay Summary<span class="model-badge model-sonnet inline">Sonnet</span></div>
+          <div class="step-desc">Plain-language summary, tweet thread, elevator pitch for non-specialist audiences.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-name">Compile, Provenance Report & Archive</div>
+        <div class="step-desc">Final latexmk compile produces main.pdf. Provenance report generated. All artifacts (research files, reviews, source extracts, figures, provenance) bundled into archive/ with browsable README index.</div>
+      </div>
+      <div class="step-card" style="border-color:rgba(247,120,186,0.3)">
+        <div class="step-name">Codex Collaboration Stats<span class="optional-badge">Optional</span></div>
+        <div class="step-desc">Reports how the two AI systems collaborated: agreements, disagreements, rebuttals, and where each contributed most.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">&#9660;</div>
+
+  <!-- Outputs -->
+  <div class="stage-group" style="margin-bottom:2.5rem">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(63,185,80,0.15);color:var(--green)">&#10003;</div>
+      <div class="stage-title" style="color:var(--green)">Output</div>
+      <div class="stage-time">Standard: 2-4 hrs, ~$50 | Deep: 4-8 hrs, ~$150</div>
+    </div>
+    <div class="stage-body">
+      <div class="outputs-row">
+        <div class="output-card">
+          <div class="output-name">main.pdf</div>
+          <div class="output-desc">Publication-ready LaTeX paper with venue formatting</div>
+        </div>
+        <div class="output-card">
+          <div class="output-name">references.bib</div>
+          <div class="output-desc">Verified BibTeX, every entry CrossRef-checked</div>
+        </div>
+        <div class="output-card">
+          <div class="output-name">provenance.jsonl</div>
+          <div class="output-desc">Every paragraph traced to sources, agents, and reasoning</div>
+        </div>
+        <div class="output-card">
+          <div class="output-name">claims_matrix.md</div>
+          <div class="output-desc">Evidence density scores with warrants for every claim</div>
+        </div>
+        <div class="output-card">
+          <div class="output-name">research/sources/</div>
+          <div class="output-desc">Per-paper extracts with access levels and content snapshots</div>
+        </div>
+        <div class="output-card">
+          <div class="output-name">archive/</div>
+          <div class="output-desc">Browsable research bundle with README index</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-divider">Post-Pipeline</div>
+
+  <!-- /auto -->
+  <div class="stage-group">
+    <div class="stage-header">
+      <div class="stage-number" style="background:rgba(210,153,34,0.15);color:var(--orange)">&#8635;</div>
+      <div class="stage-title">/auto Improvement Loop</div>
+      <div class="stage-time">30-45 min per iteration</div>
+    </div>
+    <div class="stage-body">
+      <div class="step-card" style="margin-bottom:0.3rem">
+        <div class="step-desc" style="color:var(--text)">Run <code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.75rem">/auto N</code> on a completed paper. Each iteration autonomously identifies the highest-impact improvements, executes them, and verifies no regressions. Content removal is a first-class improvement: cutting weak material strengthens the paper.</div>
+      </div>
+      <div class="loop-container" style="border-color:var(--orange)">
+        <div class="loop-label" style="color:var(--orange)">N iterations (user-specified) with early stop</div>
+        <div class="agents-row">
+          <div class="step-card" style="flex:1">
+            <div class="step-name">Phase 1: Assess</div>
+            <div class="step-desc">5 parallel agents: depth/evidence, structure/flow, competitive positioning, writing quality, + Codex review. Regression detector on iterations 2+.</div>
+          </div>
+          <div class="step-card" style="flex:1">
+            <div class="step-name">Phase 2: Prioritize</div>
+            <div class="step-desc">Reads assessments, ranks by impact. Regressions first, then WEAK/CRITICAL claims. Builds top-5 action plan. Early stop if &lt;3 actions found.</div>
+          </div>
+          <div class="step-card" style="flex:1">
+            <div class="step-name">Phase 3: Execute</div>
+            <div class="step-desc">Targeted research (max 3 queries), revision agent implements action plan. Cuts archived before deletion. Knowledge graph updated.</div>
+          </div>
+          <div class="step-card" style="flex:1">
+            <div class="step-name">Phase 4: Verify</div>
+            <div class="step-desc">Compile, cross-ref check, no em dashes, recompute evidence scores. Cumulative context maintained for iterations 3+.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:2rem"></div>
+
+  <!-- Provenance chain -->
+  <div class="section-divider">Provenance System</div>
+  <div class="stage-group" style="margin-top:1rem">
+    <div class="stage-body" style="margin-left:0">
+      <div class="step-card" style="border-color:rgba(57,210,192,0.3)">
+        <div class="step-name" style="color:var(--cyan)">Full Provenance Chain</div>
+        <div class="step-desc" style="line-height:1.8">
+          <b>Final PDF paragraph</b>
+          &larr; <code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem">provenance.jsonl</code> entry (stage, agent, action, reasoning)
+          &larr; <code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem">research/sources/key.md</code> (content snapshot of what was actually read)
+          &larr; <code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem">research/log.md</code> (tool, query, URLs)
+          &larr; <b>Original paper</b> (DOI/URL)
+          <br>
+          Every revision, cut, and expansion is also traced. Cut content is archived to <code style="background:rgba(255,255,255,0.06);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem">provenance/cuts/</code> so nothing is silently lost.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

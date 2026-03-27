@@ -11,7 +11,7 @@ Three commands from zero to paper.
 ## Install
 
 ```bash
-git clone https://github.com/your-org/research-agent
+git clone https://github.com/ndcorder/research-agent
 cd research-agent
 ln -s $(pwd)/create-paper ~/.local/bin/create-paper
 ln -s $(pwd)/write-paper ~/.local/bin/write-paper

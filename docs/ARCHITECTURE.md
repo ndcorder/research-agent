@@ -14,7 +14,7 @@ graph TB
     subgraph "Orchestration Layer"
         WP["/write-paper Orchestrator"]
         Auto["/auto Improvement Loop"]
-        Manual["30 Slash Commands"]
+        Manual["35 Slash Commands"]
     end
 
     subgraph "Pipeline Stages"
@@ -380,7 +380,7 @@ paper-project/                     # Created by create-paper
 ├── archive/                       # Browsable bundle (end of pipeline)
 └── .claude/
     ├── CLAUDE.md                  # Workspace instructions (symlink)
-    ├── commands/                  # 30 slash commands (symlinks)
+    ├── commands/                  # 35 slash commands (symlinks)
     ├── pipeline/                  # Stage instructions (symlinks)
     │   ├── shared-protocols.md
     │   ├── stage-1-research.md

@@ -12,7 +12,7 @@ research-agent/
 ├── template/
 │   ├── claude/
 │   │   ├── CLAUDE.md         # Workspace instructions (symlinked into projects)
-│   │   ├── commands/         # 30 slash commands (symlinked)
+│   │   ├── commands/         # 35 slash commands (symlinked)
 │   │   ├── pipeline/         # Stage instructions (symlinked)
 │   │   └── settings.local.json
 │   ├── scripts/
