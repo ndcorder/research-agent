@@ -249,6 +249,29 @@ Source extracts can be shared across papers via `~/.research-agent/shared-source
 
 The shared knowledge base stores source extracts only (not knowledge graphs). Each extract retains provenance: which paper it came from, when it was exported, and its access level.
 
+## Shared PDF Cache
+
+Downloaded PDFs are cached centrally at `~/.research-agent/pdf-cache/` to avoid re-downloading the same papers across projects. Each cached PDF has a human-readable filename and a JSON metadata sidecar.
+
+```
+~/.research-agent/pdf-cache/
+  smith2024.pdf      # The actual PDF
+  smith2024.json     # Metadata: title, DOI, sha256, resolver, projects list
+```
+
+**How it works**: Stage 1d checks the cache before running the resolver cascade. On a cache hit, the PDF is symlinked into `attachments/` and identity-verified. On a cache miss, the resolver cascade runs as normal and newly downloaded PDFs are stored in the cache. Project-local `attachments/<key>.pdf` files are symlinks to the cache; `knowledge.py` and all other tools follow symlinks transparently.
+
+**Deduplication**: Papers are matched by DOI (exact), sha256 (same file), or normalized title (first 80 chars). The cache key (filename) is decoupled from the project's bibtex key via symlinks, so cross-project key collisions are handled automatically.
+
+**Helper script** (`scripts/pdf-cache.sh`):
+- `lookup <doi> <title>` — find a cached PDF by DOI or title (use `-` for unknown DOI)
+- `store <key> <pdf> <title> [<doi> <resolver> <url> <authors>]` — cache a PDF with metadata
+- `link <cache_key> <project_dir> <local_key>` — symlink a cached PDF into a project
+- `list` — show all cached PDFs
+- `info <cache_key>` — show metadata for a cached PDF
+
+**Integration**: `/export-sources` caches any local (non-symlinked) PDFs. `/import-sources` links cached PDFs when importing relevant sources.
+
 ## Knowledge Graph
 
 Each paper can optionally have a knowledge graph built from its source extracts using LightRAG. The graph is stored in `research/knowledge/` (gitignored — rebuilds from sources).

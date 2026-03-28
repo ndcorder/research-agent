@@ -43,7 +43,17 @@ Export source extracts and references from this paper to the shared knowledge ba
      - If the key already exists, keep the version with more complete metadata (more fields filled)
    - Write the merged result back to `~/.research-agent/shared-sources/references.bib`
 
-6. **Report results**:
+6. **Cache PDFs for cross-project reuse**:
+   For each exported source that has a corresponding PDF in `attachments/<key>.pdf`:
+   - If the PDF is a **regular file** (not already a symlink to the cache):
+     - Extract the paper's DOI from `references.bib` and title from `research/sources/<key>.md`
+     - Run: `scripts/pdf-cache.sh store "<key>" "attachments/<key>.pdf" "<title>" "<doi>" "export" "-"`
+     - Replace the local file with a cache symlink: `scripts/pdf-cache.sh link "<cache_key>" "$(pwd)" "<key>"`
+   - If the PDF is already a symlink: skip (already cached)
+   - Track count of PDFs newly cached
+   - If `scripts/pdf-cache.sh` is not available, skip this step silently
+
+7. **Report results**:
    ```
    Exported source extracts to ~/.research-agent/shared-sources/
    - N source extracts exported total
@@ -51,4 +61,5 @@ Export source extracts and references from this paper to the shared knowledge ba
    - N updated (newer version or improved access level)
    - N already up-to-date (skipped)
    - N BibTeX entries added/updated in shared references.bib
+   - N PDFs added to shared cache (~/.research-agent/pdf-cache/)
    ```

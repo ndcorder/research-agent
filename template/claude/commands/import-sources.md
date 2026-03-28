@@ -53,11 +53,22 @@ Import relevant source extracts from the shared knowledge base (`~/.research-age
    - Append new entries to `references.bib` (create if it does not exist)
    - Do not duplicate entries that already exist in `references.bib`
 
-7. **Report results**:
+7. **Link cached PDFs for imported sources**:
+   For each imported source, check if the shared PDF cache has a matching PDF:
+   - Run: `scripts/pdf-cache.sh lookup "<doi>" "<title>"`
+   - If found (exit 0): Link the cached PDF into the project:
+     ```bash
+     scripts/pdf-cache.sh link "<cache_key>" "$(pwd)" "<bibtexkey>"
+     ```
+   - Track count of PDFs linked from cache
+   - If `scripts/pdf-cache.sh` is not available, skip this step silently
+
+8. **Report results**:
    ```
    Import complete:
    - N sources imported (HIGH relevance)
    - N sources skipped (already existed with same or better access level)
    - N BibTeX entries added to references.bib
+   - N PDFs linked from shared cache
    - N MEDIUM-relevance sources available (run /import-sources again to review individually)
    ```

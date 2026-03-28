@@ -71,9 +71,43 @@ Add a `Source Type:` field to each source extract file in `research/sources/`. T
 
 ---
 
+## Phase 1c: PDF Cache Check
+
+Before running the resolver cascade, check the shared PDF cache for each paper that needs acquisition. This avoids re-downloading PDFs that were already found in other paper projects.
+
+For each ABSTRACT-ONLY and METADATA-ONLY source:
+
+1. **Look up in cache** using the paper's DOI (preferred) and title:
+   ```bash
+   scripts/pdf-cache.sh lookup "<doi>" "<title>"
+   ```
+   Use `-` for DOI if unavailable. If the command exits with status 0, it prints the cache key and path.
+
+2. **On cache hit**:
+   - Link the cached PDF into the project:
+     ```bash
+     scripts/pdf-cache.sh link "<cache_key>" "$(pwd)" "<bibtexkey>"
+     ```
+   - **Run identity verification** on the symlinked file: Read pages 1-2 with the Read tool and verify the title and at least one author appear (same fuzzy matching as the PDF Validation Protocol, steps 3-4). This guards against stale or mismatched cache entries.
+   - If identity verification passes: Update or create `research/sources/<key>.md` with `Access Level: FULL-TEXT` and `Accessed Via: Shared PDF cache (originally resolved by <resolver from cache metadata>)`. **Skip the resolver cascade for this paper.**
+   - If identity verification fails: Remove the symlink (`rm attachments/<bibtexkey>.pdf`), log the mismatch in `research/log.md`, and proceed to the resolver cascade as normal.
+
+3. **On cache miss** (exit status 1): Proceed to the resolver cascade below.
+
+4. **Log every cache check** in `research/log.md`:
+   ```markdown
+   ### [timestamp] — PDF Cache Check
+   - **Key**: <bibtexkey>
+   - **DOI**: <doi or "none">
+   - **Result**: HIT (cache_key: <key>) / MISS
+   - **Identity Verification**: PASS / FAIL / N/A
+   ```
+
+---
+
 ## Phase 2: Modular Resolver Cascade
 
-For each ABSTRACT-ONLY and METADATA-ONLY source, run applicable resolvers to find full-text PDFs and/or abstracts. Resolvers are organized into tiers.
+For each ABSTRACT-ONLY and METADATA-ONLY source (that was not resolved by the PDF cache in Phase 1c), run applicable resolvers to find full-text PDFs and/or abstracts. Resolvers are organized into tiers.
 
 **Configuration**: Check `.paper.json` for an `oa_resolution` object. All resolvers default to `true` (or `"auto"` where noted). Check for required env vars / config before each resolver — skip silently if prerequisites aren't met.
 
@@ -446,15 +480,22 @@ For each successfully resolved paper (any resolver that returns a PDF URL):
 
 2. **Run PDF Validation Protocol** (above). If validation fails, skip to next resolver or end cascade.
 
-3. **Read the validated PDF** using the Read tool (pages 1-5 + last 3-5 pages) to extract actual paper content.
+3. **Cache the validated PDF** for cross-project reuse:
+   ```bash
+   CACHE_KEY=$(scripts/pdf-cache.sh store "<bibtexkey>" "attachments/<bibtexkey>.pdf" "<title>" "<doi>" "<resolver_name>" "<pdf_url>")
+   scripts/pdf-cache.sh link "$CACHE_KEY" "$(pwd)" "<bibtexkey>"
+   ```
+   This stores the PDF in `~/.research-agent/pdf-cache/` and replaces the local file with a symlink. If `scripts/pdf-cache.sh` is not available (e.g., project not created from latest template), skip this step silently.
 
-4. **Update or create `research/sources/<key>.md`** with:
+4. **Read the validated PDF** using the Read tool (pages 1-5 + last 3-5 pages) to extract actual paper content.
+
+5. **Update or create `research/sources/<key>.md`** with:
    - `Access Level: FULL-TEXT`
    - `Accessed Via: Downloaded PDF from <url> (resolved by <resolver name>)`
    - Content snapshot from the PDF
    - Source Type (from Phase 1b)
 
-5. **Log the resolution** in `research/log.md` including the download path and which resolver found it.
+6. **Log the resolution** in `research/log.md` including the download path and which resolver found it.
 
 ---
 
