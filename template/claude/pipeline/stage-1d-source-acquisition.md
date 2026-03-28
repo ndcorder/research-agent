@@ -483,19 +483,30 @@ For each successfully resolved paper (any resolver that returns a PDF URL):
 3. **Cache the validated PDF** for cross-project reuse:
    ```bash
    CACHE_KEY=$(scripts/pdf-cache.sh store "<bibtexkey>" "attachments/<bibtexkey>.pdf" "<title>" "<doi>" "<resolver_name>" "<pdf_url>")
-   scripts/pdf-cache.sh link "$CACHE_KEY" "$(pwd)" "<bibtexkey>"
    ```
    This stores the PDF in `~/.research-agent/pdf-cache/` and replaces the local file with a symlink. If `scripts/pdf-cache.sh` is not available (e.g., project not created from latest template), skip this step silently.
 
-4. **Read the validated PDF** using the Read tool (pages 1-5 + last 3-5 pages) to extract actual paper content.
+4. **Parse the PDF to markdown** using Docling for full-text extraction with figures:
+   ```bash
+   python3 scripts/parse-pdf.py "attachments/<bibtexkey>.pdf"
+   ```
+   The parsed markdown and figures are saved next to the real PDF (in the cache if the PDF is a symlink). If `scripts/parse-pdf.py` is not available or Docling is not installed, fall back to reading the PDF directly with the Read tool (pages 1-5 + last 3-5 pages).
 
-5. **Update or create `research/sources/<key>.md`** with:
+5. **Link parsed outputs into the project** — re-run `link` to symlink the `.md` and `_figures/` from the cache into `attachments/parsed/`:
+   ```bash
+   scripts/pdf-cache.sh link "$CACHE_KEY" "$(pwd)" "<bibtexkey>"
+   ```
+   This creates `attachments/<bibtexkey>.pdf` (symlink) and `attachments/parsed/<bibtexkey>.md` + `attachments/parsed/<bibtexkey>_figures/` (symlinks). If the PDF was not cached (step 3 skipped), the markdown will already be in `attachments/parsed/` directly.
+
+6. **Read the parsed content** — if `attachments/parsed/<bibtexkey>.md` exists, read it with the Read tool for the content snapshot. Otherwise, read the PDF directly (pages 1-5 + last 3-5 pages).
+
+6. **Update or create `research/sources/<key>.md`** with:
    - `Access Level: FULL-TEXT`
    - `Accessed Via: Downloaded PDF from <url> (resolved by <resolver name>)`
-   - Content snapshot from the PDF
+   - Content snapshot from the parsed markdown (or PDF if Docling unavailable)
    - Source Type (from Phase 1b)
 
-6. **Log the resolution** in `research/log.md` including the download path and which resolver found it.
+7. **Log the resolution** in `research/log.md` including the download path and which resolver found it.
 
 ---
 
@@ -758,6 +769,11 @@ Update `.paper-state.json`: add `"knowledge_graph": { "done": true, "entities": 
 ---
 
 ## Checkpoint
+
+**Update source manifest**:
+```bash
+python3 scripts/update-manifest.py
+```
 
 **Checkpoint**: Verify `research/source_coverage.md` exists. Update `.paper-state.json`:
 ```json

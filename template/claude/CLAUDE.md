@@ -9,8 +9,10 @@ main.tex          # Primary LaTeX document
 references.bib    # BibTeX references
 figures/          # Generated and imported figures
 attachments/      # Reference PDFs, data files, supplementary materials
+  parsed/         # Docling-parsed markdown and extracted figures (symlinks to cache)
 research/         # Literature research outputs (created by /write-paper)
   sources/        # Raw source extracts per cited paper (abstract, key findings, provenance)
+  source-manifest.json  # Manifest of all source artifacts (PDF, parsed md, extract, deep-read status)
   knowledge/      # LightRAG knowledge graph (auto-built from sources, gitignored)
   log.md          # Research provenance log (all searches, queries, tools, results)
   provenance.jsonl  # Machine-readable provenance ledger (every action traced)
@@ -29,6 +31,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-1b2-cocitation.md   # Co-citation & bibliometric analysis
     stage-1c-codex-crosscheck.md  # Codex research cross-check
     stage-1d-source-acquisition.md  # Source audit, OA resolution, acquisition
+    stage-1e-deep-read.md # Deep reading of full PDFs, rewrite source extracts
     stage-2-planning.md   # Thesis, outline, claims-evidence matrix
     stage-2b-codex-thesis.md  # Codex thesis stress-test
     stage-2c-targeted-research.md  # Deep mode targeted research
@@ -74,6 +77,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     Writing agents must ensure each major claim paragraph includes the warrant (not just citations), appropriate qualifiers, and rebuttal references. The Technical Reviewer (Stage 5) and Depth Reviewer (`/auto`) verify warrant quality. No claim may pass QA with a Missing warrant.
 11. **No em dashes**: Never use em dashes (—) or en dashes (–) as punctuation. Rewrite using commas, parentheses, colons, or separate sentences. Em dashes are the single most recognizable AI writing pattern.
 12. **Provenance logging**: Every agent that writes, revises, or cuts manuscript content must append entries to `research/provenance.jsonl`. See the Provenance Logging Protocol in `pipeline/shared-protocols.md`.
+13. **Use the provided scripts and tools, not custom ones.** This system has purpose-built scripts (`scripts/parse-pdf.py`, `scripts/knowledge.py`, `scripts/pdf-cache.sh`, `scripts/format_sentences.py`, `scripts/update-manifest.py`) and pipeline stages designed to work together. Do NOT write one-off Python scripts, shell scripts, or "helper" code to replace or bypass them. Do not write custom scripts "for efficiency" or "to batch process" things. If a provided script exists for a task, use it. If no script exists, use the tools and commands as documented in the pipeline instructions. The system is built this way for a reason: scripts are shared across all paper projects via symlinks, tested in CI, and maintained centrally. A custom script in one project is a dead end that other projects cannot benefit from.
 
 ## Autonomous Pipeline: /write-paper
 
@@ -81,11 +85,12 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 
 1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find, then co-citation analysis identifies important papers frequently cited alongside your references but missing from the bibliography
 2. **Source Acquisition** — Audit source access levels, detect source types (article/book/report/etc.), run a 14-resolver cascade (Unpaywall, OpenAlex, Semantic Scholar, CrossRef, CORE, PubMed, arXiv, DBLP, BASE, Internet Archive, DOAB, Google Books, web search, repository search) with PDF validation, then content enrichment for remaining gaps (Wikipedia, book reviews, executive summaries, citation context), pause for user to provide remaining sources
-3. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
-4. **Writing** — Sequential agents write each section (1000-2500 words each); Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
-5. **Figures & Tables** — Ensure adequate visual elements
-6. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
-7. **Finalization** — Polish, compile, archive all artifacts, report
+3. **Deep Source Reading** — For every source with a PDF, spawn a dedicated agent to read the full paper and rewrite the source extract with comprehensive, topic-relevant content
+4. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
+5. **Writing** — Sequential agents write each section (1000-2500 words each); Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
+6. **Figures & Tables** — Ensure adequate visual elements
+7. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
+8. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
 
@@ -144,6 +149,7 @@ For interactive, step-by-step work:
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
 - `/audit-sources` — Audit source coverage: classify every reference by access level and source type, run the full 14-resolver cascade with PDF validation, enrich remaining gaps with secondary sources, generate prioritized acquisition list
+- `/deep-read` — Deep-read source PDFs: spawn an agent per source to read the full paper and rewrite source extracts with comprehensive content. Also updates research files and claims matrix when run standalone.
 - `/export-sources` — Export source extracts and references to the shared knowledge base (~/.research-agent/shared-sources/)
 - `/import-sources` — Import relevant sources from the shared knowledge base into the current paper
 - `/knowledge` — Query the per-paper knowledge graph: semantic search, contradiction detection, evidence for/against claims, entity/relationship exploration
@@ -239,6 +245,27 @@ The Content Snapshot is the critical field. It answers: "What did the pipeline a
 
 The `/audit-sources` command runs the full 14-resolver cascade and content enrichment, and can retroactively upgrade source coverage on existing papers.
 
+## PDF Parsing with Docling
+
+PDFs acquired during source acquisition are parsed to markdown using [Docling](https://github.com/docling-project/docling) for reliable full-text extraction. This solves the 20-page-per-request limit of the Read tool and produces cleaner text for agents.
+
+**Script**: `python3 scripts/parse-pdf.py <pdf_path> [--output-dir <dir>] [--force]`
+
+**Output**: The parsed markdown and figures are saved next to the **real** PDF. If the PDF is a symlink to the shared cache (`~/.research-agent/pdf-cache/`), outputs go to the cache so parsing happens once per PDF across all projects. The `pdf-cache.sh link` command symlinks them into `attachments/parsed/`:
+- `attachments/parsed/<key>.md` — full paper text as markdown with image references (symlink to cache)
+- `attachments/parsed/<key>_figures/` — extracted figures, charts, and images (symlink to cache)
+
+PDFs stay in `attachments/` root alongside data files. Parsed derivatives live in the `parsed/` subdirectory to keep things clean.
+
+**Integration**: The parse script is called automatically during:
+- Stage 1d (after downloading, validating, and caching a PDF — then `pdf-cache.sh link` symlinks the parsed outputs)
+- Stage 1e (for any PDFs not yet parsed — parses then re-links)
+- `/ingest-papers` (when processing PDFs from `attachments/`)
+
+All downstream consumers (Stage 1e deep-read agents, writing agents, knowledge graph builder) read the parsed markdown rather than the PDF directly. If Docling is not installed, agents fall back to reading the PDF with the Read tool.
+
+**Requires**: `pip install docling`. The `/health` command checks for this dependency. Docling is optional — the pipeline works without it, but large PDFs may have incomplete extraction.
+
 ## Shared Knowledge Base
 
 Source extracts can be shared across papers via `~/.research-agent/shared-sources/`. This avoids redundant literature research when writing multiple papers in the same domain.
@@ -276,7 +303,7 @@ Downloaded PDFs are cached centrally at `~/.research-agent/pdf-cache/` to avoid 
 
 Each paper can optionally have a knowledge graph built from its source extracts using LightRAG. The graph is stored in `research/knowledge/` (gitignored — rebuilds from sources).
 
-**Build**: `python scripts/knowledge.py build` — reads all `research/sources/*.md` AND extracts full text from PDFs in `attachments/`, then builds a queryable graph with entities and relationships using an LLM (Gemini Flash via OpenRouter) and semantic embeddings (Qwen3 8B via OpenRouter). PDFs are ingested alongside source extracts so the graph captures the complete content of acquired papers, not just the 500-1500 word snapshots.
+**Build**: `python scripts/knowledge.py build` — reads all `research/sources/*.md`, Docling-parsed markdown from `attachments/parsed/*.md`, and falls back to raw PDF extraction for any PDFs without parsed markdown. Builds a queryable graph with entities and relationships using an LLM (Gemini Flash via OpenRouter) and semantic embeddings (Qwen3 8B via OpenRouter). Parsed markdown is preferred over raw PDF extraction for higher quality text. Each source is ingested once — no duplicates.
 
 **Requires**: `OPENROUTER_API_KEY` environment variable. The knowledge graph is optional — the pipeline works without it.
 

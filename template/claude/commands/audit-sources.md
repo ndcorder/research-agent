@@ -51,6 +51,11 @@ python scripts/knowledge.py build
 ```
 Run with `run_in_background: true`. The graph should be rebuilt after source acquisition to incorporate new content.
 
+**Update Source Manifest**:
+```bash
+python3 scripts/update-manifest.py
+```
+
 ## Arguments
 
 $ARGUMENTS

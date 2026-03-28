@@ -55,6 +55,7 @@ After completing EACH stage or section, update `.paper-state.json`:
     "outline":      { "done": true,  "completed_at": "..." },
     "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "source_acquisition": { "done": false, "full_text": 0, "abstract_only": 0, "metadata_only": 0 },
+    "deep_read": { "done": false, "sources_read": 0, "agents_completed": [], "agents_pending": [] },
     "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
     "novelty_check": { "done": true, "completed_at": "...", "file": "research/novelty_check.md", "status": "NOVEL" },
     "assumptions": { "done": true, "completed_at": "...", "file": "research/assumptions.md", "total": 12, "critical": 1, "risky": 3 },
@@ -131,18 +132,19 @@ For each stage in order:
 | 3 | Co-Citation Analysis | `pipeline/stage-1b2-cocitation.md` | `stages.cocitation.done` |
 | 4 | Codex Cross-Check | `pipeline/stage-1c-codex-crosscheck.md` | `stages.codex_cross_check.done` |
 | 5 | Source Acquisition | `pipeline/stage-1d-source-acquisition.md` | `stages.source_acquisition.done` |
-| 6 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
-| 7 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
-| 8 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
-| 9 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
-| 10 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
-| 11 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
-| 12 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
-| 13 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
-| 14 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
-| 15 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
+| 6 | Deep Source Reading | `pipeline/stage-1e-deep-read.md` | `stages.deep_read.done` |
+| 7 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
+| 8 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
+| 9 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
+| 10 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
+| 11 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
+| 12 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
+| 13 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
+| 14 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
+| 15 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
+| 16 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
 
-**Important**: The QA Loop (Stage 13) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 14). The quality criteria table below defines the gate for exiting the QA loop.
+**Important**: The QA Loop (Stage 14) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 15). The quality criteria table below defines the gate for exiting the QA loop.
 
 ---
 
@@ -198,6 +200,7 @@ ALL must pass to exit Stage 5. Note: writing targets in Stage 3 are intentionall
 10. **Domain awareness.** Use the detected domain to choose appropriate skills and databases for each agent.
 11. **Clear stale reviews.** Before each QA loop iteration (Stage 5a), delete old review files: `rm -f reviews/technical.md reviews/writing.md reviews/completeness.md` so reviewers evaluate the latest version.
 12. **Venue-aware length.** If `.venue.json` has a `page_limit`, respect it. An 8-page IEEE paper must be concise — prioritize depth over breadth and cut less critical content. Read the venue config and adjust scope accordingly.
+13. **Use provided scripts, never write custom ones.** This pipeline has purpose-built scripts (`scripts/parse-pdf.py`, `scripts/knowledge.py`, `scripts/pdf-cache.sh`, `scripts/format_sentences.py`, `scripts/update-manifest.py`) and stage instructions designed to work together. Do NOT write one-off Python or shell scripts to replace, bypass, or "optimize" them. If a provided script or tool exists for a task, use it exactly as documented. The system is architected this way deliberately: scripts are shared across all paper projects via symlinks, tested in CI, and maintained centrally. Custom scripts bypass this and cannot benefit other projects.
 
 ## Topic
 

@@ -100,6 +100,7 @@ SCHEMA = {
         "codex_risk_radar": dict,
         "auto_iterations": dict,
         "targeted_research": dict,
+        "deep_read": dict,
         "post_qa": dict,
     },
     "auto_iterations_schema": {

@@ -238,8 +238,29 @@ cmd_link() {
     # Remove existing file/symlink at target
     rm -f "$target"
 
-    # Create symlink
+    # Create symlink for PDF
     ln -s "$cache_pdf" "$target"
+
+    # Also symlink parsed markdown and figures if they exist in the cache
+    local cache_md="${CACHE_DIR}/${cache_key}.md"
+    local cache_figures="${CACHE_DIR}/${cache_key}_figures"
+    local parsed_dir="${project_dir}/attachments/parsed"
+    local target_md="${parsed_dir}/${local_key}.md"
+    local target_figures="${parsed_dir}/${local_key}_figures"
+
+    if [ -f "$cache_md" ] || [ -d "$cache_figures" ]; then
+        mkdir -p "$parsed_dir"
+    fi
+
+    if [ -f "$cache_md" ]; then
+        rm -f "$target_md"
+        ln -s "$cache_md" "$target_md"
+    fi
+
+    if [ -d "$cache_figures" ]; then
+        rm -f "$target_figures"
+        ln -s "$cache_figures" "$target_figures"
+    fi
 
     # Add project to metadata's projects list
     if [ -f "$cache_meta" ]; then

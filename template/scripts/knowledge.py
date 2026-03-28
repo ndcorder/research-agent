@@ -32,6 +32,7 @@ from pathlib import Path
 WORKING_DIR = "research/knowledge"
 SOURCES_DIR = "research/sources"
 ATTACHMENTS_DIR = "attachments"
+PARSED_DIR = "attachments/parsed"
 LOG_FILE = "research/log.md"
 CONTRADICTIONS_FILE = "research/knowledge_contradictions.md"
 LAST_BUILD_FILE = os.path.join(WORKING_DIR, ".last_build")
@@ -213,11 +214,32 @@ async def cmd_build(_args):
         source_files = []
         print(f"Warning: {SOURCES_DIR}/ not found, skipping source extracts.", file=sys.stderr)
 
-    # --- PDF files in attachments ---
+    # --- Parsed markdown or PDF files in attachments ---
+    # Prefer Docling-parsed markdown (attachments/parsed/<key>.md) over raw PDF
+    # extraction. This avoids duplicate ingestion and gives higher quality text.
+    parsed_path = Path(PARSED_DIR)
     pdf_count = 0
+    parsed_count = 0
+    parsed_stems = set()
+
+    if parsed_path.exists():
+        parsed_files = sorted(parsed_path.glob("*.md"))
+        for f in parsed_files:
+            content = f.read_text(encoding="utf-8")
+            if content.strip():
+                doc_id = f"parsed_{f.stem}"
+                documents.append(content)
+                ids.append(doc_id)
+                parsed_count += 1
+                parsed_stems.add(f.stem)
+        if parsed_files:
+            print(f"Found {parsed_count} Docling-parsed files in {PARSED_DIR}/")
+
     if attachments_path.exists():
         pdf_files = sorted(attachments_path.glob("*.pdf"))
         for pdf in pdf_files:
+            if pdf.stem in parsed_stems:
+                continue  # Already ingested via parsed markdown
             text = extract_pdf_text(pdf)
             if text:
                 doc_id = f"pdf_{pdf.stem}"
@@ -225,7 +247,8 @@ async def cmd_build(_args):
                 ids.append(doc_id)
                 pdf_count += 1
         if pdf_files:
-            print(f"Extracted text from {pdf_count}/{len(pdf_files)} PDFs in {ATTACHMENTS_DIR}/")
+            skipped = len([p for p in pdf_files if p.stem in parsed_stems])
+            print(f"Extracted text from {pdf_count}/{len(pdf_files)} PDFs in {ATTACHMENTS_DIR}/ ({skipped} skipped — parsed markdown exists)")
     else:
         print(f"No {ATTACHMENTS_DIR}/ directory found, skipping PDFs.")
 
@@ -257,14 +280,15 @@ async def cmd_build(_args):
     summary = (
         f"Built knowledge graph: {entity_count} entities, "
         f"{relation_count} relationships from {len(documents)} documents "
-        f"({len(source_files)} source extracts + {pdf_count} PDFs)"
+        f"({len(source_files)} source extracts + {parsed_count} parsed + {pdf_count} PDFs)"
     )
     print(summary)
 
     log_operation("Build", {
         "Tool": "scripts/knowledge.py build",
         "Source extracts": f"{len(source_files)} from {SOURCES_DIR}",
-        "PDFs ingested": f"{pdf_count} from {ATTACHMENTS_DIR}",
+        "Parsed markdown": f"{parsed_count} from {PARSED_DIR}",
+        "PDFs ingested": f"{pdf_count} from {ATTACHMENTS_DIR} (skipped {len(parsed_stems)} with parsed markdown)",
         "Total documents": str(len(documents)),
         "Entities extracted": str(entity_count),
         "Relationships extracted": str(relation_count),
@@ -302,10 +326,26 @@ async def cmd_update(_args):
                 ids.append(f.stem)
                 new_sources += 1
 
-    # --- New/changed PDFs ---
+    # --- New/changed parsed markdown or PDFs ---
+    parsed_path = Path(PARSED_DIR)
+    new_parsed = 0
     new_pdfs = 0
+    parsed_stems = set()
+
+    if parsed_path.exists():
+        for f in sorted(parsed_path.glob("*.md")):
+            parsed_stems.add(f.stem)
+            if f.stat().st_mtime > last_build_time:
+                content = f.read_text(encoding="utf-8")
+                if content.strip():
+                    documents.append(content)
+                    ids.append(f"parsed_{f.stem}")
+                    new_parsed += 1
+
     if attachments_path.exists():
         for pdf in sorted(attachments_path.glob("*.pdf")):
+            if pdf.stem in parsed_stems:
+                continue  # Already handled via parsed markdown
             if pdf.stat().st_mtime > last_build_time:
                 text = extract_pdf_text(pdf)
                 if text:
@@ -318,7 +358,7 @@ async def cmd_update(_args):
         return
 
     print(f"Updating knowledge graph with {len(documents)} new/changed documents "
-          f"({new_sources} sources + {new_pdfs} PDFs)...")
+          f"({new_sources} sources + {new_parsed} parsed + {new_pdfs} PDFs)...")
 
     rag = create_rag()
     await rag.initialize_storages()
