@@ -18,7 +18,7 @@ An autonomous research paper writing toolkit for Claude Code. From a topic promp
 4. [The `/auto` Command](#4-the-auto-command)
 5. [Provenance System](#5-provenance-system)
 6. [Knowledge Graph](#6-knowledge-graph)
-7. [All 35 Slash Commands](#7-all-35-slash-commands)
+7. [All 39 Slash Commands](#7-all-35-slash-commands)
 8. [Integrations](#8-integrations)
 9. [Writing Rules](#9-writing-rules)
 10. [Model Tiers](#10-model-tiers)
@@ -126,7 +126,7 @@ create-paper my-paper "Protein structure prediction" --venue nature --deep
 `create-paper` does the following in one command:
 1. Creates the project directory
 2. Generates a `main.tex` formatted for the target venue
-3. Copies all 35 slash commands into `.claude/commands/`
+3. Copies all 39 slash commands into `.claude/commands/`
 4. Writes `.paper.json` and `.venue.json`
 5. Clones 177 scientific skills as a git submodule (`vendor/claude-scientific-skills`)
 6. Clones Praxis as a git submodule (`vendor/praxis`) and installs Python dependencies
@@ -662,7 +662,7 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 
 ---
 
-## 7. All 35 Slash Commands
+## 7. All 39 Slash Commands
 
 ### Autonomous pipeline
 
@@ -707,6 +707,7 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/de-ai-polish [section]` | Remove AI writing patterns across 7 categories: filler phrases, AI vocabulary, formulaic transitions, redundant phrasing, empty emphasis, em dashes, structural tells. |
 | `/reproducibility-checklist` | Check Methods completeness against a structured checklist (general scientific, ML-specific if applicable, ethical considerations). Reports YES/NO/N/A per item with section references. |
 | `/codex-review [section]` | On-demand adversarial review from OpenAI Codex via `codex_plan`, `codex_review`, and `codex_ask`. Requires codex-bridge. |
+| `/codex-telemetry [export]` | Analyze Codex interaction patterns: agreement rates, tool usage breakdown, disagreement hotspots, timeline. Use `export` to write report to file. |
 | `/health` | Diagnose pipeline prerequisites and optional integrations (LaTeX, API keys, knowledge graph, Codex, Praxis). Reports status, detail, and impact for each check. |
 | `/compile` | Compile LaTeX to PDF via `latexmk -pdf -interaction=nonstopmode main.tex` and report errors. |
 
@@ -731,6 +732,9 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/archive` | Bundle all research artifacts into a browsable `archive/` directory with a README index. Auto-runs at the end of `/write-paper`. |
 | `/prepare-submission` | Generate submission package: anonymized version (for blind-review venues), camera-ready version, cover letter, response to reviewers (if reviews exist), and a submission checklist. |
 | `/respond-to-reviewers` | Generate a structured point-by-point response to peer reviewer comments with tracked changes in the manuscript. |
+| `/make-slides` | Generate a presentation slide deck from the paper (structured markdown with speaker notes, calibrated to venue talk length). |
+| `/make-blog-post` | Generate a 1500-3000 word blog post explaining the paper for a general technical audience. |
+| `/make-deliverables` | Generate all deliverables in parallel: lay summary, slide deck, and blog post (3 simultaneous agents). |
 | `/prisma-flowchart` | Generate a PRISMA 2020 flowchart from the research log and add it to the manuscript. |
 | `/clean` | `latexmk -c` to remove LaTeX build artifacts. Add `all` argument to also remove `research/`, `reviews/`, `archive/`, and pipeline state files (never removes `main.tex`, `references.bib`, `figures/`, `attachments/`, `.paper.json`, `.venue.json`). |
 

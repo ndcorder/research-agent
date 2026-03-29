@@ -66,8 +66,8 @@ Post-pipeline iterative improvement. Each iteration reads 4 phase files fresh fr
 
 | Path | Purpose |
 |-|-|
-| `claude/commands/` | 36 slash commands (`.md` files). Symlinked into paper projects. |
-| `claude/pipeline/` | 21 stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
+| `claude/commands/` | 39 slash commands (`.md` files). Symlinked into paper projects. |
+| `claude/pipeline/` | 21 stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, codex telemetry, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
 | `venues/` | 7 venue configs (JSON). Each specifies documentclass, packages, citation style, page limit, section order, and a 500+ word writing guide. |
 | `template/scripts/knowledge.py` | LightRAG knowledge graph builder (requires `OPENROUTER_API_KEY`). Builds from source extracts + PDFs, supports semantic queries, contradiction detection, evidence search. |
 | `template/scripts/parse-pdf.py` | Docling-based PDF parser. Converts PDFs to markdown with extracted figures. Used by Stage 1d, 1e, and `/ingest-papers`. Requires `pip install docling`. |

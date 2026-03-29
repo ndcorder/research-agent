@@ -16,6 +16,7 @@ research/         # Literature research outputs (created by /write-paper)
   knowledge/      # LightRAG knowledge graph (auto-built from sources, gitignored)
   log.md          # Research provenance log (all searches, queries, tools, results)
   provenance.jsonl  # Machine-readable provenance ledger (every action traced)
+  codex_telemetry.jsonl  # Machine-readable Codex interaction log (tool, outcome, points)
   assumptions.md    # Categorized methodological assumptions (Standard/Reasonable/Risky/Critical)
 reviews/          # Review feedback (created by /write-paper)
 provenance/       # Provenance audit trail (cuts archive, auto-iteration artifacts)
@@ -23,9 +24,9 @@ provenance/       # Provenance audit trail (cuts archive, auto-iteration artifac
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/
-  commands/       # Slash commands (35 commands)
+  commands/       # Slash commands (39 commands)
   pipeline/       # Stage-specific instructions for /write-paper and /auto (read on-demand per stage/phase)
-    shared-protocols.md   # Codex deliberation, provenance logging, domain detection, tool fallback
+    shared-protocols.md   # Codex deliberation, codex telemetry, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
     stage-1b-snowballing.md   # Citation snowballing (backward + forward)
     stage-1b2-cocitation.md   # Co-citation & bibliometric analysis
@@ -176,11 +177,15 @@ For interactive, step-by-step work:
 
 ### Codex Bridge (optional — adversarial AI review)
 - `/codex-review` — Get a second-opinion review from OpenAI Codex (challenges assumptions, finds logical gaps)
+- `/codex-telemetry` — Analyze Codex interaction patterns (agreement rates, tool usage, disagreement hotspots)
 
 ### Submission & Archive
 - `/archive` — Bundle all research artifacts into a browsable `archive/` folder with README index (auto-runs at end of /write-paper)
 - `/prepare-submission` — Generate submission package (anonymized, cover letter, supplementary)
 - `/respond-to-reviewers` — Generate point-by-point response to peer reviewer comments with tracked changes
+- `/make-slides` — Generate presentation slide deck (structured markdown with speaker notes)
+- `/make-blog-post` — Generate accessible blog post for general audience
+- `/make-deliverables` — Generate all deliverables in parallel (lay summary, slides, blog post)
 - `/health` — Diagnose pipeline prerequisites and optional integrations (LaTeX, API keys, knowledge graph, Codex, Praxis)
 - `/clean` — Remove build artifacts and working directories
 
