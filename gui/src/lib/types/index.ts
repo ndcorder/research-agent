@@ -82,6 +82,17 @@ export interface FileChangeEvent {
   kind: "created" | "modified" | "removed" | "other";
 }
 
+export type PipelineAction = "targetedResearch" | "batchResolve";
+
+export interface PipelineActionArgs {
+  claim_ids: string[];
+  context?: string;
+}
+
+export interface EvidenceUpdatedEvent {
+  changed_paths: string[];
+}
+
 export type SourceStatus =
   | "verified"
   | "flagged"

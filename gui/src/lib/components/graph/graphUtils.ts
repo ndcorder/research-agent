@@ -8,7 +8,8 @@ import {
   forceY,
 } from "d3-force";
 import type { SimulationNodeDatum, SimulationLinkDatum } from "d3-force";
-import { scalePoint } from "d3-scale";
+import { scalePoint, scaleLinear } from "d3-scale";
+import { interpolateRgb } from "d3-interpolate";
 import type { SourceMeta, ClaimMeta } from "$lib/types";
 
 export {
@@ -61,6 +62,30 @@ export const claimColor = (confidence: string): string => {
       return "#565f89";
   }
 };
+
+/** Build a relative density color scale for claim nodes.
+ *  Uses the paper's own density distribution to set thresholds. */
+export function densityColorScale(
+  claims: ClaimMeta[]
+): (density: number) => string {
+  const densities = claims.map((c) => c.evidence_density).filter((d) => d >= 0);
+  if (densities.length === 0) {
+    return () => "#565f89";
+  }
+  const sorted = [...densities].sort((a, b) => a - b);
+  const p25 = sorted[Math.floor(sorted.length * 0.25)] ?? 1;
+  const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? 4;
+  const lo = Math.min(p25, 1);
+  const hi = Math.max(p75, lo + 1);
+
+  const scale = scaleLinear<string>()
+    .domain([0, lo, hi])
+    .range(["#f7768e", "#e0af68", "#9ece6a"])
+    .interpolate(interpolateRgb)
+    .clamp(true);
+
+  return (density: number) => scale(density);
+}
 
 // --- Revised colorblind-safe visual encoding ---
 
@@ -132,6 +157,7 @@ export function buildGraph(
   activeStatuses: Set<string>,
   texCoCitations: string[][],
 ): { nodes: NodeDatum[]; links: LinkDatum[] } {
+  const getDensityColor = densityColorScale(claimList);
   const hasFilters = activeTags.size > 0 || activeStatuses.size > 0;
   const matchingSrcKeys = new Set<string>();
   const srcKeySet = new Set(srcList.map((s) => s.key));
@@ -198,7 +224,7 @@ export function buildGraph(
       id: c.id,
       type: "claim",
       label: c.statement,
-      color: claimColor(c.confidence),
+      color: getDensityColor(c.evidence_density ?? 0),
       size: Math.max(8, Math.min(18, 6 + (c.evidence_density ?? 0) * 3)),
       data: c,
       matchesFilter: matches,

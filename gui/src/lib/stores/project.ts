@@ -12,6 +12,9 @@ export const paperState = writable<PaperState>({
 export const sources = writable<SourceMeta[]>([]);
 export const claims = writable<ClaimMeta[]>([]);
 
+/** Claim IDs currently being researched by a pipeline action */
+export const researchingClaims = writable<Set<string>>(new Set());
+
 export const selectedSource = writable<string | null>(null);
 export const selectedClaim = writable<string | null>(null);
 

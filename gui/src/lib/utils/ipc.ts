@@ -5,6 +5,8 @@ import type {
   FileEntry,
   PaperState,
   CompileResult,
+  PipelineAction,
+  PipelineActionArgs,
 } from "$lib/types";
 
 // Auto-detect Tauri vs browser dev mode
@@ -104,6 +106,18 @@ export async function startWatching(path: string): Promise<void> {
 
 export async function stopWatching(): Promise<void> {
   return _invoke("stop_watching");
+}
+
+export async function runPipelineAction(
+  projectDir: string,
+  action: PipelineAction,
+  args: PipelineActionArgs
+): Promise<number> {
+  return _invoke("run_pipeline_action", { projectDir, action, args });
+}
+
+export async function stopEvidenceWatcher(): Promise<void> {
+  return _invoke("stop_evidence_watcher");
 }
 
 export interface ProjectInfo {
