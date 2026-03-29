@@ -52,17 +52,17 @@
     <div class="flex items-center gap-2">
       {#if $projectDir}
         <button
-          class="rounded px-2 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text"
+          class="rounded px-2 py-0.5 text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text"
           onclick={() => showCommandPalette.set(true)}
           title="Command Palette (Cmd+P)"
         >Cmd+P</button>
         <button
-          class="rounded px-2 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text"
+          class="rounded px-2 py-0.5 text-xs text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text"
           onclick={() => showSettings.set(true)}
           title="Settings (Cmd+,)"
         >&#x2699;</button>
         <button
-          class="rounded px-2 py-0.5 text-[10px] text-text-muted transition-colors hover:bg-danger/20 hover:text-danger"
+          class="rounded px-2 py-0.5 text-xs text-text-muted transition-colors hover:bg-danger/20 hover:text-danger"
           onclick={closeProject}
           title="Close Project"
         >&times;</button>

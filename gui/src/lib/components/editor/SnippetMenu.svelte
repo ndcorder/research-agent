@@ -105,7 +105,7 @@
     >
       <div class="flex items-center justify-between border-b border-border px-3 py-2">
         <span class="text-xs font-medium text-text-bright">Insert Snippet</span>
-        <kbd class="rounded bg-bg-tertiary px-1.5 py-0.5 text-[10px] text-text-muted">
+        <kbd class="rounded bg-bg-tertiary px-1.5 py-0.5 text-xs text-text-muted">
           {navigator?.platform?.includes("Mac") ? "\u2318" : "Ctrl"}+J
         </kbd>
       </div>
@@ -121,7 +121,7 @@
               </span>
               <span class="text-xs text-text-muted">{snippet.description}</span>
             </div>
-            <code class="text-[11px] text-text-muted/60 font-mono truncate block max-w-full">
+            <code class="text-xs text-text-muted/60 font-mono truncate block max-w-full">
               {snippet.preview}
             </code>
           </button>

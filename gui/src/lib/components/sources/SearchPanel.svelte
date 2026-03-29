@@ -143,7 +143,7 @@
             <span class="truncate text-xs font-medium text-text-bright">
               {result.source.title || result.source.key}
             </span>
-            <span class="flex-shrink-0 text-[10px] text-text-muted">
+            <span class="flex-shrink-0 text-xs text-text-muted">
               L{result.lineNumber}
             </span>
           </div>

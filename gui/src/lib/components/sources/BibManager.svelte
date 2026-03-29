@@ -216,7 +216,7 @@
       <div class="flex gap-1">
         {#each ["key", "year", "type"] as s}
           <button
-            class="rounded px-1.5 py-0.5 text-[10px] transition-colors {sortBy === s
+            class="rounded px-1.5 py-0.5 text-xs transition-colors {sortBy === s
               ? 'bg-accent/20 text-accent'
               : 'text-text-muted hover:text-text'}"
             onclick={() => (sortBy = s as "key" | "year" | "type")}
@@ -225,7 +225,7 @@
           </button>
         {/each}
       </div>
-      <span class="text-[10px] text-text-muted">{summary}</span>
+      <span class="text-xs text-text-muted">{summary}</span>
     </div>
   </div>
 
@@ -242,13 +242,13 @@
       <!-- Missing references -->
       {#if filteredMissing.length > 0}
         <div class="border-b border-border px-3 py-2">
-          <h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-danger">
+          <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-danger">
             Missing ({filteredMissing.length})
           </h3>
           {#each filteredMissing as key}
             <div class="mb-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
               <span class="font-mono">{key}</span>
-              <span class="ml-1 text-[10px] opacity-70">-- cited but not in .bib</span>
+              <span class="ml-1 text-xs opacity-70">-- cited but not in .bib</span>
             </div>
           {/each}
         </div>
@@ -257,7 +257,7 @@
       <!-- Used entries -->
       {#if usedEntries.length > 0}
         <div class="border-b border-border px-3 py-2">
-          <h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
             Used ({usedEntries.length})
           </h3>
           {#each usedEntries as entry}
@@ -270,20 +270,20 @@
                 <span class="flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-medium {typeColor(entry.type)}">
                   {typeLabel(entry.type)}
                 </span>
-                <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-bright">
+                <span class="min-w-0 flex-1 truncate font-mono text-xs text-text-bright">
                   {entry.key}
                 </span>
                 {#if entry.year}
-                  <span class="flex-shrink-0 text-[10px] text-text-muted">{entry.year}</span>
+                  <span class="flex-shrink-0 text-xs text-text-muted">{entry.year}</span>
                 {/if}
               </div>
               {#if entry.title}
-                <p class="mt-0.5 truncate text-[10px] text-text-muted">
+                <p class="mt-0.5 truncate text-xs text-text-muted">
                   {truncate(entry.title, 80)}
                 </p>
               {/if}
               {#if entry.author}
-                <p class="truncate text-[10px] text-text-muted opacity-60">
+                <p class="truncate text-xs text-text-muted opacity-60">
                   {truncate(entry.author, 60)}
                 </p>
               {/if}
@@ -295,7 +295,7 @@
       <!-- Unused entries -->
       {#if unusedEntries.length > 0}
         <div class="px-3 py-2">
-          <h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
             Unused ({unusedEntries.length})
           </h3>
           {#each unusedEntries as entry}
@@ -308,20 +308,20 @@
                 <span class="flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-medium {typeColor(entry.type)}">
                   {typeLabel(entry.type)}
                 </span>
-                <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-text-bright">
+                <span class="min-w-0 flex-1 truncate font-mono text-xs text-text-bright">
                   {entry.key}
                 </span>
                 {#if entry.year}
-                  <span class="flex-shrink-0 text-[10px] text-text-muted">{entry.year}</span>
+                  <span class="flex-shrink-0 text-xs text-text-muted">{entry.year}</span>
                 {/if}
               </div>
               {#if entry.title}
-                <p class="mt-0.5 truncate text-[10px] text-text-muted">
+                <p class="mt-0.5 truncate text-xs text-text-muted">
                   {truncate(entry.title, 80)}
                 </p>
               {/if}
               {#if entry.author}
-                <p class="truncate text-[10px] text-text-muted opacity-60">
+                <p class="truncate text-xs text-text-muted opacity-60">
                   {truncate(entry.author, 60)}
                 </p>
               {/if}
@@ -345,13 +345,13 @@
       <div class="flex items-center justify-between px-3 pt-2 pb-1">
         <h3 class="font-mono text-xs font-semibold text-text-bright">{selectedEntry.key}</h3>
         <button
-          class="text-[10px] text-text-muted hover:text-text"
+          class="text-xs text-text-muted hover:text-text"
           onclick={() => (selectedKey = null)}
         >
           close
         </button>
       </div>
-      <pre class="max-h-40 overflow-y-auto px-3 pb-3 text-[10px] leading-relaxed text-text">{selectedEntry.raw}</pre>
+      <pre class="max-h-40 overflow-y-auto px-3 pb-3 text-xs leading-relaxed text-text">{selectedEntry.raw}</pre>
     </div>
   {/if}
 </div>

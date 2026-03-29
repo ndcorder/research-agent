@@ -210,7 +210,7 @@
               placeholder="smith2024"
             />
             {#if !keyEdited && citationKey}
-              <p class="mt-0.5 text-[10px] text-[#565f89]">Auto-generated (edit to override)</p>
+              <p class="mt-0.5 text-xs text-[#565f89]">Auto-generated (edit to override)</p>
             {/if}
           </div>
         </div>

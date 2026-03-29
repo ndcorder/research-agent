@@ -347,7 +347,7 @@
           </div>
         {:else}
           {#each groupedItems as group}
-            <div class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+            <div class="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
               {group.label}
             </div>
             {#each group.items as item, i}
@@ -372,7 +372,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center gap-4 border-t border-border px-3 py-1.5 text-[10px] text-text-muted">
+      <div class="flex items-center gap-4 border-t border-border px-3 py-1.5 text-xs text-text-muted">
         <span><kbd class="rounded bg-bg-tertiary px-1 py-0.5">\u2191\u2193</kbd> navigate</span>
         <span><kbd class="rounded bg-bg-tertiary px-1 py-0.5">\u21B5</kbd> select</span>
         <span><kbd class="rounded bg-bg-tertiary px-1 py-0.5">esc</kbd> close</span>

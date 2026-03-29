@@ -19,7 +19,7 @@
 </script>
 
 <span
-  class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight {variantClasses[variant]}"
+  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium leading-tight {variantClasses[variant]}"
 >
   {@render children()}
 </span>

@@ -191,13 +191,13 @@
             <!-- Entry card -->
             <div class="rounded border border-border bg-bg-secondary p-2.5">
               <div class="mb-1 flex items-center gap-2">
-                <span class="rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {actionColor(action)}">
+                <span class="rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {actionColor(action)}">
                   {action}
                 </span>
                 {#if target}
                   <span class="truncate text-xs font-medium text-text-bright">{target}</span>
                 {/if}
-                <span class="ml-auto flex-shrink-0 text-[10px] text-text-muted">{formatTime(timestamp)}</span>
+                <span class="ml-auto flex-shrink-0 text-xs text-text-muted">{formatTime(timestamp)}</span>
               </div>
               {#if details}
                 <p class="text-xs leading-relaxed text-text-muted">{details}</p>

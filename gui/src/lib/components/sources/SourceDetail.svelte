@@ -153,21 +153,21 @@
       <!-- Links and access info -->
       <div class="mb-2 flex flex-wrap items-center gap-2">
         {#if source.access_level}
-          <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {source.access_level === 'FULL-TEXT' ? 'bg-success/20 text-success' : source.access_level === 'ABSTRACT-ONLY' ? 'bg-warning/20 text-warning' : 'bg-bg-tertiary text-text-muted'}">
+          <span class="rounded-full px-2 py-0.5 text-xs font-medium {source.access_level === 'FULL-TEXT' ? 'bg-success/20 text-success' : source.access_level === 'ABSTRACT-ONLY' ? 'bg-warning/20 text-warning' : 'bg-bg-tertiary text-text-muted'}">
             {source.access_level}
           </span>
         {/if}
         {#if source.source_type}
-          <span class="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] text-text-muted">{source.source_type}</span>
+          <span class="rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-text-muted">{source.source_type}</span>
         {/if}
         {#if source.url}
-          <a href={source.url} target="_blank" rel="noopener" class="text-[10px] text-accent hover:underline">Open URL &#x2197;</a>
+          <a href={source.url} target="_blank" rel="noopener" class="text-xs text-accent hover:underline">Open URL &#x2197;</a>
         {/if}
         {#if source.doi}
-          <a href="https://doi.org/{source.doi}" target="_blank" rel="noopener" class="text-[10px] text-accent hover:underline">DOI &#x2197;</a>
+          <a href="https://doi.org/{source.doi}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">DOI &#x2197;</a>
         {/if}
         {#if frontmatter.doi && !source.doi}
-          <a href="https://doi.org/{frontmatter.doi}" target="_blank" rel="noopener" class="text-[10px] text-accent hover:underline">DOI &#x2197;</a>
+          <a href="https://doi.org/{frontmatter.doi}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">DOI &#x2197;</a>
         {/if}
       </div>
 

@@ -195,7 +195,7 @@
               <label class="text-xs text-text" for="auto-compile"
                 >Auto-compile on save</label
               >
-              <p class="mt-0.5 text-[10px] leading-tight text-text-muted">
+              <p class="mt-0.5 text-xs leading-tight text-text-muted">
                 Automatically run latexmk after saving a .tex file
               </p>
             </div>
@@ -238,7 +238,7 @@
               >
                 <span class="text-text-muted">{desc}</span>
                 <kbd
-                  class="rounded bg-bg-tertiary px-1.5 py-0.5 font-mono text-[10px] text-text-bright"
+                  class="rounded bg-bg-tertiary px-1.5 py-0.5 font-mono text-xs text-text-bright"
                   >{key}</kbd
                 >
               </div>

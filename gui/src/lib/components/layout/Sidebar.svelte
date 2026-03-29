@@ -153,10 +153,10 @@
       <FileTree />
     {:else if activeSection === "sources"}
       <div class="flex items-center gap-1 px-2 pb-1">
-        <span class="text-[10px] text-text-muted">Sort:</span>
+        <span class="text-xs text-text-muted">Sort:</span>
         {#each [{ id: "key", label: "Key" }, { id: "year", label: "Year" }, { id: "status", label: "Status" }, { id: "title", label: "Title" }] as opt}
           <button
-            class="rounded px-1 py-px text-[10px] transition-colors {sortBy === opt.id ? 'bg-accent/20 text-accent' : 'text-text-muted hover:text-text'}"
+            class="rounded px-1 py-px text-xs transition-colors {sortBy === opt.id ? 'bg-accent/20 text-accent' : 'text-text-muted hover:text-text'}"
             onclick={() => (sortBy = opt.id as typeof sortBy)}
           >{opt.label}</button>
         {/each}

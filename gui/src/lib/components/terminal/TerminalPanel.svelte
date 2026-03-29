@@ -59,9 +59,9 @@
 
     const term = new Terminal({
       theme,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+      fontFamily: "'SF Mono', ui-monospace, monospace",
       fontSize: 14,
-      lineHeight: 1.2,
+      lineHeight: 1.4,
       cursorBlink: true,
       cursorStyle: "bar",
       allowProposedApi: true,

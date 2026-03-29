@@ -75,12 +75,12 @@
 
 {#if showOutput && compileOutput}
   <div
-    class="max-h-40 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-[11px] text-text-muted"
+    class="max-h-40 overflow-auto border-t border-border bg-bg px-3 py-2 font-mono text-xs text-text-muted"
   >
     <div class="mb-1 flex items-center justify-between">
-      <span class="text-text text-[10px] font-semibold uppercase tracking-wider">Compile Output</span>
+      <span class="text-text text-xs font-semibold uppercase tracking-wider">Compile Output</span>
       <button
-        class="text-text-muted hover:text-text text-[10px]"
+        class="text-text-muted hover:text-text text-xs"
         onclick={() => (showOutput = false)}
       >
         Close
@@ -91,7 +91,7 @@
 {/if}
 
 <footer
-  class="flex h-7 shrink-0 items-center justify-between border-t border-border bg-bg-secondary px-3 text-[11px]"
+  class="flex h-7 shrink-0 items-center justify-between border-t border-border bg-bg-secondary px-3 text-xs"
 >
   <!-- Left: project info -->
   <div class="flex items-center gap-2 min-w-0">
@@ -101,10 +101,10 @@
       <span class="text-text-muted">No project</span>
     {/if}
     {#if venue}
-      <span class="rounded bg-bg-tertiary px-1.5 py-px text-[10px] text-accent">{venue}</span>
+      <span class="rounded bg-bg-tertiary px-1.5 py-px text-xs text-accent">{venue}</span>
     {/if}
     {#if depth}
-      <span class="rounded bg-bg-tertiary px-1.5 py-px text-[10px] text-text-muted">{depth}</span>
+      <span class="rounded bg-bg-tertiary px-1.5 py-px text-xs text-text-muted">{depth}</span>
     {/if}
   </div>
 
@@ -120,7 +120,7 @@
     <span class="text-text-muted">{sourceCount} source{sourceCount !== 1 ? "s" : ""}</span>
 
     <button
-      class="flex items-center gap-1 rounded px-1.5 py-px text-[10px] transition-colors
+      class="flex items-center gap-1 rounded px-1.5 py-px text-xs transition-colors
         {compiling
           ? 'text-text-muted cursor-wait'
           : compileStatus === 'success'
@@ -154,7 +154,7 @@
     </button>
 
     <button
-      class="text-[10px] text-text-muted hover:text-text"
+      class="text-xs text-text-muted hover:text-text"
       onclick={() => (showOutput = !showOutput)}
       title="Toggle compile output"
     >

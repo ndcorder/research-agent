@@ -109,7 +109,7 @@
       <span class="w-3 text-center text-text-muted">{expanded.has(node.entry.path) ? "\u25BE" : "\u25B8"}</span>
       <span class="truncate text-text-bright">{node.entry.name}</span>
       {#if node.loading}
-        <span class="ml-auto text-[10px] text-text-muted">...</span>
+        <span class="ml-auto text-xs text-text-muted">...</span>
       {/if}
     </button>
     {#if expanded.has(node.entry.path)}
@@ -126,7 +126,7 @@
       onclick={() => handleFileClick(node.entry)}
       ondblclick={() => handleFileDblClick(node.entry)}
     >
-      <span class="w-3 text-center text-[10px] font-bold {icon.color}">{icon.label}</span>
+      <span class="w-3 text-center text-xs font-bold {icon.color}">{icon.label}</span>
       <span class="truncate text-text">{node.entry.name}</span>
     </button>
   {/if}

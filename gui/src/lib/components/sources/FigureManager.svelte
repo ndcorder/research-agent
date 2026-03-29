@@ -49,14 +49,14 @@
   <div class="border-b border-border bg-bg-secondary p-3">
     <div class="flex items-center justify-between">
       <h3 class="text-xs font-semibold text-text-bright">Figures</h3>
-      <span class="text-[10px] text-text-muted">
+      <span class="text-xs text-text-muted">
         {figures.length} total ({usedCount} used, {unusedCount} unused)
       </span>
     </div>
     <div class="mt-2 flex gap-1">
       {#each [{ id: "all", label: "All" }, { id: "used", label: "Used" }, { id: "unused", label: "Unused" }] as opt}
         <button
-          class="rounded px-2 py-0.5 text-[10px] transition-colors {filter === opt.id ? 'bg-accent/20 text-accent' : 'text-text-muted hover:text-text'}"
+          class="rounded px-2 py-0.5 text-xs transition-colors {filter === opt.id ? 'bg-accent/20 text-accent' : 'text-text-muted hover:text-text'}"
           onclick={() => (filter = opt.id as typeof filter)}
         >{opt.label}</button>
       {/each}
@@ -83,10 +83,10 @@
               {getExtIcon(fig.name)}
             </div>
             <!-- Info -->
-            <div class="truncate text-[10px] font-medium text-text-bright" title={fig.name}>
+            <div class="truncate text-xs font-medium text-text-bright" title={fig.name}>
               {fig.name}
             </div>
-            <div class="flex items-center justify-between text-[10px] text-text-muted">
+            <div class="flex items-center justify-between text-xs text-text-muted">
               <span>{formatSize(fig.size)}</span>
               <span class={fig.referenced ? "text-success" : "text-warning"}>
                 {fig.referenced ? "used" : "unused"}

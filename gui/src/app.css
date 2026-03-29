@@ -1,5 +1,91 @@
 @import "tailwindcss";
 
+/* SF Mono — primary UI font */
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-LightItalic.otf") format("opentype");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-RegularItalic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-MediumItalic.otf") format("opentype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-SemiboldItalic.otf") format("opentype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-BoldItalic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-Heavy.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SF Mono";
+  src: url("/fonts/SF-Mono/SF-Mono-HeavyItalic.otf") format("opentype");
+  font-weight: 800;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
   --color-bg: #1a1b26;
   --color-bg-secondary: #24283b;
@@ -14,7 +100,9 @@
   --color-warning: #e0af68;
   --color-danger: #f7768e;
   --color-info: #7dcfff;
-  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --font-mono: "SF Mono", ui-monospace, monospace;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
 }
 
 html,
@@ -25,7 +113,8 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1.5;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
