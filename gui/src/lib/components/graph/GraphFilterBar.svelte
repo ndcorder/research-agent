@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SourceMeta } from "$lib/types";
+  import type { SourceMeta, ClaimMeta } from "$lib/types";
   import { collectTags } from "./graphUtils";
 
   export type LayoutMode = "section" | "force" | "table";
@@ -9,16 +9,19 @@
     activeStatuses: Set<string>;
     groupByTag: boolean;
     showGaps: boolean;
+    densityThreshold: number | null;
   }
 
   interface Props {
     sources: SourceMeta[];
+    claims: ClaimMeta[];
     onFilterChange: (filter: FilterState) => void;
     layoutMode: LayoutMode;
     onLayoutChange: (mode: LayoutMode) => void;
+    onResearchGaps: (claimIds: string[]) => void;
   }
 
-  let { sources, onFilterChange, layoutMode, onLayoutChange }: Props = $props();
+  let { sources, claims, onFilterChange, layoutMode, onLayoutChange, onResearchGaps }: Props = $props();
 
   const STATUS_OPTIONS: { key: string; label: string; colorClass: string }[] = [
     { key: "verified", label: "Verified", colorClass: "success" },
@@ -36,6 +39,14 @@
   let activeStatuses = $state<Set<string>>(new Set());
   let groupByTag = $state(false);
   let showGaps = $state(false);
+  let densityThreshold = $state<number | null>(null);
+
+  let weakClaimIds = $derived.by(() => {
+    if (densityThreshold === null) return [];
+    return claims
+      .filter((c) => c.evidence_density <= densityThreshold!)
+      .map((c) => c.id);
+  });
 
   let allTags = $derived.by(() => {
     const tagCounts = collectTags(sources);
@@ -52,6 +63,7 @@
       activeStatuses: new Set(activeStatuses),
       groupByTag,
       showGaps,
+      densityThreshold,
     });
   }
 
@@ -172,6 +184,41 @@
   >
     Gaps
   </button>
+
+  <!-- Density filter toggle + slider -->
+  <button
+    class="flex-shrink-0 rounded px-1.5 text-xs leading-4 transition-colors
+      {densityThreshold !== null
+        ? 'bg-danger/20 text-danger'
+        : 'bg-bg-tertiary text-text-muted hover:text-text'}"
+    onclick={() => {
+      densityThreshold = densityThreshold === null ? 2 : null;
+      emitFilter();
+    }}
+  >
+    Density
+  </button>
+
+  {#if densityThreshold !== null}
+    <input
+      type="range"
+      min="0"
+      max="8"
+      step="1"
+      bind:value={densityThreshold}
+      oninput={() => emitFilter()}
+      class="h-1 w-16 flex-shrink-0 cursor-pointer accent-danger"
+    />
+    <span class="flex-shrink-0 text-xs text-danger">&le;{densityThreshold}</span>
+    {#if weakClaimIds.length > 0}
+      <button
+        class="flex-shrink-0 rounded bg-danger/20 px-1.5 text-xs leading-4 text-danger transition-colors hover:bg-danger/30"
+        onclick={() => onResearchGaps(weakClaimIds)}
+      >
+        Research gaps ({weakClaimIds.length})
+      </button>
+    {/if}
+  {/if}
 
   <span class="h-3 w-px flex-shrink-0 bg-border"></span>
 

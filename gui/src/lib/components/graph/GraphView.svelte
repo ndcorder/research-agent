@@ -15,8 +15,10 @@
     rightPanel,
     projectDir,
   } from "$lib/stores/project";
-  import { readFile, updateSourceStatus } from "$lib/utils/ipc";
+  import { readFile, updateSourceStatus, listSources, listClaims, runPipelineAction } from "$lib/utils/ipc";
+  import { researchingClaims } from "$lib/stores/project";
   import type { SourceMeta, ClaimMeta } from "$lib/types";
+  import type { PipelineAction } from "$lib/types";
   import type { NodeDatum, LinkDatum } from "./graphUtils";
   import {
     buildGraph,
@@ -88,6 +90,7 @@
     fragileSections: [],
   });
   let showGaps = $state(false);
+  let densityThreshold = $state<number | null>(null);
 
   // Keyboard navigation state
   let focusedNodeIndex = $state<number>(-1);
@@ -113,6 +116,7 @@
     activeStatuses = filter.activeStatuses;
     groupByTag = filter.groupByTag;
     showGaps = filter.showGaps;
+    densityThreshold = filter.densityThreshold;
     render($sources, $claims);
   }
 
@@ -162,6 +166,15 @@
           rightPanel.set("claim");
         },
       });
+      const claim = $claims.find((c) => c.id === nodeId);
+      if (claim && claim.evidence_density < 3) {
+        items.push({
+          label: "Research this claim",
+          action: () => {
+            triggerResearch("targetedResearch", [nodeId]);
+          },
+        });
+      }
     }
 
     return items;
@@ -201,6 +214,40 @@
 
   function clearSelection() {
     selectedNodes = new Set();
+  }
+
+  async function triggerResearch(action: PipelineAction, claimIds: string[]) {
+    const dir = $projectDir;
+    if (!dir || claimIds.length === 0) return;
+
+    const claimData = $claims.filter((c) => claimIds.includes(c.id));
+    const context = claimData
+      .map((c) => `[${c.id}] ${c.statement} (density: ${c.evidence_density}, sources: ${c.evidence_sources ?? "none"})`)
+      .join("\n");
+
+    researchingClaims.update((s) => {
+      const next = new Set(s);
+      for (const id of claimIds) next.add(id);
+      return next;
+    });
+
+    try {
+      await runPipelineAction(dir, action, {
+        claim_ids: claimIds,
+        context,
+      });
+    } catch (e) {
+      console.error("Pipeline action failed:", e);
+      researchingClaims.update((s) => {
+        const next = new Set(s);
+        for (const id of claimIds) next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  function onResearchGaps(claimIds: string[]) {
+    triggerResearch("batchResolve", claimIds);
   }
 
   function linkKeyFn(d: LinkDatum): string {
@@ -244,6 +291,34 @@
 
     // Build node lookup map for O(1) access in link opacity
     const nodeMap = new Map<string, NodeDatum>(nodes.map((n) => [n.id, n]));
+
+    // Apply density filter dimming
+    if (densityThreshold !== null) {
+      for (const n of nodes) {
+        if (n.type === "claim") {
+          const claim = n.data as ClaimMeta;
+          if (claim.evidence_density > densityThreshold) {
+            n.matchesFilter = false;
+          }
+        }
+      }
+      // Sources stay bright if connected to any visible claim
+      for (const n of nodes) {
+        if (n.type !== "source") continue;
+        const connectedToVisible = links.some((l) => {
+          if (l.kind !== "evidence") return false;
+          const srcId = typeof l.source === "string" ? l.source : l.source.id;
+          const tgtId = typeof l.target === "string" ? l.target : l.target.id;
+          const otherId = srcId === n.id ? tgtId : tgtId === n.id ? srcId : null;
+          if (!otherId) return false;
+          const other = nodeMap.get(otherId);
+          return other?.matchesFilter ?? false;
+        });
+        if (!connectedToVisible) {
+          n.matchesFilter = false;
+        }
+      }
+    }
 
     // Update defs for clipPath (half-fill for abstract-only sources)
     svg.select("defs.graph-defs").remove();
@@ -899,9 +974,11 @@
   {#if $sources.length > 0 || $claims.length > 0}
     <GraphFilterBar
       sources={$sources}
+      claims={$claims}
       {onFilterChange}
       {layoutMode}
       {onLayoutChange}
+      {onResearchGaps}
     />
   {/if}
 
