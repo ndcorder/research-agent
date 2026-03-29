@@ -6,14 +6,14 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 pub struct TerminalState {
-    terminals: Mutex<HashMap<u32, TerminalInstance>>,
-    next_id: Mutex<u32>,
+    pub(crate) terminals: Mutex<HashMap<u32, TerminalInstance>>,
+    pub(crate) next_id: Mutex<u32>,
 }
 
-struct TerminalInstance {
-    writer: Box<dyn Write + Send>,
-    _reader_thread: std::thread::JoinHandle<()>,
-    master: Box<dyn portable_pty::MasterPty + Send>,
+pub(crate) struct TerminalInstance {
+    pub(crate) writer: Box<dyn Write + Send>,
+    pub(crate) _reader_thread: std::thread::JoinHandle<()>,
+    pub(crate) master: Box<dyn portable_pty::MasterPty + Send>,
 }
 
 impl Default for TerminalState {
@@ -26,19 +26,23 @@ impl Default for TerminalState {
 }
 
 #[derive(Serialize, Clone)]
-struct TerminalData {
-    id: u32,
-    data: String,
+pub(crate) struct TerminalData {
+    pub(crate) id: u32,
+    pub(crate) data: String,
 }
 
 #[derive(Serialize, Clone)]
-struct TerminalExit {
-    id: u32,
+pub(crate) struct TerminalExit {
+    pub(crate) id: u32,
 }
 
-#[tauri::command]
-pub fn spawn_terminal(app: AppHandle, cwd: String) -> Result<u32, String> {
-    let state = app.state::<TerminalState>();
+/// Spawn a PTY terminal in the given directory. Returns the terminal ID.
+/// This is the non-command helper that can be called from other modules.
+pub(crate) fn spawn_terminal_inner(
+    app: &AppHandle,
+    state: &TerminalState,
+    cwd: &str,
+) -> Result<u32, String> {
     let id = {
         let mut next = state.next_id.lock().unwrap();
         let id = *next;
@@ -57,7 +61,7 @@ pub fn spawn_terminal(app: AppHandle, cwd: String) -> Result<u32, String> {
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
     let mut cmd = CommandBuilder::new_default_prog();
-    cmd.cwd(&cwd);
+    cmd.cwd(cwd);
 
     pair.slave
         .spawn_command(cmd)
@@ -101,9 +105,12 @@ pub fn spawn_terminal(app: AppHandle, cwd: String) -> Result<u32, String> {
     Ok(id)
 }
 
-#[tauri::command]
-pub fn write_terminal(app: AppHandle, id: u32, data: String) -> Result<(), String> {
-    let state = app.state::<TerminalState>();
+/// Write data to a terminal. Non-command helper for reuse.
+pub(crate) fn write_terminal_inner(
+    state: &TerminalState,
+    id: u32,
+    data: &str,
+) -> Result<(), String> {
     let mut terminals = state.terminals.lock().unwrap();
     if let Some(term) = terminals.get_mut(&id) {
         term.writer
@@ -116,6 +123,18 @@ pub fn write_terminal(app: AppHandle, id: u32, data: String) -> Result<(), Strin
     } else {
         Err(format!("Terminal {} not found", id))
     }
+}
+
+#[tauri::command]
+pub fn spawn_terminal(app: AppHandle, cwd: String) -> Result<u32, String> {
+    let state = app.state::<TerminalState>();
+    spawn_terminal_inner(&app, &state, &cwd)
+}
+
+#[tauri::command]
+pub fn write_terminal(app: AppHandle, id: u32, data: String) -> Result<(), String> {
+    let state = app.state::<TerminalState>();
+    write_terminal_inner(&state, id, &data)
 }
 
 #[tauri::command]

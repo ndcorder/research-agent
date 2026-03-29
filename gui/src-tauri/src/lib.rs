@@ -1,6 +1,7 @@
 mod commands;
 pub mod watcher;
 
+use commands::pipeline::EvidenceWatcherState;
 use commands::terminal::TerminalState;
 use watcher::WatcherState;
 
@@ -11,6 +12,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(TerminalState::default())
         .manage(WatcherState::default())
+        .manage(EvidenceWatcherState::default())
         .setup(|app| {
             // On macOS, override the default Cmd+W behavior
             // by removing the Close menu item accelerator.
@@ -65,6 +67,7 @@ pub fn run() {
             commands::fs::search_sources,
             commands::fs::read_provenance,
             commands::fs::list_figures,
+            commands::fs::update_claim,
             commands::state::read_paper_state,
             commands::state::validate_paper_project,
             commands::state::read_paper_config,
@@ -75,6 +78,8 @@ pub fn run() {
             commands::terminal::write_terminal,
             commands::terminal::resize_terminal,
             commands::terminal::kill_terminal,
+            commands::pipeline::run_pipeline_action,
+            commands::pipeline::stop_evidence_watcher,
             crate::watcher::start_watching,
             crate::watcher::stop_watching,
         ])
