@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-03-28
+
+### Added
+- Deep source reading pipeline stage (Stage 1e) spawning parallel agents to read full PDFs and rewrite source extracts with comprehensive, topic-relevant content
+- Docling-based PDF parser (`scripts/parse-pdf.py`) converting PDFs to markdown with extracted figures, integrated across source acquisition, ingestion, and knowledge graph building
+- Shared PDF cache (`~/.research-agent/pdf-cache/`) with `pdf-cache.sh` helper for cross-project paper reuse via symlinks, including parsed markdown and figures
+- Content filter fallback protocol using OpenRouter models (Gemini Flash, Llama 4 Maverick) when Anthropic's content filter blocks agent output on academic text
+- OpenRouter fallback script (`scripts/openrouter-fallback.py`) with two-model cascade for unblocked text extraction
+- Source artifact manifest builder (`scripts/update-manifest.py`) tracking PDFs, parsed markdown, source extracts, and deep-read status per source
+- LaTeX sentence formatter (`scripts/format_sentences.py`) applying one-sentence-per-line, non-breaking spaces, smart quotes, en-dashes, and whitespace cleanup
+- `/deep-read` slash command for retroactively enriching source extracts on existing papers
+- Bash timeout protocol in shared-protocols for long-running pipeline commands
+- SECURITY.md with threat model, permission allowlist scope, and API key handling guidance
+- Interactive pipeline diagram (`docs/pipeline-diagram.html`)
+
+### Changed
+- Source acquisition (Stage 1d) rewritten with modular 14-resolver cascade (Unpaywall, OpenAlex, Semantic Scholar, CrossRef, CORE, PubMed Central, arXiv, DBLP, BASE, Internet Archive, DOAB, Google Books, web/repo search), source type detection, PDF validation protocol, and content enrichment for remaining gaps
+- PDF cache now stores and symlinks Docling-parsed markdown alongside cached PDFs
+- Knowledge graph builder prefers parsed markdown over raw PDF extraction, deduplicates sources already ingested via parsed files
+- `/compile` now runs `format_sentences.py` before LaTeX compilation
+- `/ingest-papers` parses PDFs with Docling before extracting metadata
+- `/audit-sources` and `/ingest-papers` run `update-manifest.py` after completing
+- Write-paper orchestrator renumbered to 16 stages (deep-read inserted as Stage 6)
+- Pipeline rule added: use provided scripts, never write custom one-off scripts
+
+### Fixed
+- Knowledge graph concurrency defaults lowered to avoid OpenRouter rate limits
+- Knowledge graph cache key switched from MD5 to SHA-256
+- Embedding timeout increased from 120s to 300s for large corpora
+- `sync-papers` trailing slash handling on commands path removal
+
 ## [1.1.0] - 2026-03-26
 
 ### Added
