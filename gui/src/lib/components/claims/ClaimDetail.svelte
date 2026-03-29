@@ -14,13 +14,29 @@
     $claims.find((c) => c.id === $selectedClaim)
   );
 
+  // Parse source keys from the claim's evidence_sources string
+  // Format: "gordon2002 (FT,direct)=4, salas2025 (AO,direct)=2, ..."
+  function extractSourceKeys(evidenceStr: string | undefined): string[] {
+    if (!evidenceStr) return [];
+    return evidenceStr
+      .split(",")
+      .map((entry) => entry.trim().split(/\s/)[0])
+      .filter(Boolean);
+  }
+
   let linkedSources = $derived<SourceMeta[]>(
     claim
-      ? $sources.filter(
-          (s) =>
-            s.evidence_for?.includes(claim!.id) ||
-            s.tags?.includes(claim!.id)
-        )
+      ? (() => {
+          const keys = extractSourceKeys(claim.evidence_sources);
+          const byEvidence = $sources.filter((s) => keys.includes(s.key));
+          if (byEvidence.length > 0) return byEvidence;
+          // Fallback: check source-side evidence_for/tags
+          return $sources.filter(
+            (s) =>
+              s.evidence_for?.includes(claim!.id) ||
+              s.tags?.includes(claim!.id)
+          );
+        })()
       : []
   );
 
@@ -72,10 +88,6 @@
       default:
         return "bg-bg-tertiary text-text-muted";
     }
-  }
-
-  function densityPercent(density: number): number {
-    return Math.min(Math.max(density * 100, 0), 100);
   }
 
   function goToSource(source: SourceMeta) {
@@ -141,16 +153,16 @@
       <div class="mt-3">
         <div class="mb-1 flex items-center justify-between">
           <span class="text-xs font-medium text-text-muted">Evidence Density</span>
-          <span class="text-xs text-text-muted">{(claim.evidence_density * 100).toFixed(0)}%</span>
+          <span class="text-xs text-text-muted">{claim.evidence_density} source{claim.evidence_density !== 1 ? "s" : ""}</span>
         </div>
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-bg-tertiary">
           <div
-            class="h-full rounded-full transition-all {claim.evidence_density >= 0.7
+            class="h-full rounded-full transition-all {claim.evidence_density >= 7
               ? 'bg-success'
-              : claim.evidence_density >= 0.4
+              : claim.evidence_density >= 4
                 ? 'bg-warning'
                 : 'bg-danger'}"
-            style="width: {densityPercent(claim.evidence_density)}%"
+            style="width: {Math.min(claim.evidence_density / 10 * 100, 100)}%"
           ></div>
         </div>
       </div>
@@ -210,7 +222,7 @@
                     {src.title || src.key}
                   </p>
                   {#if src.authors?.length}
-                    <p class="truncate text-[10px] text-text-muted">
+                    <p class="truncate text-xs text-text-muted">
                       {src.authors.join(", ")}{src.year ? ` (${src.year})` : ""}
                     </p>
                   {/if}

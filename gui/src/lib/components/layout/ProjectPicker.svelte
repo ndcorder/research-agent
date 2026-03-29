@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { open } from "@tauri-apps/plugin-dialog";
   import {
     projectDir,
     paperConfig,
@@ -18,6 +17,8 @@
   } from "$lib/utils/ipc";
   import type { ProjectInfo } from "$lib/utils/ipc";
 
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
   let recentPaths = $state<string[]>([]);
   let recentProjects = $state<(ProjectInfo & { name: string })[]>([]);
   let error = $state<string | null>(null);
@@ -26,6 +27,13 @@
 
   $effect(() => {
     loadRecents();
+
+    // Auto-open project from URL ?project=/path/to/paper
+    const params = new URLSearchParams(window.location.search);
+    const projectPath = params.get("project");
+    if (projectPath) {
+      openProject(projectPath);
+    }
   });
 
   async function loadRecents() {
@@ -86,13 +94,22 @@
   async function pickFolder() {
     error = null;
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Open Paper Project",
-      });
-      if (selected) {
-        await openProject(selected as string);
+      if (isTauri) {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const selected = await open({
+          directory: true,
+          multiple: false,
+          title: "Open Paper Project",
+        });
+        if (selected) {
+          await openProject(selected as string);
+        }
+      } else {
+        // Browser dev mode: prompt for path
+        const path = window.prompt("Enter paper project path:");
+        if (path) {
+          await openProject(path);
+        }
       }
     } catch (e: any) {
       error = e?.message || e?.toString() || "Failed to open folder";

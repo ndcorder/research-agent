@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import type {
   SourceMeta,
   FileEntry,
@@ -6,61 +5,75 @@ import type {
   CompileResult,
 } from "$lib/types";
 
+// Auto-detect Tauri vs browser dev mode
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+let _invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+
+if (isTauri) {
+  // Dynamic import so the Tauri module is never loaded in browser mode
+  const mod = await import("@tauri-apps/api/core");
+  _invoke = mod.invoke;
+} else {
+  const mod = await import("$lib/dev/browser-invoke");
+  _invoke = mod.invoke;
+}
+
 export async function readFile(path: string): Promise<string> {
-  return invoke("read_file", { path });
+  return _invoke("read_file", { path });
 }
 
 export async function writeFile(path: string, content: string): Promise<void> {
-  return invoke("write_file", { path, content });
+  return _invoke("write_file", { path, content });
 }
 
 export async function listDirectory(path: string): Promise<FileEntry[]> {
-  return invoke("list_directory", { path });
+  return _invoke("list_directory", { path });
 }
 
 export async function listSources(projectDir: string): Promise<SourceMeta[]> {
-  return invoke("list_sources", { projectDir });
+  return _invoke("list_sources", { projectDir });
 }
 
 export async function listClaims(projectDir: string): Promise<unknown[]> {
-  return invoke("list_claims", { projectDir });
+  return _invoke("list_claims", { projectDir });
 }
 
 export async function readPaperState(
   projectDir: string
 ): Promise<PaperState> {
-  return invoke("read_paper_state", { projectDir });
+  return _invoke("read_paper_state", { projectDir });
 }
 
 export async function updateSourceStatus(
   path: string,
   status: string
 ): Promise<void> {
-  return invoke("update_source_status", { path, status });
+  return _invoke("update_source_status", { path, status });
 }
 
 export async function appendHumanNotes(
   path: string,
   note: string
 ): Promise<void> {
-  return invoke("append_human_notes", { path, note });
+  return _invoke("append_human_notes", { path, note });
 }
 
 export async function compileLatex(
   projectDir: string
 ): Promise<CompileResult> {
-  return invoke("compile_latex", { projectDir });
+  return _invoke("compile_latex", { projectDir });
 }
 
 export async function spawnTerminal(cwd: string): Promise<number> {
-  return invoke("spawn_terminal", { cwd });
+  return _invoke("spawn_terminal", { cwd });
 }
 
 export async function writeTerminal(
   id: number,
   data: string
 ): Promise<void> {
-  return invoke("write_terminal", { id, data });
+  return _invoke("write_terminal", { id, data });
 }
 
 export async function resizeTerminal(
@@ -68,19 +81,19 @@ export async function resizeTerminal(
   rows: number,
   cols: number
 ): Promise<void> {
-  return invoke("resize_terminal", { id, rows, cols });
+  return _invoke("resize_terminal", { id, rows, cols });
 }
 
 export async function killTerminal(id: number): Promise<void> {
-  return invoke("kill_terminal", { id });
+  return _invoke("kill_terminal", { id });
 }
 
 export async function startWatching(path: string): Promise<void> {
-  return invoke("start_watching", { path });
+  return _invoke("start_watching", { path });
 }
 
 export async function stopWatching(): Promise<void> {
-  return invoke("stop_watching");
+  return _invoke("stop_watching");
 }
 
 export interface ProjectInfo {
@@ -94,21 +107,21 @@ export interface ProjectInfo {
 export async function validatePaperProject(
   path: string
 ): Promise<ProjectInfo> {
-  return invoke("validate_paper_project", { path });
+  return _invoke("validate_paper_project", { path });
 }
 
 export async function readPaperConfig(
   projectDir: string
 ): Promise<{ topic: string | null; venue: string | null; depth: string | null }> {
-  return invoke("read_paper_config", { projectDir });
+  return _invoke("read_paper_config", { projectDir });
 }
 
 export async function getRecentProjects(): Promise<string[]> {
-  return invoke("get_recent_projects");
+  return _invoke("get_recent_projects");
 }
 
 export async function addRecentProject(path: string): Promise<void> {
-  return invoke("add_recent_project", { path });
+  return _invoke("add_recent_project", { path });
 }
 
 export interface SearchResult {
@@ -124,7 +137,7 @@ export async function searchSources(
   projectDir: string,
   query: string
 ): Promise<SearchResult[]> {
-  return invoke("search_sources", { projectDir, query });
+  return _invoke("search_sources", { projectDir, query });
 }
 
 export interface FigureInfo {
@@ -137,11 +150,11 @@ export interface FigureInfo {
 export async function listFigures(
   projectDir: string
 ): Promise<FigureInfo[]> {
-  return invoke("list_figures", { projectDir });
+  return _invoke("list_figures", { projectDir });
 }
 
 export async function readProvenance(
   projectDir: string
 ): Promise<Record<string, unknown>[]> {
-  return invoke("read_provenance", { projectDir });
+  return _invoke("read_provenance", { projectDir });
 }

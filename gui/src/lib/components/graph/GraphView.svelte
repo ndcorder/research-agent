@@ -6,7 +6,9 @@
     claims,
     selectedSource,
     rightPanel,
+    projectDir,
   } from "$lib/stores/project";
+  import { readFile } from "$lib/utils/ipc";
   import type { SourceMeta, ClaimMeta } from "$lib/types";
 
   type NodeDatum = d3.SimulationNodeDatum & {
@@ -22,6 +24,7 @@
   type LinkDatum = d3.SimulationLinkDatum<NodeDatum> & {
     source: string | NodeDatum;
     target: string | NodeDatum;
+    kind?: "evidence" | "cocitation";
   };
 
   let container: HTMLDivElement;
@@ -133,15 +136,76 @@
     }
   };
 
+  /** Parse source keys from a claim's evidence_sources string.
+   *  Format: "gordon2002 (FT,direct)=4, salas2025 (AO,direct)=2, ..." */
+  function extractSourceKeys(evidenceStr: string | undefined): string[] {
+    if (!evidenceStr) return [];
+    return evidenceStr
+      .split(",")
+      .map((entry) => entry.trim().split(/\s/)[0])
+      .filter(Boolean);
+  }
+
+  /** Parse \cite{}, \citep{}, \citet{} commands from LaTeX to find co-cited source groups */
+  function parseTexCoCitations(tex: string): string[][] {
+    const groups: string[][] = [];
+    // Match \cite{...}, \citep{...}, \citet{...}, \citeauthor{...}, etc.
+    const re = /\\cite[pt]?\*?\{([^}]+)\}/g;
+    let m;
+    while ((m = re.exec(tex)) !== null) {
+      const keys = m[1].split(",").map((k) => k.trim()).filter(Boolean);
+      if (keys.length >= 2) {
+        groups.push(keys);
+      }
+    }
+    return groups;
+  }
+
+  // Cache for LaTeX co-citation data
+  let texCoCitations = $state<string[][]>([]);
+
+  async function loadTexCoCitations() {
+    const dir = $projectDir;
+    if (!dir) return;
+    try {
+      const tex = await readFile(`${dir}/main.tex`);
+      texCoCitations = parseTexCoCitations(tex);
+    } catch {
+      texCoCitations = [];
+    }
+  }
+
   function buildGraph(
     srcList: SourceMeta[],
     claimList: ClaimMeta[]
   ): { nodes: NodeDatum[]; links: LinkDatum[] } {
     const hasFilters = activeTags.size > 0 || activeStatuses.size > 0;
     const matchingSrcKeys = new Set<string>();
-    const claimIds = new Set(claimList.map((c) => c.id));
+    const srcKeySet = new Set(srcList.map((s) => s.key));
     const nodes: NodeDatum[] = [];
     const links: LinkDatum[] = [];
+    const linkSet = new Set<string>(); // dedup tracker
+
+    // Build claim→source links from claims' evidence_sources field
+    const claimToSources = new Map<string, string[]>();
+    const sourceToClaimCount = new Map<string, number>();
+    for (const c of claimList) {
+      const keys = extractSourceKeys(c.evidence_sources);
+      const validKeys = keys.filter((k) => srcKeySet.has(k));
+      claimToSources.set(c.id, validKeys);
+      for (const k of validKeys) {
+        sourceToClaimCount.set(k, (sourceToClaimCount.get(k) || 0) + 1);
+      }
+    }
+
+    // Also check source-side evidence_for (original approach)
+    for (const s of srcList) {
+      if (s.evidence_for) {
+        for (const cid of s.evidence_for) {
+          sourceToClaimCount.set(s.key, (sourceToClaimCount.get(s.key) || 0) + 1);
+        }
+      }
+    }
 
     // Determine which sources match filters
     for (const s of srcList) {
@@ -152,18 +216,14 @@
 
     // Determine which claims are connected to matching sources
     const connectedClaimIds = new Set<string>();
-    for (const s of srcList) {
-      if (matchingSrcKeys.has(s.key) && s.evidence_for) {
-        for (const cid of s.evidence_for) {
-          if (claimIds.has(cid)) {
-            connectedClaimIds.add(cid);
-          }
-        }
+    for (const [cid, keys] of claimToSources) {
+      if (keys.some((k) => matchingSrcKeys.has(k))) {
+        connectedClaimIds.add(cid);
       }
     }
 
     for (const s of srcList) {
-      const evidenceCount = s.evidence_for?.length ?? 0;
+      const evidenceCount = sourceToClaimCount.get(s.key) ?? 0;
       const matches = !hasFilters || matchingSrcKeys.has(s.key);
       nodes.push({
         id: s.key,
@@ -174,14 +234,6 @@
         data: s,
         matchesFilter: matches,
       });
-
-      if (s.evidence_for) {
-        for (const claimId of s.evidence_for) {
-          if (claimIds.has(claimId)) {
-            links.push({ source: s.key, target: claimId });
-          }
-        }
-      }
     }
 
     for (const c of claimList) {
@@ -195,6 +247,60 @@
         data: c,
         matchesFilter: matches,
       });
+
+      // Create links from claims' evidence_sources
+      const keys = claimToSources.get(c.id) ?? [];
+      for (const srcKey of keys) {
+        const lk = `${srcKey}→${c.id}`;
+        if (!linkSet.has(lk)) {
+          linkSet.add(lk);
+          links.push({ source: srcKey, target: c.id, kind: "evidence" });
+        }
+      }
+    }
+
+    // Also add links from source-side evidence_for (fallback)
+    for (const s of srcList) {
+      if (s.evidence_for) {
+        for (const claimId of s.evidence_for) {
+          if (claimList.some((c) => c.id === claimId)) {
+            if (!linkSet.has(`${s.key}→${claimId}`)) {
+              linkSet.add(`${s.key}→${claimId}`);
+              links.push({ source: s.key, target: claimId, kind: "evidence" });
+            }
+          }
+        }
+      }
+    }
+
+    // Co-citation links from claims: connect sources that share evidence for the same claim
+    for (const [, keys] of claimToSources) {
+      const valid = keys.filter((k) => srcKeySet.has(k));
+      for (let i = 0; i < valid.length; i++) {
+        for (let j = i + 1; j < valid.length; j++) {
+          const a = valid[i], b = valid[j];
+          const key = a < b ? `${a}↔${b}` : `${b}↔${a}`;
+          if (!linkSet.has(key)) {
+            linkSet.add(key);
+            links.push({ source: a, target: b, kind: "cocitation" });
+          }
+        }
+      }
+    }
+
+    // LaTeX co-citation links: connect sources cited together in \citep{a, b, c}
+    for (const group of texCoCitations) {
+      const valid = group.filter((k) => srcKeySet.has(k));
+      for (let i = 0; i < valid.length; i++) {
+        for (let j = i + 1; j < valid.length; j++) {
+          const a = valid[i], b = valid[j];
+          const key = a < b ? `${a}↔${b}` : `${b}↔${a}`;
+          if (!linkSet.has(key)) {
+            linkSet.add(key);
+            links.push({ source: a, target: b, kind: "cocitation" });
+          }
+        }
+      }
     }
 
     return { nodes, links };
@@ -245,9 +351,9 @@
         d3
           .forceLink<NodeDatum, LinkDatum>(links)
           .id((d) => d.id)
-          .distance(80)
+          .distance((d) => (d as LinkDatum).kind === "cocitation" ? 50 : 80)
       )
-      .force("charge", d3.forceManyBody().strength(-120))
+      .force("charge", d3.forceManyBody().strength(-80))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collision", d3.forceCollide<NodeDatum>().radius((d) => d.size + 4));
 
@@ -281,15 +387,14 @@
       .selectAll<SVGLineElement, LinkDatum>("line")
       .data(links)
       .join("line")
-      .attr("stroke", "#3b3f5c")
-      .attr("stroke-width", 1)
+      .attr("stroke", (d) => d.kind === "cocitation" ? "#565f89" : "#3b3f5c")
+      .attr("stroke-width", (d) => d.kind === "cocitation" ? 0.5 : 1)
       .attr("stroke-opacity", (d) => {
-        // Fade links connected to non-matching nodes
         const src = typeof d.source === "string" ? nodes.find(n => n.id === d.source) : d.source as NodeDatum;
         const tgt = typeof d.target === "string" ? nodes.find(n => n.id === d.target) : d.target as NodeDatum;
-        if (src && !src.matchesFilter) return 0.1;
-        if (tgt && !tgt.matchesFilter) return 0.1;
-        return 0.6;
+        if (src && !src.matchesFilter) return 0.05;
+        if (tgt && !tgt.matchesFilter) return 0.05;
+        return d.kind === "cocitation" ? 0.25 : 0.6;
       });
 
     // Nodes group
@@ -429,8 +534,10 @@
       render($sources, $claims);
     });
 
-    // Initial render
-    render($sources, $claims);
+    // Load LaTeX co-citations then render
+    loadTexCoCitations().then(() => {
+      render($sources, $claims);
+    });
 
     return () => {
       observer.disconnect();
@@ -450,7 +557,7 @@
     >
       <!-- All / Reset button -->
       <button
-        class="flex-shrink-0 rounded px-1.5 text-[10px] leading-4 transition-colors
+        class="flex-shrink-0 rounded px-1.5 text-xs leading-4 transition-colors
           {activeFilterCount === 0
             ? 'bg-accent/20 text-accent'
             : 'bg-bg-tertiary text-text-muted hover:text-text'}"
@@ -464,7 +571,7 @@
       <!-- Status filters -->
       {#each STATUS_OPTIONS as opt}
         <button
-          class="flex-shrink-0 rounded px-1.5 text-[10px] leading-4 transition-colors
+          class="flex-shrink-0 rounded px-1.5 text-xs leading-4 transition-colors
             {activeStatuses.has(opt.key)
               ? opt.colorClass === 'success'
                 ? 'bg-success/20 text-success'
@@ -482,7 +589,7 @@
 
       <!-- Group by tag toggle -->
       <button
-        class="flex-shrink-0 rounded px-1.5 text-[10px] leading-4 transition-colors
+        class="flex-shrink-0 rounded px-1.5 text-xs leading-4 transition-colors
           {groupByTag
             ? 'bg-accent/20 text-accent'
             : 'bg-bg-tertiary text-text-muted hover:text-text'}"
@@ -497,7 +604,7 @@
       <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         {#each allTags as { tag, count }}
           <button
-            class="flex-shrink-0 whitespace-nowrap rounded px-1.5 text-[10px] leading-4 transition-colors
+            class="flex-shrink-0 whitespace-nowrap rounded px-1.5 text-xs leading-4 transition-colors
               {activeTags.has(tag)
                 ? 'bg-accent/20 text-accent'
                 : 'bg-bg-tertiary text-text-muted hover:text-text'}"

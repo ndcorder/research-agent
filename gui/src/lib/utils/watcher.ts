@@ -1,8 +1,9 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writable } from "svelte/store";
 import { sources, claims, paperState } from "$lib/stores/project";
 import { listSources, listClaims, readPaperState, startWatching, stopWatching } from "$lib/utils/ipc";
 import type { FileChangeEvent } from "$lib/types";
+
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** Fires when main.tex changes so editor components can react. */
 export const texChanged = writable<number>(0);
@@ -26,13 +27,11 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
 }
 
 /**
- * Start listening for file-change events from the Rust backend
- * and sync relevant changes into Svelte stores.
- *
- * Returns a cleanup function that stops the watcher and removes the event listener.
+ * Start listening for file-change events and sync into Svelte stores.
+ * In Tauri mode, uses the Rust backend's FS watcher.
+ * In browser mode, file watching is a no-op (no live reload).
  */
 export async function setupWatcher(projectDir: string): Promise<() => void> {
-  // Track which targets need refreshing so we can coalesce rapid bursts.
   const pending = new Set<RefreshTarget>();
 
   async function flush() {
@@ -69,23 +68,31 @@ export async function setupWatcher(projectDir: string): Promise<() => void> {
 
   const debouncedFlush = debounce(flush, 300);
 
-  // Tell the Rust backend to start the FS watcher for this project.
+  // Tell backend to start watching (no-op in browser mode)
   await startWatching(projectDir);
 
-  // Listen for events emitted by the Rust backend.
-  const unlisten: UnlistenFn = await listen<FileChangeEvent>(
-    "file-change",
-    (event) => {
-      const target = classify(event.payload.path);
-      if (target) {
-        pending.add(target);
-        debouncedFlush();
+  if (isTauri) {
+    // Use Tauri event listener for file changes
+    const { listen } = await import("@tauri-apps/api/event");
+    const unlisten = await listen<FileChangeEvent>(
+      "file-change",
+      (event) => {
+        const target = classify(event.payload.path);
+        if (target) {
+          pending.add(target);
+          debouncedFlush();
+        }
       }
-    }
-  );
+    );
 
-  return async function cleanup() {
-    unlisten();
-    await stopWatching();
-  } as unknown as () => void;
+    return async function cleanup() {
+      unlisten();
+      await stopWatching();
+    } as unknown as () => void;
+  } else {
+    // Browser mode: no live file watching
+    return async function cleanup() {
+      await stopWatching();
+    } as unknown as () => void;
+  }
 }

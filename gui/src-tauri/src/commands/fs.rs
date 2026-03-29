@@ -513,13 +513,19 @@ fn parse_markdown_metadata(content: &str) -> ParsedFrontmatter {
 }
 
 fn extract_bold_value(line: &str, key: &str) -> Option<String> {
+    // Strip optional list prefix ("- ", "* ")
+    let stripped = line
+        .strip_prefix("- ")
+        .or_else(|| line.strip_prefix("* "))
+        .unwrap_or(line);
+
     // Match **Key**: Value or **Key** : Value
     let pattern1 = format!("**{}**:", key);
     let pattern2 = format!("**{}** :", key);
 
-    if let Some(rest) = line.strip_prefix(&pattern1) {
+    if let Some(rest) = stripped.strip_prefix(&pattern1) {
         Some(rest.trim().to_string())
-    } else if let Some(rest) = line.strip_prefix(&pattern2) {
+    } else if let Some(rest) = stripped.strip_prefix(&pattern2) {
         Some(rest.trim().to_string())
     } else {
         None
