@@ -1,8 +1,9 @@
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::terminal::{spawn_terminal_inner, write_terminal_inner, TerminalState};
@@ -19,7 +20,6 @@ pub enum PipelineAction {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct PipelineActionArgs {
     pub claim_ids: Vec<String>,
     pub context: Option<String>,
@@ -52,18 +52,31 @@ impl Default for EvidenceWatcherState {
 // ---------------------------------------------------------------------------
 
 fn build_slash_command(action: &PipelineAction, args: &PipelineActionArgs) -> String {
-    let ids = args.claim_ids.join(", ");
+    let ids = args.claim_ids.join(",");
     match action {
         PipelineAction::TargetedResearch => {
-            let ctx = args.context.as_deref().unwrap_or("");
-            if ctx.is_empty() {
-                format!("/targeted-research {}\n", ids)
-            } else {
-                format!("/targeted-research {} -- {}\n", ids, ctx)
+            let mut cmd = format!(
+                "claude --dangerously-skip-permissions \"/targeted-research --claims '{}'",
+                ids
+            );
+            if let Some(ctx) = &args.context {
+                let escaped = ctx.replace('\'', "'\\''");
+                cmd.push_str(&format!(" --context '{}'", escaped));
             }
+            cmd.push_str("\"\n");
+            cmd
         }
         PipelineAction::BatchResolve => {
-            format!("/batch-resolve {}\n", ids)
+            let mut cmd = format!(
+                "claude --dangerously-skip-permissions \"/targeted-research --claims '{}' --batch",
+                ids
+            );
+            if let Some(ctx) = &args.context {
+                let escaped = ctx.replace('\'', "'\\''");
+                cmd.push_str(&format!(" --context '{}'", escaped));
+            }
+            cmd.push_str("\"\n");
+            cmd
         }
     }
 }
@@ -127,6 +140,8 @@ fn start_evidence_watcher(
 
     let last_emit_c = Arc::clone(&last_emit);
     let pending_c = Arc::clone(&pending_paths);
+    let trailing_scheduled = Arc::new(AtomicBool::new(false));
+    let trailing_scheduled_c = Arc::clone(&trailing_scheduled);
 
     let watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
         if let Ok(event) = res {
@@ -156,7 +171,7 @@ fn start_evidence_watcher(
 
             // Debounce: only emit if 2+ seconds since last emit
             let mut last = last_emit_c.lock().unwrap();
-            if last.elapsed().as_secs() >= 2 {
+            if last.elapsed() >= Duration::from_secs(2) {
                 *last = Instant::now();
                 let mut paths = pending_c.lock().unwrap();
                 if !paths.is_empty() {
@@ -168,6 +183,31 @@ fn start_evidence_watcher(
                         },
                     );
                 }
+            } else if !trailing_scheduled_c.swap(true, Ordering::SeqCst) {
+                // Schedule exactly one trailing-edge flush
+                let app_trail = app_clone.clone();
+                let pending_trail = Arc::clone(&pending_c);
+                let last_trail = Arc::clone(&last_emit_c);
+                let flag = Arc::clone(&trailing_scheduled_c);
+                let delay = Duration::from_secs(2) - last.elapsed();
+                std::thread::spawn(move || {
+                    std::thread::sleep(delay);
+                    flag.store(false, Ordering::SeqCst);
+                    let mut last = last_trail.lock().unwrap();
+                    if last.elapsed() >= Duration::from_secs(2) {
+                        *last = Instant::now();
+                        let mut paths = pending_trail.lock().unwrap();
+                        if !paths.is_empty() {
+                            let changed: Vec<String> = paths.drain(..).collect();
+                            let _ = app_trail.emit(
+                                "evidence-updated",
+                                EvidenceUpdatedEvent {
+                                    changed_paths: changed,
+                                },
+                            );
+                        }
+                    }
+                });
             }
         }
     })
