@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { select } from "d3-selection";
   import type { Selection } from "d3-selection";
   import { zoom as d3zoom } from "d3-zoom";
@@ -574,6 +574,17 @@
                 .attr("stroke", claimFill(claim.confidence))
                 .attr("stroke-width", isWeakOrCritical ? 3 : 1.5)
                 .attr("stroke-opacity", 0.4);
+
+              // Research-in-progress spinning ring (hidden by default)
+              el.append("circle")
+                .attr("class", "research-ring")
+                .attr("r", d.size + 4)
+                .attr("fill", "none")
+                .attr("stroke", "#7aa2f7")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "8 8")
+                .attr("opacity", 0)
+                .style("pointer-events", "none");
             });
 
           // Fade in
@@ -952,6 +963,68 @@
     };
   });
 
+  // --- Evidence-updated Tauri event listener ---
+  let unlistenEvidence: (() => void) | undefined;
+  let unsubResearch: (() => void) | undefined;
+
+  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen<{ changed_paths: string[] }>("evidence-updated", async () => {
+        const dir = $projectDir;
+        if (!dir) return;
+        try {
+          const [newSources, newClaims] = await Promise.all([
+            listSources(dir),
+            listClaims(dir),
+          ]);
+          sources.set(newSources);
+          claims.set(newClaims);
+
+          // Clear research state for claims that improved
+          researchingClaims.update((prev) => {
+            const next = new Set(prev);
+            for (const id of prev) {
+              const updated = newClaims.find((c) => c.id === id);
+              if (updated && updated.evidence_density >= 3) {
+                next.delete(id);
+              }
+            }
+            return next;
+          });
+        } catch (e) {
+          console.error("Failed to refresh evidence data:", e);
+        }
+      }).then((fn) => {
+        unlistenEvidence = fn;
+      });
+    });
+  }
+
+  // Subscribe to researchingClaims to update research rings on claim nodes
+  unsubResearch = researchingClaims.subscribe((ids) => {
+    if (!g) return;
+    g.selectAll(".research-ring")
+      .attr("opacity", function () {
+        const parentData = select(
+          (this as SVGElement).parentNode as Element,
+        ).datum() as NodeDatum;
+        return ids.has(parentData?.id) ? 0.8 : 0;
+      })
+      .style("animation", function () {
+        const parentData = select(
+          (this as SVGElement).parentNode as Element,
+        ).datum() as NodeDatum;
+        return ids.has(parentData?.id)
+          ? "research-spin 1s linear infinite"
+          : "none";
+      });
+  });
+
+  onDestroy(() => {
+    unlistenEvidence?.();
+    unsubResearch?.();
+  });
+
   // Reactive render: replaces manual store subscriptions.
   // Batches sources+claims updates in same tick into one render call.
   $effect(() => {
@@ -1055,6 +1128,15 @@
     }
     50% {
       stroke-width: 3.5;
+    }
+  }
+
+  @keyframes research-spin {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -31.4;
     }
   }
 </style>
