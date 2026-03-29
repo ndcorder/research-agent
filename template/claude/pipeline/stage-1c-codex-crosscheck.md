@@ -20,7 +20,11 @@ mcp__codex-bridge__codex_ask({
 
 3. Write all Codex responses to `research/codex_cross_check.md` (append each file's review as a section)
 4. Apply the **Codex Deliberation Protocol**: evaluate each point, push back where you disagree, log the deliberation
-5. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: claude-sonnet-4-6[1m]) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
+5. **Codex Telemetry** — After each per-file cross-check and deliberation, append to `research/codex_telemetry.jsonl`:
+   ```
+   {"ts":"[timestamp]","stage":"1c","tool":"codex_ask","purpose":"cross-check [FILENAME]","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/codex_cross_check.md","resolution_summary":"[one-line]"}
+   ```
+6. If Codex identifies missing perspectives or inaccurate claims, spawn a **targeted follow-up research agent** (model: claude-sonnet-4-6[1m]) to investigate those specific gaps. The agent should update the relevant research files and add any new references to `references.bib`.
 
 **Checkpoint**: Verify `research/codex_cross_check.md` exists. If it does not exist, you skipped this stage — go back and do it.
 

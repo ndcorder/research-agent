@@ -51,6 +51,30 @@ When Codex provides feedback at any stage, do NOT blindly accept it. Follow this
 
 This protocol applies to EVERY Codex interaction below — not just reviews, but research cross-checks, figure audits, risk radar, etc. The goal is genuine collaboration, not rubber-stamping.
 
+## Codex Telemetry Protocol
+
+After every Codex bridge interaction (including the deliberation), append a structured JSONL entry to `research/codex_telemetry.jsonl`. This creates a machine-readable log of all Codex interactions, enabling cross-paper analysis of agreement rates, tool usage patterns, and disagreement hotspots.
+
+**Entry format** — append one JSON object per line:
+
+```json
+{"ts":"[ISO-8601]","stage":"[stage id]","tool":"[codex_ask|codex_review|codex_plan|codex_risk_radar|codex_stats]","purpose":"[short description of what was asked]","outcome":"[AGREE|PARTIALLY_AGREE|DISAGREE|N_A]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"[file path written]","resolution_summary":"[one-line summary of what happened]"}
+```
+
+**Required fields**: `ts`, `stage`, `tool`, `purpose`, `artifact` — always present.
+**Deliberation fields**: `outcome`, `points_raised`, `points_accepted`, `points_rejected` — set based on the Codex Deliberation Protocol result. Use `N_A` and `0` for informational tools where no deliberation occurs (codex_stats, codex_risk_radar).
+
+**When to log**: After EVERY Codex tool call and its subsequent deliberation (if any). One entry per call. For loops (e.g., per-file cross-checks in Stage 1c, per-section spot-checks in Stage 3), log one entry per iteration.
+
+**Abbreviated instruction for stage files** — include after each Codex call + deliberation block:
+
+```
+CODEX TELEMETRY — Append to research/codex_telemetry.jsonl:
+{"ts":"[timestamp]","stage":"[N]","tool":"[tool]","purpose":"[what]","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"[file]","resolution_summary":"[one-line]"}
+```
+
+---
+
 ## Provenance Logging Protocol
 
 Every agent that writes, revises, or modifies manuscript content MUST append provenance entries to `research/provenance.jsonl`. This creates a traceable chain from every word in the final paper back to its origin.

@@ -123,6 +123,11 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    ```
    Apply the **Codex Deliberation Protocol**. Update the matrix based on agreed feedback. Log deliberation.
 
+   **Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+   ```
+   {"ts":"[timestamp]","stage":"2","tool":"codex_ask","purpose":"claims-evidence matrix review","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/claims_matrix.md","resolution_summary":"[one-line]"}
+   ```
+
 7. Use the `scientific-writing` skill for IMRAD structure guidance.
 8. Use the `venue-templates` skill if targeting a specific venue.
 9. **Log planning provenance** — append entries to `research/provenance.jsonl` for key planning decisions:

@@ -292,6 +292,11 @@ mcp__codex-bridge__codex_ask({
 
 Write Codex's contributions to `research/codex_independent_research.md`. Apply the **Codex Deliberation Protocol**: verify Codex's paper suggestions are real (search to confirm), push back on any that seem fabricated, and add verified ones to the research notes. Pass all verified new papers to the bibliography builder.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"1","tool":"codex_ask","purpose":"independent research contributions","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/codex_independent_research.md","resolution_summary":"[one-line]"}
+```
+
 **After all research agents complete, spawn a Bibliography Builder agent** (model: claude-sonnet-4-6[1m])**:**
 ```
 You are a meticulous bibliographer.

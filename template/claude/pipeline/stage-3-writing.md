@@ -145,6 +145,11 @@ mcp__codex-bridge__codex_review({
 
 Apply the **Codex Deliberation Protocol**: evaluate Codex's limitations. You may push back if Codex overstates weaknesses or misunderstands the method. Then have the Discussion writing agent (model: claude-opus-4-6[1m]) integrate the agreed-upon limitations into the Discussion section's limitations subsection, blending them with Claude's own identified limitations.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"3","tool":"codex_review","purpose":"limitations draft","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_deliberation_log.md","resolution_summary":"[one-line]"}
+```
+
 **After each writing agent completes**, assess whether the section is substantively complete. If the section feels thin — missing depth, lacking citations, skipping over important points, or leaving obvious gaps — spawn an expansion agent:
 ```
 The [SECTION] section in main.tex needs more depth.
@@ -168,6 +173,11 @@ mcp__codex-bridge__codex_review({
 
 Write each spot-check to `reviews/codex_section_[SECTION].md` (e.g., `reviews/codex_section_introduction.md`). If Codex finds CRITICAL issues, fix them in main.tex before moving to the next section. MAJOR issues can wait for Stage 5.
 
+**Codex Telemetry** — After each per-section spot-check, append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"3","tool":"codex_review","purpose":"spot-check [SECTION]","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_section_[SECTION].md","resolution_summary":"[one-line]"}
+```
+
 **[DEEP] Codex-Assisted Expansion**
 
 If depth is `"deep"`, after the spot-check, also call Codex to identify content gaps:
@@ -177,6 +187,11 @@ mcp__codex-bridge__codex_ask({
   prompt: "You are a domain expert reviewing the [SECTION] section. What substantive content is MISSING that a knowledgeable reviewer would expect to see? Don't focus on writing quality — focus on intellectual completeness. What arguments, evidence, comparisons, or nuances are absent? Be specific.",
   context: "[paste the section content from main.tex]"
 })
+```
+
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"3","tool":"codex_ask","purpose":"content gap identification [SECTION]","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_deliberation_log.md","resolution_summary":"[one-line]"}
 ```
 
 If Codex identifies substantive gaps, spawn an **expansion agent** (model: claude-opus-4-6[1m]) to address them:

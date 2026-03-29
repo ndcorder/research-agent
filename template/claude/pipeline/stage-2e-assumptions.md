@@ -92,6 +92,11 @@ mcp__codex-bridge__codex_ask({
 
 Apply the **Codex Deliberation Protocol**. Update `research/assumptions.md` based on agreed feedback (e.g., recategorize assumptions, add missing ones). Log deliberation to `reviews/codex_deliberation_log.md`.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"2e","tool":"codex_ask","purpose":"assumptions categorization review","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/assumptions.md","resolution_summary":"[one-line]"}
+```
+
 ### Provenance
 
 Append a provenance entry to `research/provenance.jsonl`:

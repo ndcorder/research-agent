@@ -80,6 +80,11 @@ mcp__codex-bridge__codex_ask({
 
 Apply the **Codex Deliberation Protocol**: if Codex flags a reference that Claude's validator marked as verified, investigate further — one of them is wrong. If Codex confirms references Claude flagged as suspicious, that's stronger evidence for removal. Write results to `reviews/codex_ref_verification.md`.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"post-qa","tool":"codex_ask","purpose":"reference verification","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_ref_verification.md","resolution_summary":"[one-line]"}
+```
+
 ---
 
 ## Codex Risk Radar
@@ -101,6 +106,11 @@ Write the response to `reviews/codex_risk_radar.md`.
 - Any HIGH risk item → must be addressed before finalization. Edit main.tex to mitigate (add caveats, strengthen methods, etc.)
 - MEDIUM risk items → flag for the user's attention in the final report but don't block finalization
 - LOW risk items → note and move on
+
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"post-qa","tool":"codex_risk_radar","purpose":"manuscript risk assessment","outcome":"N_A","points_raised":0,"points_accepted":0,"points_rejected":0,"artifact":"reviews/codex_risk_radar.md","resolution_summary":"[risk levels per dimension]"}
+```
 
 **Checkpoint**: Verify `reviews/codex_risk_radar.md` exists.
 

@@ -70,6 +70,11 @@ mcp__codex-bridge__codex_ask({
 
 Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatches between figures and claims in main.tex immediately.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"4","tool":"codex_ask","purpose":"figures and claims audit","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_figures_audit.md","resolution_summary":"[one-line]"}
+```
+
 **Step 4d: PRISMA Flowchart (auto-detected)**
 
 Check if this paper is a systematic review by reading `.paper.json` and examining the `topic` field. If the topic contains any of these keywords (case-insensitive): "systematic review", "meta-analysis", "scoping review", "literature review", then generate a PRISMA flowchart:

@@ -146,6 +146,11 @@ mcp__codex-bridge__codex_review({
 
 Write to `reviews/auto_iter[N]_codex.md`. Apply the Codex Deliberation Protocol.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"auto-[N]","tool":"codex_review","purpose":"iteration assessment","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/auto_iter[N]_codex.md","resolution_summary":"[one-line]"}
+```
+
 **Agent E — "Regression Detector" (iterations 2+ only, parallel with agents above)**
 
 Only spawn this agent if `CURRENT_ITERATION > 1`. Model: claude-sonnet-4-6[1m].

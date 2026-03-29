@@ -18,6 +18,10 @@ mcp__codex-bridge__codex_plan({
 ```
 
 4. Write the Codex response to `research/codex_thesis_review.md`
+   **Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+   ```
+   {"ts":"[timestamp]","stage":"2b","tool":"codex_plan","purpose":"thesis stress-test","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/codex_thesis_review.md","resolution_summary":"[one-line]"}
+   ```
 5. **Assumptions context (resume only)**: If `research/assumptions.md` exists (from a prior partial run), also call Codex to review the assumptions:
    ```
    mcp__codex-bridge__codex_ask({
@@ -26,6 +30,10 @@ mcp__codex-bridge__codex_plan({
    })
    ```
    Append the response to `research/codex_thesis_review.md`. Skip this step if `research/assumptions.md` does not exist (it will be created later in Stage 2e).
+   **Codex Telemetry** (if this step ran) — Append to `research/codex_telemetry.jsonl`:
+   ```
+   {"ts":"[timestamp]","stage":"2b","tool":"codex_ask","purpose":"assumptions review (resume)","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"research/codex_thesis_review.md","resolution_summary":"[one-line]"}
+   ```
 6. If Codex identifies structural problems, fix them in the outline in `main.tex` before proceeding
 7. Surface any disagreements between your assessment and Codex's to the user
 

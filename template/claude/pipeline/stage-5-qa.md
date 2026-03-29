@@ -132,6 +132,11 @@ mcp__codex-bridge__codex_review({
 
 3. Write the Codex response to `reviews/codex_adversarial.md`
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"5","tool":"codex_review","purpose":"adversarial peer review","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_adversarial.md","resolution_summary":"[one-line]"}
+```
+
 **Checkpoint**: Before proceeding to Step 5b, verify ALL 4 review files exist:
 - `reviews/technical.md` (from agent)
 - `reviews/writing.md` (from agent)
@@ -216,5 +221,10 @@ mcp__codex-bridge__codex_review({
 ```
 
 Write to `reviews/codex_final_deep.md`. If this surfaces CRITICAL issues, do one more fix-and-review cycle. Otherwise, proceed.
+
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"5","tool":"codex_review","purpose":"final deep review","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_final_deep.md","resolution_summary":"[one-line]"}
+```
 
 ---

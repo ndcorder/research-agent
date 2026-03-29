@@ -20,6 +20,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Build artifacts
+target/
+__pycache__/
+
 # Environment
 .env
 .env.*

@@ -206,4 +206,9 @@ mcp__codex-bridge__codex_stats({})
 
 Include the Codex stats in the final completion report to show how the two AI systems collaborated throughout the pipeline.
 
+**Codex Telemetry** — Append to `research/codex_telemetry.jsonl`:
+```
+{"ts":"[timestamp]","stage":"6","tool":"codex_stats","purpose":"collaboration metrics","outcome":"N_A","points_raised":0,"points_accepted":0,"points_rejected":0,"artifact":"N/A","resolution_summary":"[total interactions reported by codex_stats]"}
+```
+
 ---
