@@ -64,9 +64,70 @@
     return fields;
   }
 
+  // --- Field completeness & format checking ---
+
+  const REQUIRED_FIELDS: Record<string, string[]> = {
+    article: ["author", "title", "journal", "year"],
+    inproceedings: ["author", "title", "booktitle", "year"],
+    conference: ["author", "title", "booktitle", "year"],
+    book: ["title", "publisher", "year"], // author OR editor checked separately below
+    incollection: ["author", "title", "booktitle", "publisher", "year"],
+    phdthesis: ["author", "title", "school", "year"],
+    mastersthesis: ["author", "title", "school", "year"],
+    techreport: ["author", "title", "institution", "year"],
+    inbook: ["title", "publisher", "year"], // author OR editor checked separately below
+    misc: [],
+    unpublished: ["author", "title"],
+  };
+
+  interface FieldIssue {
+    type: "missing" | "format";
+    message: string;
+  }
+
+  function getEntryIssues(entry: BibEntry): FieldIssue[] {
+    const issues: FieldIssue[] = [];
+    const required = REQUIRED_FIELDS[entry.type] ?? [];
+
+    for (const field of required) {
+      if (!entry.fields[field]) {
+        issues.push({ type: "missing", message: `Missing required field: ${field}` });
+      }
+    }
+
+    // book/inbook need author OR editor
+    if ((entry.type === "book" || entry.type === "inbook") && !entry.fields["author"] && !entry.fields["editor"]) {
+      issues.push({ type: "missing", message: "Missing required field: author or editor" });
+    }
+
+    // Format issues
+    if (entry.title && /\\(?:textit|textbf|emph|textsc)\{/.test(entry.title)) {
+      issues.push({ type: "format", message: "Title contains LaTeX markup (use BibTeX braces instead)" });
+    }
+
+    return issues;
+  }
+
   // --- Derived data ---
 
   let citeKeys = $derived(parseCiteKeys($texContent));
+
+  let duplicateKeys = $derived.by(() => {
+    const seen = new Map<string, number>();
+    for (const e of entries) {
+      seen.set(e.key, (seen.get(e.key) ?? 0) + 1);
+    }
+    return new Set([...seen.entries()].filter(([, c]) => c > 1).map(([k]) => k));
+  });
+
+  // Memoize issues per entry to avoid redundant recomputation in templates
+  let issuesByKey = $derived.by(() => {
+    const map = new Map<string, FieldIssue[]>();
+    for (const e of entries) {
+      map.set(e.key, getEntryIssues(e));
+    }
+    return map;
+  });
 
   let usedEntries = $derived(
     filteredSorted().filter((e) => citeKeys.includes(e.key))
@@ -86,8 +147,13 @@
       : missingKeys
   );
 
+  let totalIssues = $derived(
+    entries.reduce((n, e) => n + (issuesByKey.get(e.key)?.length ?? 0) + (duplicateKeys.has(e.key) ? 1 : 0), 0)
+  );
+
   let summary = $derived(
-    `${entries.length} references (${usedEntries.length} used, ${unusedEntries.length} unused, ${missingKeys.length} missing)`
+    `${entries.length} refs (${usedEntries.length} used, ${unusedEntries.length} unused, ${missingKeys.length} missing)` +
+      (totalIssues > 0 ? ` \u00b7 ${totalIssues} issues` : "")
   );
 
   let selectedEntry = $derived(
@@ -261,6 +327,7 @@
             Used ({usedEntries.length})
           </h3>
           {#each usedEntries as entry}
+            {@const issues = issuesByKey.get(entry.key) ?? []}
             <button
               class="mb-1 w-full rounded border border-border bg-bg-secondary px-2 py-1.5 text-left transition-colors hover:bg-bg-tertiary {selectedKey === entry.key ? 'ring-1 ring-accent' : ''}"
               onclick={() => selectEntry(entry.key)}
@@ -275,6 +342,11 @@
                 </span>
                 {#if entry.year}
                   <span class="flex-shrink-0 text-xs text-text-muted">{entry.year}</span>
+                {/if}
+                {#if issues.length > 0 || duplicateKeys.has(entry.key)}
+                  <span class="flex-shrink-0 rounded-full bg-warning/20 px-1.5 text-[9px] font-medium text-warning">
+                    {issues.length + (duplicateKeys.has(entry.key) ? 1 : 0)}
+                  </span>
                 {/if}
               </div>
               {#if entry.title}
@@ -299,6 +371,7 @@
             Unused ({unusedEntries.length})
           </h3>
           {#each unusedEntries as entry}
+            {@const issues = issuesByKey.get(entry.key) ?? []}
             <button
               class="mb-1 w-full rounded border border-border bg-bg-secondary px-2 py-1.5 text-left opacity-50 transition-colors hover:opacity-80 {selectedKey === entry.key ? 'ring-1 ring-accent opacity-80' : ''}"
               onclick={() => selectEntry(entry.key)}
@@ -313,6 +386,11 @@
                 </span>
                 {#if entry.year}
                   <span class="flex-shrink-0 text-xs text-text-muted">{entry.year}</span>
+                {/if}
+                {#if issues.length > 0 || duplicateKeys.has(entry.key)}
+                  <span class="flex-shrink-0 rounded-full bg-warning/20 px-1.5 text-[9px] font-medium text-warning">
+                    {issues.length + (duplicateKeys.has(entry.key) ? 1 : 0)}
+                  </span>
                 {/if}
               </div>
               {#if entry.title}
@@ -341,16 +419,26 @@
 
   <!-- Detail panel -->
   {#if selectedEntry}
+    {@const issues = issuesByKey.get(selectedEntry.key) ?? []}
     <div class="flex-shrink-0 border-t border-border bg-bg-secondary">
       <div class="flex items-center justify-between px-3 pt-2 pb-1">
         <h3 class="font-mono text-xs font-semibold text-text-bright">{selectedEntry.key}</h3>
-        <button
-          class="text-xs text-text-muted hover:text-text"
-          onclick={() => (selectedKey = null)}
-        >
-          close
-        </button>
+        <button class="text-xs text-text-muted hover:text-text" onclick={() => (selectedKey = null)}>close</button>
       </div>
+      {#if issues.length > 0 || duplicateKeys.has(selectedEntry.key)}
+        <div class="mx-3 mb-2 space-y-1">
+          {#if duplicateKeys.has(selectedEntry.key)}
+            <div class="rounded bg-danger/10 px-2 py-1 text-xs text-danger">
+              Duplicate key: "{selectedEntry.key}" appears multiple times
+            </div>
+          {/if}
+          {#each issues as issue}
+            <div class="rounded px-2 py-1 text-xs {issue.type === 'missing' ? 'bg-warning/10 text-warning' : 'bg-accent/10 text-accent'}">
+              {issue.message}
+            </div>
+          {/each}
+        </div>
+      {/if}
       <pre class="max-h-40 overflow-y-auto px-3 pb-3 text-xs leading-relaxed text-text">{selectedEntry.raw}</pre>
     </div>
   {/if}

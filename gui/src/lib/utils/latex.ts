@@ -73,3 +73,141 @@ export function countWords(texContent: string): number {
   if (!stripped) return 0;
   return stripped.split(/\s+/).length;
 }
+
+export interface FigureEnv {
+  /** \includegraphics filename (no extension, no path prefix) */
+  stem: string;
+  /** Raw \caption{...} text, LaTeX stripped */
+  caption: string;
+  /** \label{fig:...} value, or null */
+  label: string | null;
+  /** Line number of \begin{figure} */
+  line: number;
+}
+
+export function parseFigureEnvironments(content: string): FigureEnv[] {
+  const figures: FigureEnv[] = [];
+  const lines = content.split("\n");
+  let inFigure = false;
+  let current: Partial<FigureEnv> = {};
+  let startLine = 0;
+  let captionBuf: string[] | null = null;
+  let captionDepth = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/\\begin\{figure\*?\}/.test(line)) {
+      inFigure = true;
+      startLine = i + 1;
+      current = {};
+      captionBuf = null;
+      captionDepth = 0;
+      continue;
+    }
+    if (/\\end\{figure\*?\}/.test(line)) {
+      if (inFigure && current.stem) {
+        figures.push({
+          stem: current.stem!,
+          caption: current.caption ?? "",
+          label: current.label ?? null,
+          line: startLine,
+        });
+      }
+      inFigure = false;
+      continue;
+    }
+    if (!inFigure) continue;
+
+    // Accumulate multiline \caption{...} with brace balancing
+    if (captionBuf !== null) {
+      captionBuf.push(line);
+      for (const ch of line) {
+        if (ch === "{") captionDepth++;
+        else if (ch === "}") captionDepth--;
+      }
+      if (captionDepth <= 0) {
+        const raw = captionBuf.join(" ");
+        // Extract content between first { and last }
+        const open = raw.indexOf("{");
+        const close = raw.lastIndexOf("}");
+        if (open !== -1 && close > open) {
+          current.caption = raw
+            .slice(open + 1, close)
+            .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, "$1")
+            .replace(/[{}]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+        captionBuf = null;
+      }
+      continue;
+    }
+
+    // \includegraphics[...]{path/file.ext} or \includegraphics{path/file}
+    const igMatch = line.match(/\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}/);
+    if (igMatch) {
+      const raw = igMatch[1];
+      // Strip path prefix and extension
+      const basename = raw.split("/").pop() ?? raw;
+      current.stem = basename.replace(/\.\w+$/, "");
+    }
+
+    // \caption — start accumulating (handles single-line and multiline)
+    if (/\\caption\s*\{/.test(line)) {
+      captionBuf = [line];
+      captionDepth = 0;
+      for (const ch of line) {
+        if (ch === "{") captionDepth++;
+        else if (ch === "}") captionDepth--;
+      }
+      // Single-line caption: braces balanced on same line
+      if (captionDepth <= 0) {
+        const raw = line;
+        const open = raw.indexOf("\\caption");
+        const braceStart = raw.indexOf("{", open);
+        const braceEnd = raw.lastIndexOf("}");
+        if (braceStart !== -1 && braceEnd > braceStart) {
+          current.caption = raw
+            .slice(braceStart + 1, braceEnd)
+            .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, "$1")
+            .replace(/[{}]/g, "")
+            .trim();
+        }
+        captionBuf = null;
+      }
+      continue;
+    }
+
+    // \label{fig:...}
+    const labelMatch = line.match(/\\label\{(fig:[^}]+)\}/);
+    if (labelMatch) {
+      current.label = labelMatch[1];
+    }
+  }
+
+  return figures;
+}
+
+export interface FigureRef {
+  /** The label referenced, e.g. "fig:overview" */
+  label: string;
+  /** Line number where the reference appears */
+  line: number;
+}
+
+export function parseFigureRefs(content: string): FigureRef[] {
+  const refs: FigureRef[] = [];
+  const lines = content.split("\n");
+  // Match \ref{fig:...}, \autoref{fig:...}, \cref{fig:...}, \Cref{fig:...}
+  const pattern = /\\(?:auto|c|C)?ref\{(fig:[^}]+)\}/g;
+
+  for (let i = 0; i < lines.length; i++) {
+    let match;
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(lines[i])) !== null) {
+      refs.push({ label: match[1], line: i + 1 });
+    }
+  }
+
+  return refs;
+}

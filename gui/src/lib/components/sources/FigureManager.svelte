@@ -1,6 +1,11 @@
 <script lang="ts">
-  import { projectDir } from "$lib/stores/project";
+  import { projectDir, texContent, editorGoToLine } from "$lib/stores/project";
   import { listFigures, type FigureInfo } from "$lib/utils/ipc";
+  import {
+    parseFigureEnvironments,
+    parseFigureRefs,
+    parseTexSections,
+  } from "$lib/utils/latex";
 
   let figures = $state<FigureInfo[]>([]);
   let loading = $state(true);
@@ -16,6 +21,50 @@
 
   const usedCount = $derived(figures.filter((f) => f.referenced).length);
   const unusedCount = $derived(figures.filter((f) => !f.referenced).length);
+
+  let figureEnvs = $derived(parseFigureEnvironments($texContent));
+  let figureRefs = $derived(parseFigureRefs($texContent));
+  let sections = $derived(parseTexSections($texContent));
+
+  interface EnrichedFigure extends FigureInfo {
+    caption: string;
+    label: string | null;
+    envLine: number | null;
+    referencedInSections: { title: string; line: number }[];
+  }
+
+  let enriched = $derived<EnrichedFigure[]>(
+    filtered.map((fig) => {
+      const stem = fig.name.replace(/\.\w+$/, "");
+      const env = figureEnvs.find((e) => e.stem === stem);
+      const label = env?.label ?? null;
+
+      // Find sections that reference this figure's label
+      let referencedInSections: { title: string; line: number }[] = [];
+      if (label) {
+        const refs = figureRefs.filter((r) => r.label === label);
+        for (const ref of refs) {
+          // Find the section containing this reference line
+          let containingSection: (typeof sections)[0] | undefined = undefined;
+          for (const sec of sections) {
+            if (sec.line <= ref.line) containingSection = sec;
+            else break;
+          }
+          if (containingSection && !referencedInSections.some((s) => s.line === containingSection!.line)) {
+            referencedInSections.push({ title: containingSection.title, line: containingSection.line });
+          }
+        }
+      }
+
+      return {
+        ...fig,
+        caption: env?.caption ?? "",
+        label,
+        envLine: env?.line ?? null,
+        referencedInSections,
+      };
+    })
+  );
 
   $effect(() => {
     const dir = $projectDir;
@@ -73,7 +122,7 @@
       </div>
     {:else}
       <div class="grid grid-cols-2 gap-2">
-        {#each filtered as fig (fig.path)}
+        {#each enriched as fig (fig.path)}
           <div
             class="group rounded-lg border border-border bg-bg-secondary p-2 transition-colors hover:border-accent/50
               {fig.referenced ? '' : 'opacity-50'}"
@@ -82,16 +131,37 @@
             <div class="mb-2 flex h-16 items-center justify-center rounded bg-bg-tertiary text-2xl text-text-muted">
               {getExtIcon(fig.name)}
             </div>
-            <!-- Info -->
+            <!-- Filename -->
             <div class="truncate text-xs font-medium text-text-bright" title={fig.name}>
               {fig.name}
             </div>
-            <div class="flex items-center justify-between text-xs text-text-muted">
+            <!-- Caption -->
+            {#if fig.caption}
+              <p class="mt-0.5 line-clamp-2 text-xs text-text-muted" title={fig.caption}>
+                {fig.caption}
+              </p>
+            {/if}
+            <!-- Meta row -->
+            <div class="mt-1 flex items-center justify-between text-xs text-text-muted">
               <span>{formatSize(fig.size)}</span>
               <span class={fig.referenced ? "text-success" : "text-warning"}>
                 {fig.referenced ? "used" : "unused"}
               </span>
             </div>
+            <!-- Section references -->
+            {#if fig.referencedInSections.length > 0}
+              <div class="mt-1 flex flex-wrap gap-1">
+                {#each fig.referencedInSections as sec}
+                  <button
+                    class="rounded bg-accent/10 px-1 py-0.5 text-[9px] text-accent hover:bg-accent/20"
+                    title="Go to {sec.title}"
+                    onclick={() => editorGoToLine.set(sec.line)}
+                  >
+                    {sec.title}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
