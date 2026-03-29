@@ -238,9 +238,106 @@ const commands: Record<string, Handler> = {
         strength,
         status: cols[11]?.trim() ?? "",
         evidence_sources: cols[4]?.trim(),
+        warrant: cols[5]?.trim() ?? "",
+        qualifier: cols[6]?.trim() ?? "",
+        rebuttal: cols[7]?.trim() ?? "",
       });
     }
     return claims;
+  },
+
+  update_claim({ projectDir, claimId, updates }) {
+    const dir = projectDir as string;
+    const id = claimId as string;
+    const upd = updates as Record<string, string>;
+    const matrixPath = path.join(dir, "research", "claims_matrix.md");
+    if (!fs.existsSync(matrixPath)) throw new Error("claims_matrix.md not found");
+
+    const content = fs.readFileSync(matrixPath, "utf-8");
+    const lines = content.split("\n");
+    let found = false;
+    const changes: { field: string; old: string; new: string }[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (!t.startsWith("|") || t.startsWith("| #") || t.startsWith("|-")) continue;
+      const cols = t.split("|");
+      if (cols.length < 12) continue;
+      if (cols[1]?.trim() !== id) continue;
+
+      found = true;
+
+      if (upd.confidence) {
+        const oldVal = cols[9]?.trim() ?? "";
+        const strengthMap: Record<string, string> = {
+          high: "STRONG", medium: "MODERATE", low: "WEAK", critical: "CRITICAL",
+        };
+        const newVal = strengthMap[upd.confidence] ?? upd.confidence;
+        cols[9] = ` ${newVal} `;
+        changes.push({ field: "strength", old: oldVal, new: newVal });
+      }
+      if (upd.statement !== undefined) {
+        const oldVal = cols[3]?.trim() ?? "";
+        cols[3] = ` ${upd.statement} `;
+        changes.push({ field: "statement", old: oldVal, new: upd.statement });
+      }
+      if (upd.evidence_sources !== undefined) {
+        const oldVal = cols[4]?.trim() ?? "";
+        cols[4] = ` ${upd.evidence_sources} `;
+        // Recalculate score
+        const totalScore = upd.evidence_sources
+          .split(",")
+          .reduce((sum: number, entry: string) => {
+            const m = entry.match(/=(\d+(?:\.\d+)?)/);
+            return sum + (m ? parseFloat(m[1]) : 0);
+          }, 0);
+        cols[8] = ` ${totalScore.toFixed(1)} `;
+        const newStrength = totalScore >= 6 ? "STRONG" : totalScore >= 3 ? "MODERATE" : totalScore >= 1 ? "WEAK" : "CRITICAL";
+        cols[9] = ` ${newStrength} `;
+        changes.push({ field: "evidence_sources", old: oldVal, new: upd.evidence_sources });
+        changes.push({ field: "score", old: cols[8]?.trim() ?? "", new: totalScore.toFixed(1) });
+      }
+      if (upd.warrant !== undefined && cols.length > 5) {
+        const oldVal = cols[5]?.trim() ?? "";
+        cols[5] = ` ${upd.warrant} `;
+        changes.push({ field: "warrant", old: oldVal, new: upd.warrant });
+      }
+      if (upd.qualifier !== undefined && cols.length > 6) {
+        const oldVal = cols[6]?.trim() ?? "";
+        cols[6] = ` ${upd.qualifier} `;
+        changes.push({ field: "qualifier", old: oldVal, new: upd.qualifier });
+      }
+      if (upd.rebuttal !== undefined && cols.length > 7) {
+        const oldVal = cols[7]?.trim() ?? "";
+        cols[7] = ` ${upd.rebuttal} `;
+        changes.push({ field: "rebuttal", old: oldVal, new: upd.rebuttal });
+      }
+      if (upd.status !== undefined && cols.length > 11) {
+        const oldVal = cols[11]?.trim() ?? "";
+        cols[11] = ` ${upd.status} `;
+        changes.push({ field: "status", old: oldVal, new: upd.status });
+      }
+
+      lines[i] = cols.join("|");
+      break;
+    }
+
+    if (!found) throw new Error(`Claim ${id} not found`);
+
+    fs.writeFileSync(matrixPath, lines.join("\n"));
+
+    // Append provenance
+    if (changes.length > 0) {
+      const provPath = path.join(dir, "research", "provenance.jsonl");
+      const entry = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        action: "claim_edit",
+        claim_id: id,
+        changes,
+        source: "gui",
+      });
+      fs.appendFileSync(provPath, entry + "\n");
+    }
   },
 
   read_file({ path: p }) {

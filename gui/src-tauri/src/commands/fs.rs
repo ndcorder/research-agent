@@ -182,6 +182,10 @@ pub fn list_claims(project_dir: String) -> Result<Vec<serde_json::Value>, String
             _ => "unknown",
         };
 
+        let warrant = cols.get(5).map(|s| s.trim().to_string()).unwrap_or_default();
+        let qualifier = cols.get(6).map(|s| s.trim().to_string()).unwrap_or_default();
+        let rebuttal = cols.get(7).map(|s| s.trim().to_string()).unwrap_or_default();
+
         claims.push(serde_json::json!({
             "id": id,
             "statement": statement,
@@ -193,6 +197,9 @@ pub fn list_claims(project_dir: String) -> Result<Vec<serde_json::Value>, String
             "strength": strength,
             "status": status,
             "evidence_sources": evidence_str,
+            "warrant": warrant,
+            "qualifier": qualifier,
+            "rebuttal": rebuttal,
         }));
     }
 
@@ -582,6 +589,184 @@ fn yaml_to_json(yaml_str: &str) -> String {
         }
     }
     format!("{{{}}}", pairs.join(","))
+}
+
+#[derive(Deserialize)]
+pub struct ClaimUpdate {
+    pub statement: Option<String>,
+    pub confidence: Option<String>,
+    pub warrant: Option<String>,
+    pub qualifier: Option<String>,
+    pub rebuttal: Option<String>,
+    pub status: Option<String>,
+    pub evidence_sources: Option<String>,
+}
+
+#[tauri::command]
+pub fn update_claim(
+    project_dir: String,
+    claim_id: String,
+    updates: ClaimUpdate,
+) -> Result<(), String> {
+    let matrix_path = Path::new(&project_dir)
+        .join("research")
+        .join("claims_matrix.md");
+    if !matrix_path.exists() {
+        return Err("claims_matrix.md not found".to_string());
+    }
+
+    let content =
+        fs::read_to_string(&matrix_path).map_err(|e| format!("Failed to read claims: {}", e))?;
+
+    let mut lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
+    let mut found = false;
+    let mut changes: Vec<(String, String, String)> = Vec::new(); // (field, old, new)
+
+    for line in &mut lines {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('|') || trimmed.starts_with("| #") || trimmed.starts_with("|-") {
+            continue;
+        }
+
+        let cols: Vec<&str> = trimmed.split('|').collect();
+        if cols.len() < 12 {
+            continue;
+        }
+
+        let id = cols[1].trim();
+        if id != claim_id {
+            continue;
+        }
+
+        found = true;
+        let mut new_cols: Vec<String> = cols.iter().map(|c| c.to_string()).collect();
+
+        // Map confidence back to strength for storage
+        if let Some(ref conf) = updates.confidence {
+            let old_strength = new_cols[9].trim().to_string();
+            let new_strength = match conf.as_str() {
+                "high" => "STRONG",
+                "medium" => "MODERATE",
+                "low" => "WEAK",
+                "critical" => "CRITICAL",
+                _ => conf.as_str(),
+            };
+            new_cols[9] = format!(" {} ", new_strength);
+            changes.push(("strength".to_string(), old_strength, new_strength.to_string()));
+        }
+
+        if let Some(ref stmt) = updates.statement {
+            let old = new_cols[3].trim().to_string();
+            new_cols[3] = format!(" {} ", stmt);
+            changes.push(("statement".to_string(), old, stmt.clone()));
+        }
+
+        if let Some(ref ev) = updates.evidence_sources {
+            let old = new_cols[4].trim().to_string();
+            new_cols[4] = format!(" {} ", ev);
+            // Recalculate score from evidence notation
+            let total_score: f64 = ev
+                .split(',')
+                .filter_map(|entry| {
+                    entry.rsplit('=').next().and_then(|s| s.trim().parse::<f64>().ok())
+                })
+                .sum();
+            let old_score = new_cols[8].trim().to_string();
+            new_cols[8] = format!(" {:.1} ", total_score);
+            // Recalculate strength
+            let new_strength = if total_score >= 6.0 {
+                "STRONG"
+            } else if total_score >= 3.0 {
+                "MODERATE"
+            } else if total_score >= 1.0 {
+                "WEAK"
+            } else {
+                "CRITICAL"
+            };
+            new_cols[9] = format!(" {} ", new_strength);
+            changes.push(("evidence_sources".to_string(), old, ev.clone()));
+            changes.push(("score".to_string(), old_score, format!("{:.1}", total_score)));
+        }
+
+        if let Some(ref w) = updates.warrant {
+            let old = new_cols.get(5).map(|s| s.trim().to_string()).unwrap_or_default();
+            if new_cols.len() > 5 {
+                new_cols[5] = format!(" {} ", w);
+            }
+            changes.push(("warrant".to_string(), old, w.clone()));
+        }
+
+        if let Some(ref q) = updates.qualifier {
+            let old = new_cols.get(6).map(|s| s.trim().to_string()).unwrap_or_default();
+            if new_cols.len() > 6 {
+                new_cols[6] = format!(" {} ", q);
+            }
+            changes.push(("qualifier".to_string(), old, q.clone()));
+        }
+
+        if let Some(ref r) = updates.rebuttal {
+            let old = new_cols.get(7).map(|s| s.trim().to_string()).unwrap_or_default();
+            if new_cols.len() > 7 {
+                new_cols[7] = format!(" {} ", r);
+            }
+            changes.push(("rebuttal".to_string(), old, r.clone()));
+        }
+
+        if let Some(ref s) = updates.status {
+            let old = new_cols.get(11).map(|s| s.trim().to_string()).unwrap_or_default();
+            if new_cols.len() > 11 {
+                new_cols[11] = format!(" {} ", s);
+            }
+            changes.push(("status".to_string(), old, s.clone()));
+        }
+
+        *line = new_cols.join("|");
+        break;
+    }
+
+    if !found {
+        return Err(format!("Claim {} not found in claims_matrix.md", claim_id));
+    }
+
+    // Write updated matrix
+    let mut output = lines.join("\n");
+    if content.ends_with('\n') {
+        output.push('\n');
+    }
+    fs::write(&matrix_path, output).map_err(|e| format!("Failed to write claims: {}", e))?;
+
+    // Append to provenance.jsonl
+    if !changes.is_empty() {
+        let prov_path = Path::new(&project_dir)
+            .join("research")
+            .join("provenance.jsonl");
+        let changes_json: Vec<serde_json::Value> = changes
+            .iter()
+            .map(|(field, old, new)| {
+                serde_json::json!({ "field": field, "old": old, "new": new })
+            })
+            .collect();
+        let entry = serde_json::json!({
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "action": "claim_edit",
+            "claim_id": claim_id,
+            "changes": changes_json,
+            "source": "gui",
+        });
+        let mut prov_line = serde_json::to_string(&entry).unwrap_or_default();
+        prov_line.push('\n');
+        // Append (create if doesn't exist)
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&prov_path)
+            .map_err(|e| format!("Failed to open provenance: {}", e))?;
+        file.write_all(prov_line.as_bytes())
+            .map_err(|e| format!("Failed to write provenance: {}", e))?;
+    }
+
+    Ok(())
 }
 
 fn update_frontmatter_field(content: &str, field: &str, value: &str) -> String {

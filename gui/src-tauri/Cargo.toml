@@ -23,4 +23,5 @@ notify = { version = "7", features = ["macos_fsevent"] }
 portable-pty = "0.8"
 log = "0.4"
 dirs = "6"
+chrono = "0.4"
 tauri-plugin-dialog = "2"

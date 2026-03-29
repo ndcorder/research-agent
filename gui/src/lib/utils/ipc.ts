@@ -1,5 +1,7 @@
 import type {
   SourceMeta,
+  ClaimMeta,
+  ClaimUpdate,
   FileEntry,
   PaperState,
   CompileResult,
@@ -35,8 +37,16 @@ export async function listSources(projectDir: string): Promise<SourceMeta[]> {
   return _invoke("list_sources", { projectDir });
 }
 
-export async function listClaims(projectDir: string): Promise<unknown[]> {
+export async function listClaims(projectDir: string): Promise<ClaimMeta[]> {
   return _invoke("list_claims", { projectDir });
+}
+
+export async function updateClaim(
+  projectDir: string,
+  claimId: string,
+  updates: ClaimUpdate
+): Promise<void> {
+  return _invoke("update_claim", { projectDir, claimId, updates });
 }
 
 export async function readPaperState(

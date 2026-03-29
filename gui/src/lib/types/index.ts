@@ -24,6 +24,19 @@ export interface ClaimMeta {
   strength?: string;
   status?: string;
   evidence_sources?: string;
+  warrant?: string;
+  qualifier?: string;
+  rebuttal?: string;
+}
+
+export interface ClaimUpdate {
+  statement?: string;
+  confidence?: string;
+  warrant?: string;
+  qualifier?: string;
+  rebuttal?: string;
+  status?: string;
+  evidence_sources?: string;
 }
 
 export interface FileEntry {

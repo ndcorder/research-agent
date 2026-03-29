@@ -12,7 +12,7 @@ type RefreshTarget = "sources" | "claims" | "paperState" | "tex";
 
 function classify(path: string): RefreshTarget | null {
   if (path.includes("/research/sources/") || path.includes("\\research\\sources\\")) return "sources";
-  if (path.includes("/research/claims/") || path.includes("\\research\\claims\\")) return "claims";
+  if (path.includes("/research/claims/") || path.includes("\\research\\claims\\") || path.endsWith("claims_matrix.md")) return "claims";
   if (path.endsWith(".paper-state.json")) return "paperState";
   if (path.endsWith("/main.tex") || path.endsWith("\\main.tex")) return "tex";
   return null;
