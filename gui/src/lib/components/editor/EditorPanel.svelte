@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { readFile, writeFile } from "$lib/utils/ipc";
-  import { projectDir, texSections, texContent, wordCount, editorGoToLine, selectedSource, rightPanel, openFileRequest, closeActiveTabRequest, saveActiveTabRequest, cycleTabRequest, showSnippetMenu } from "$lib/stores/project";
+  import { projectDir, texSections, texContent, wordCount, editorGoToLine, selectedSource, rightPanel, openFileRequest, closeActiveTabRequest, saveActiveTabRequest, cycleTabRequest, showSnippetMenu, cursorParagraph } from "$lib/stores/project";
+  import { parseLatexParagraphs, lineToTarget } from "$lib/utils/latexParaMap";
   import { sources } from "$lib/stores/project";
   import SnippetMenu from "./SnippetMenu.svelte";
   import { parseTexSections, countWords, parseCiteKeys } from "$lib/utils/latex";
@@ -450,6 +451,29 @@
       }
     });
     return () => disposable.dispose();
+  });
+
+  // Cursor position tracking for provenance timeline linking (debounced 200ms)
+  $effect(() => {
+    if (!editor) return;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const disposable = editor.onDidChangeCursorPosition((e: any) => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        if (tabs[activeTab]?.language !== "latex") {
+          cursorParagraph.set(null);
+          return;
+        }
+        const content = editor.getValue();
+        const paraMap = parseLatexParagraphs(content);
+        const target = lineToTarget(paraMap, e.position.lineNumber);
+        cursorParagraph.set(target);
+      }, 200);
+    });
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      disposable.dispose();
+    };
   });
 </script>
 

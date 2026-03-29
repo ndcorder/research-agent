@@ -21,6 +21,8 @@ export const wordCount = writable<number>(0);
 export const compileOutput = writable<string>("");
 export const isCompiling = writable<boolean>(false);
 export const editorGoToLine = writable<number | null>(null);
+export const cursorParagraph = writable<string | null>(null);
+export const timelineScrollTo = writable<string | null>(null);
 
 export const activePage = writable<"workspace" | "terminal">("workspace");
 export const openFileRequest = writable<{ name: string; path: string } | null>(null);

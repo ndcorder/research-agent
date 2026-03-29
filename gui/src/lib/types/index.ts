@@ -76,3 +76,17 @@ export type SourceStatus =
   | "human-added";
 
 export type RightPanel = "graph" | "source" | "pdf" | "claim" | "timeline" | "figures" | "bib" | "dashboard";
+
+export interface ProvenanceEntry {
+  action: string;
+  target: string;
+  details?: string;
+  timestamp?: string;
+  agent?: string;
+  stage?: string;
+  iteration?: number;
+  sources?: string[];
+  reasoning?: string;
+  diff_summary?: string;
+  feedback_ref?: string;
+}
