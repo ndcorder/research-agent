@@ -6,10 +6,11 @@
     selectedNodes: Set<string>;
     sources: SourceMeta[];
     onaction: (action: string, nodeIds: string[]) => void;
+    onresearch: (nodeIds: string[]) => void;
     onclear: () => void;
   }
 
-  let { selectedNodes, sources, onaction, onclear }: Props = $props();
+  let { selectedNodes, sources, onaction, onresearch, onclear }: Props = $props();
 
   let tagDropdownOpen = $state(false);
 
@@ -110,6 +111,14 @@
       aria-label="Flag all selected sources"
     >
       Flag All
+    </button>
+
+    <button
+      class="px-2 py-1 rounded bg-accent border border-accent text-bg font-medium hover:bg-accent/80 transition-colors cursor-pointer"
+      onclick={() => onresearch(nodeIds())}
+      aria-label="Research selected claims"
+    >
+      Research
     </button>
 
     <button

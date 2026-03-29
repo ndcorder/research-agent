@@ -6,8 +6,9 @@
     selectedSource,
     rightPanel,
     projectDir,
+    researchingClaims,
   } from "$lib/stores/project";
-  import { readFile, listClaims, updateClaim } from "$lib/utils/ipc";
+  import { readFile, listClaims, updateClaim, runPipelineAction } from "$lib/utils/ipc";
   import type { ClaimMeta, SourceMeta } from "$lib/types";
   import SourceLinker from "./SourceLinker.svelte";
 
@@ -114,6 +115,33 @@
         return "bg-warning/20 text-warning";
       default:
         return "bg-bg-tertiary text-text-muted";
+    }
+  }
+
+  let researching = $derived($researchingClaims.has($selectedClaim ?? ""));
+
+  async function triggerResearch() {
+    if (!claim || !$projectDir) return;
+    const context = `[${claim.id}] ${claim.statement} (density: ${claim.evidence_density}, sources: ${claim.evidence_sources ?? "none"})`;
+
+    researchingClaims.update((s) => {
+      const next = new Set(s);
+      next.add(claim!.id);
+      return next;
+    });
+
+    try {
+      await runPipelineAction($projectDir, "targetedResearch", {
+        claim_ids: [claim.id],
+        context,
+      });
+    } catch (e) {
+      console.error("Research failed:", e);
+      researchingClaims.update((s) => {
+        const next = new Set(s);
+        next.delete(claim!.id);
+        return next;
+      });
     }
   }
 
@@ -224,6 +252,25 @@
         </div>
       {/snippet}
       {@render densityBar()}
+
+      {#if claim.evidence_density < 3}
+        <div class="mt-3">
+          <button
+            class="w-full rounded bg-accent px-3 py-1.5 text-xs font-medium text-bg transition-colors hover:bg-accent/80 disabled:opacity-50"
+            onclick={triggerResearch}
+            disabled={researching}
+          >
+            {#if researching}
+              <span class="inline-flex items-center gap-1.5">
+                <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-bg border-t-transparent"></span>
+                Researching...
+              </span>
+            {:else}
+              Research this claim
+            {/if}
+          </button>
+        </div>
+      {/if}
     </div>
 
     <!-- Scrollable content -->

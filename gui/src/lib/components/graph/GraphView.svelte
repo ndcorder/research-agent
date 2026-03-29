@@ -1036,6 +1036,7 @@
     {selectedNodes}
     sources={$sources}
     onaction={onSelectionAction}
+    onresearch={(ids) => triggerResearch("batchResolve", ids)}
     onclear={clearSelection}
   />
 
