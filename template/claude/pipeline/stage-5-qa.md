@@ -23,13 +23,47 @@ Rules:
 4. Escalate any issues from "Deferred Issues" that are still present
 ```
 
-**Before spawning review agents**, run knowledge graph analysis if `research/knowledge/` exists (skip silently if not):
+**Before spawning review agents**, run knowledge graph analysis if `research/knowledge/` exists:
 ```bash
 python scripts/knowledge.py contradictions
 python scripts/knowledge.py entities
 python scripts/knowledge.py coverage main.tex
 ```
 Read `research/knowledge_contradictions.md` and pass its content to the review agents as additional context. Contradictions should be addressed in the Discussion section or flagged for the author. The entity coverage report identifies key graph entities missing from the manuscript.
+
+**If the knowledge graph is NOT available**: Log `"⚠ Knowledge graph not available for QA — review agents will perform manual contradiction and entity coverage checks per Knowledge Graph Availability Protocol."` Add the following compensating instructions to the Technical Reviewer prompt (in addition to its existing instructions):
+```
+## Mandatory Compensation: Knowledge Graph Unavailable
+
+The knowledge graph was not available for this paper. You MUST perform these checks manually:
+
+### Manual Contradiction Check
+Read the top 10 most-cited source extracts in research/sources/. For each major claim in the manuscript:
+1. Does any source report a finding that conflicts with or contradicts this claim?
+2. Are there methodological differences between sources that could explain differing results?
+3. Does the Discussion section acknowledge known disagreements in the field?
+List every contradiction found. Classify as CRITICAL if the manuscript states as fact something that sources disagree on.
+
+### Manual Entity Coverage Check
+Compile a list of all methods, theories, datasets, and key concepts mentioned in 3+ source extracts. For each:
+1. Is it discussed in the manuscript where appropriate?
+2. If a frequently-mentioned concept is absent, is the omission justified or an oversight?
+List coverage gaps. Classify as MAJOR if a core concept from the literature is missing.
+
+### Evidence Cross-Reference
+For every WEAK or MODERATE claim in research/claims_matrix.md (especially those flagged "KG-unverified"):
+1. Re-read the cited source extract
+2. Verify the source actually supports the claim as written
+3. Flag any overclaims — places where the manuscript goes beyond what the source evidence shows
+
+Append to your review: "Note: Knowledge graph was not available. Contradiction detection and entity
+coverage checks were performed manually from source extracts. Some cross-source conflicts may have
+been missed."
+```
+
+Also add to the Technical Reviewer's existing entity coverage and contradiction placeholders:
+- Replace `[paste content of research/knowledge_contradictions.md]` with `"Knowledge graph contradictions not available — see Manual Contradiction Check section above for compensating analysis."`
+- Replace `[paste entity coverage report]` with `"Entity coverage report not available — see Manual Entity Coverage Check section above."`
 
 Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
 
@@ -244,7 +278,56 @@ Keep under 500 words.
 
 #### Step 5d: Quality Gate Check
 
-After revision, check ALL criteria from the table below. If any fail, loop back to Step 5a with fresh reviewers. If all pass, proceed to Stage 6.
+After revision, check ALL criteria from the table below. If all pass, proceed to Stage 6. If any fail and `QA_ITERATION < MAX_ITERATIONS`, loop back to Step 5a with fresh reviewers.
+
+**If any fail and `QA_ITERATION == MAX_ITERATIONS` (iterations exhausted):**
+
+The pipeline does NOT silently proceed. Run the following triage:
+
+1. **Read `research/claims_matrix.md`** and identify all claims with evidence density score < 1 (CRITICAL) or 1-2.9 (WEAK).
+
+2. **CRITICAL claims (score < 1) → HARD STOP.** These represent claims with essentially no supporting evidence. The pipeline MUST NOT finalize with CRITICAL claims in the manuscript. Use `AskUserQuestion` to escalate:
+
+   ```
+   ⚠ QA loop exhausted ([MAX_ITERATIONS] iterations) with unresolved CRITICAL issues:
+
+   CRITICAL claims (score < 1, no adequate evidence):
+   - [Claim text] — score [X], section [Y], current evidence: [summary]
+   - ...
+
+   [Any other unresolved CRITICAL quality failures, e.g. fabricated refs still present]
+
+   Options:
+   1. Remove these claims from the manuscript (I'll excise them and adjust surrounding text)
+   2. Provide additional evidence or sources for me to incorporate
+   3. Downgrade to clearly hedged speculation (e.g., "It is conceivable that..." / "One possibility is...")
+   4. Abort finalization — I'll save current state for manual revision
+
+   Which option for each claim? (You can mix, e.g., "1 for claim A, 3 for claim B")
+   ```
+
+   Wait for user response and execute their choice before proceeding. Log each action to `research/provenance.jsonl` with `"reasoning": "QA exhaustion triage — user directed"`.
+
+3. **WEAK claims (score 1-2.9) → AUTO-HEDGE.** Spawn a revision agent (`claude-opus-4-6[1m]`) to:
+   - Find every paragraph containing a WEAK claim (cross-reference `research/claims_matrix.md` with `main.tex`)
+   - Replace confident language with appropriately hedged alternatives: "suggests" instead of "demonstrates", "may" instead of "will", "preliminary evidence indicates" instead of "evidence shows", add qualifiers like "under certain conditions" or "in the studies reviewed"
+   - Ensure each hedged claim retains its citation — hedging does not mean removing evidence
+   - Log each change to `research/provenance.jsonl` with `"action": "hedge"` and `"reasoning": "QA exhaustion — auto-downgrade WEAK claim"`
+
+4. **Other unresolved issues → USER SUMMARY.** After handling CRITICAL and WEAK claims, if other quality criteria still fail (e.g., missing cross-references, compilation warnings, thin sections), present a concise summary:
+
+   ```
+   ℹ QA loop completed with [N] non-critical issues remaining after [MAX_ITERATIONS] iterations:
+
+   - [Issue category]: [specific details]
+   - ...
+
+   These are flagged in reviews/qa_iter[MAX]_context.md. Proceeding to post-QA audits.
+   ```
+
+   These non-critical issues do NOT block finalization but are logged clearly.
+
+5. **Re-compile** after any triage changes: `latexmk -pdf -interaction=nonstopmode main.tex`. Verify no new errors.
 
 **[DEEP]** If depth is `"deep"` and this is the FINAL QA iteration (all criteria pass), run one additional Codex review before exiting:
 

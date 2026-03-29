@@ -6,11 +6,13 @@
 
 ## Phase 0: Knowledge Graph Refresh
 
-Before assessment, refresh contradiction analysis if the knowledge graph exists (`research/knowledge/` directory present — skip silently if not):
+Before assessment, refresh contradiction analysis if the knowledge graph exists (`research/knowledge/` directory present):
 ```bash
 python scripts/knowledge.py contradictions
 ```
 Read `research/knowledge_contradictions.md` and pass any new contradictions to the Depth & Evidence Reviewer (Agent A) below.
+
+**If the knowledge graph is NOT available**: Log `"⚠ Knowledge graph not available for /auto assessment."` Instruct Agent A (Depth & Evidence Reviewer) to perform a manual contradiction spot-check: read the 5 source extracts most relevant to the paper's weakest claims (WEAK/MODERATE in claims matrix) and flag any conflicting findings.
 
 ## Phase 0b: Load Iteration Context (iterations 2+)
 

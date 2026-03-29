@@ -762,9 +762,11 @@ python scripts/knowledge.py build
 
 This creates a queryable knowledge graph in `research/knowledge/` from all files in `research/sources/` and PDFs in `attachments/`. The graph extracts entities (papers, theories, methods, findings, authors) and relationships (cites, contradicts, supports, extends) that agents can query during writing.
 
-**If `scripts/knowledge.py` does not exist or `OPENROUTER_API_KEY` is not set**, skip this step silently — the knowledge graph is optional. The pipeline works without it; agents fall back to reading research/ files directly.
+**If `scripts/knowledge.py` does not exist or `OPENROUTER_API_KEY` is not set**, skip this step but log explicitly: `"⚠ Knowledge graph not available (reason: [missing script / missing OPENROUTER_API_KEY]). Downstream stages will apply compensating checks per the Knowledge Graph Availability Protocol in shared-protocols.md."` The pipeline works without it, but quality is reduced — see the Knowledge Graph Availability Protocol.
 
-Update `.paper-state.json`: add `"knowledge_graph": { "done": true, "entities": N, "relationships": N }` to the stages object.
+Update `.paper-state.json`: add `"knowledge_graph": { "available": true/false, "reason": "[ok / missing_script / missing_api_key / build_failed]", "entities": N, "relationships": N }` to the stages object. If skipped, set `"available": false` with the appropriate reason and `"entities": 0, "relationships": 0`.
+
+If the build command fails (non-zero exit code), set `"available": false, "reason": "build_failed"` and log the error. Do not retry — downstream stages will compensate.
 
 ---
 

@@ -17,6 +17,27 @@ All other Bash commands (curl, wc, ls, mkdir, cat, cp, rm, which, pdfinfo) compl
 
 ---
 
+## Knowledge Graph Availability Protocol
+
+The knowledge graph (LightRAG via `scripts/knowledge.py`) is optional but provides contradiction detection, entity coverage analysis, and evidence verification that significantly improve paper quality. When unavailable, downstream stages must compensate explicitly rather than silently degrading.
+
+**Detection**: Stage 1d records `"knowledge_graph": { "available": true/false, ... }` in `.paper-state.json`. Any stage can also check directly: if `research/knowledge/` exists with content, the graph is available.
+
+**When the knowledge graph is NOT available**, every stage that would have used it must:
+
+1. **Log explicitly**: Report `"⚠ Knowledge graph not available — applying compensating checks"` (not silently skip).
+2. **Compensate with source-based analysis**:
+   - **Contradiction detection**: Manually compare claims across source extracts in `research/sources/`. For each major finding, check whether any other source reports a conflicting result. This is slower and less comprehensive than the graph, but catches the most obvious conflicts.
+   - **Entity coverage**: Read all source extract Key Findings and compile a list of frequently-mentioned concepts, methods, and theories. Check whether the manuscript discusses each. This replaces the graph's automated entity coverage report.
+   - **Evidence verification**: For each claim in the claims matrix, verify supporting sources by re-reading the relevant source extracts rather than querying the graph. Focus on WEAK and MODERATE claims.
+3. **Tighten quality thresholds**:
+   - In Stage 2: Apply a **-0.5 penalty** to evidence density scores for claims that rely on inference across multiple sources (the graph would have validated these cross-references). Any claim that drops from MODERATE to WEAK due to this penalty must be flagged for extra scrutiny.
+   - In Stage 5 QA: The Technical Reviewer must include an explicit **"Manual Contradiction Check"** section — read the top 10 most-cited sources and flag any claims where sources disagree. This replaces the graph's `contradictions` output.
+   - In Stage 5 QA: The Technical Reviewer must include an explicit **"Entity Coverage Check"** section — verify that all major concepts from the literature review appear in appropriate manuscript sections. This replaces the graph's `coverage` output.
+4. **Note the gap**: Append to `reviews/technical.md` (Stage 5): `"Note: Knowledge graph was not available for this review. Contradiction detection and entity coverage checks were performed manually from source extracts. Some cross-source conflicts may have been missed."` This ensures the quality gap is visible in the review artifacts.
+
+---
+
 ## Codex Deliberation Protocol
 
 When Codex provides feedback at any stage, do NOT blindly accept it. Follow this deliberation process:

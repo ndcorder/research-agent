@@ -96,7 +96,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
   4. **Vary sentence length.** Mix long analytical sentences (20-30 words, developing complex ideas) with short direct ones (5-10 words, delivering verdicts or transitions). Three consecutive sentences of similar length creates monotony.
   5. **One hedge per clause.** "May suggest" is fine. "May potentially suggest that it could be argued" is not. If a claim needs heavy hedging, the evidence is too weak — either find stronger evidence or cut the claim.
   6. **Read the literature synthesis.** If `research/literature_synthesis.md` exists (from Stage 1f), use it to understand where the field agrees and disagrees. Engage with conflicts, don't paper over them. Position your contribution relative to competing frameworks, not in a vacuum.
-- **Knowledge graph queries** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue). Run section-specific queries BEFORE writing and pass results as a `## Knowledge Graph Context` section in the agent prompt (capped at 500 words, summarize rather than dumping raw results):
+- **Knowledge graph queries** (run if `research/knowledge/` exists — if not, log `"⚠ Knowledge graph not available — applying compensating checks per Knowledge Graph Availability Protocol"` and follow the compensation instructions after the query blocks below). Run section-specific queries BEFORE writing and pass results as a `## Knowledge Graph Context` section in the agent prompt (capped at 500 words, summarize rather than dumping raw results):
 
   **For Introduction**:
   ```bash
@@ -124,6 +124,16 @@ The writing agent for that section should then ALSO read `research/section_lit_[
   ```
 
   **For all other sections** (Conclusion, Abstract): no additional graph queries needed — they synthesize existing content.
+
+  **If the knowledge graph is NOT available**: Instead of graph queries, add this to each writing agent prompt:
+  ```
+  ## Evidence Compensation (Knowledge Graph Unavailable)
+  The knowledge graph is not available for cross-source evidence queries. You must:
+  1. Before writing each claim, re-read the specific source extracts cited in the claims matrix to verify the evidence actually supports the claim as stated
+  2. For Results/Discussion: manually check whether any source extract contradicts your findings — read at least the 5 most relevant sources and note any tensions
+  3. Use more conservative language for claims flagged as "KG-unverified" in the claims matrix
+  4. If you discover a contradiction between sources while writing, flag it explicitly in the text rather than silently choosing one side
+  ```
 - Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
 
 **Section writing order and targets:**

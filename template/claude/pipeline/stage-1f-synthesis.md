@@ -17,12 +17,20 @@
    - Whether it has been deep-read (`Deep-Read: true`)
    - Key Findings (the bullet points from each extract)
 
-2. **Run knowledge graph contradiction detection** (if `research/knowledge/` exists, skip silently if not):
+2. **Run knowledge graph contradiction detection** (if `research/knowledge/` exists):
    ```bash
    python scripts/knowledge.py contradictions
    python scripts/knowledge.py entities
    ```
    Save the output — agents will use it as input alongside the source extracts.
+
+   **If the knowledge graph is NOT available**: Log `"⚠ Knowledge graph not available — synthesis agents will perform manual contradiction detection from source extracts."` Then add the following instruction to EVERY synthesis agent prompt (in addition to "Not available" for the graph fields):
+   ```
+   IMPORTANT: The knowledge graph is not available for this paper. You must compensate by:
+   - Explicitly comparing findings across sources to detect contradictions (do not assume absence of contradiction data means no contradictions exist)
+   - Listing all major entities (methods, theories, datasets, metrics) you encounter across sources
+   - Flagging any case where two sources report conflicting results, even if the conflict is subtle
+   ```
 
 3. **Build a source inventory table** — a working document (not persisted) listing all sources with their access level, source type, deep-read status, and a one-line summary of their primary finding. This gives each agent a map of the entire bibliography before they begin.
 

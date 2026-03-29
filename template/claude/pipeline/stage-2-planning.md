@@ -12,7 +12,7 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - What are the key claims this paper will make?
    - Write these to `research/thesis.md`
 
-   **Knowledge graph validation** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue):
+   **Knowledge graph validation** (run if `research/knowledge/` exists — if not, log `"⚠ Knowledge graph not available — applying compensating checks per Knowledge Graph Availability Protocol"` and follow the compensation steps below):
    ```bash
    python scripts/knowledge.py query "What approaches have been proposed for [thesis topic]?"
    python scripts/knowledge.py evidence-against "[proposed contribution statement]"
@@ -22,6 +22,11 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - If the graph reveals existing work that closely matches the proposed contribution, flag this as a **novelty red flag** and surface it before Stage 2d (novelty check).
    - Use the entity list to identify key concepts the paper MUST discuss. If an entity with many relationships isn't mentioned in the outline, it's likely a gap.
    - Run `python scripts/knowledge.py coverage research/thesis.md` to check which important entities are missing from the thesis statement.
+
+   **If the knowledge graph is NOT available**, compensate:
+   - Manually scan `research/sources/` for existing work that overlaps with the proposed contribution. Read at least the top 5 most-cited sources and compare their findings against the thesis.
+   - Compile a list of key concepts mentioned across 3+ source extracts — these are the entities the paper must discuss. Check the outline against this list.
+   - Note in `research/thesis.md`: `"Note: Thesis validated against source extracts only (knowledge graph unavailable). Cross-source entity coverage may be incomplete."`
 
 2. **Determine paper structure** based on topic type AND venue:
    - Read `.venue.json` for venue-specific section order (e.g., Nature puts Results before Methods)
@@ -57,12 +62,14 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
      - **Rebuttal**: Anticipated counterarguments and where they're addressed.
    - This matrix becomes a quality gate in Stage 5 — every claim must have status "Supported" before the paper passes QA, and no CRITICAL-strength claims may survive to finalization. Additionally, no claim may pass QA with a "Missing" warrant.
    - **Source access warning**: Any claim supported ONLY by ABSTRACT-ONLY sources should be flagged with ⚠ — the pipeline may be inferring beyond what was actually read. In Stage 5 QA, reviewers must verify these claims are conservative and well-hedged.
-   - **Knowledge graph evidence verification** (run if `research/knowledge/` exists, skip silently if not):
+   - **Knowledge graph evidence verification** (run if `research/knowledge/` exists):
      ```bash
      python scripts/knowledge.py evidence-for "claim text here"
      python scripts/knowledge.py evidence-against "claim text here"
      ```
      Run these for EVERY claim in the matrix. Update the matrix with any additional evidence or contradictions the graph surfaces. This is mandatory when the graph is available, not optional.
+
+   - **If the knowledge graph is NOT available**: For every claim in the matrix, manually verify evidence by re-reading the cited source extracts in `research/sources/`. For each WEAK or MODERATE claim, also search other source extracts for contradictory findings. Apply a **-0.5 score penalty** to any claim whose evidence relies on cross-source inference (i.e., combining findings from multiple sources to support a single claim) — the graph would have validated these cross-references. Flag any claim that drops strength category due to this penalty with `⚠ KG-unverified`.
 
    **Warrant Development** — after building the claims-evidence matrix, develop the Warrant and Rebuttal for each claim:
 
@@ -84,6 +91,27 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    | **Invalid** | The warrant contains a logical fallacy or factual error | Fix immediately |
 
    Claims with Missing or Invalid warrants are structural defects — they must be resolved before writing begins, regardless of evidence density score.
+
+   **Automated Warrant Resolution** — after initial warrant assessment, resolve all Missing or Invalid warrants before scoring:
+
+   1. Collect all claims where Warrant is `[MISSING]` or rated `Invalid`.
+   2. For each unresolved claim, spawn a targeted research agent (`model: "claude-sonnet-4-6[1m]"`) that:
+      - Reads the claim text, its evidence sources (from `research/sources/<key>.md`), and the paper's thesis (`research/thesis.md`)
+      - Searches for mechanistic, causal, or theoretical evidence that bridges the gap between evidence and claim:
+        - Knowledge graph (if available): `python scripts/knowledge.py query "Why does [evidence] support [claim]?"`
+        - Knowledge graph: `python scripts/knowledge.py evidence-for "[claim text]"` (may surface bridging sources missed earlier)
+        - Semantic Scholar / literature search: look for mechanistic explanations, causal pathways, or theoretical frameworks that connect the evidence type to the claim type
+      - Outputs one of:
+        - **Warrant found**: a one-sentence warrant with the reasoning chain and any new sources discovered. Include source keys for any new evidence.
+        - **Warrant not found**: the evidence genuinely does not support this claim through any articulable reasoning. Recommend: hedge the claim, downgrade it to a weaker form, or remove it.
+   3. Run agents in parallel (one per unresolved claim). Each agent writes its result to a temporary file `research/warrant_resolution_C[N].md`.
+   4. Read all resolution files and update the claims matrix:
+      - For resolved warrants: fill in the Warrant column, rate quality, add any new sources to the Evidence Sources column and create source extracts in `research/sources/` if new papers were found.
+      - For unresolvable claims: either rewrite the claim to a weaker form that the evidence does support (and write the warrant for the weaker claim), or mark the claim for removal with `[REMOVE — no warrant]` in the Status column.
+   5. Delete the temporary `research/warrant_resolution_C*.md` files after merging results.
+   6. Log each resolution to `research/provenance.jsonl`: action `warrant_resolution`, target `claims/C[N]`, reasoning explaining the outcome.
+
+   After warrant resolution, re-assess: if any claims still have Missing warrants, they must be removed before proceeding. Zero Missing or Invalid warrants is a hard gate for Stage 2 completion.
 
 5. **Score the Claims-Evidence Matrix** — compute evidence density scores for every claim:
 

@@ -70,7 +70,7 @@ Write to research/assumptions.md in this format:
 
 ### Knowledge Graph Integration
 
-After the agent produces `research/assumptions.md`, query the knowledge graph for evidence on risky and critical assumptions (run if `research/knowledge/` exists, skip silently if not):
+After the agent produces `research/assumptions.md`, query the knowledge graph for evidence on risky and critical assumptions (run if `research/knowledge/` exists — if not, log `"⚠ Knowledge graph not available — assumption evidence will be verified from source extracts only"` and for each RISKY/CRITICAL assumption, manually search `research/sources/` for evidence supporting or contradicting the assumption):
 
 ```bash
 python scripts/knowledge.py evidence-for "[assumption] is valid"

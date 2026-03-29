@@ -146,6 +146,7 @@ After all agents complete:
    ```bash
    python scripts/knowledge.py update
    ```
+   If prerequisites are not met, log `"⚠ Knowledge graph not available — skipping rebuild after deep read"` and continue. Update `.paper-state.json` knowledge_graph status if it changes.
 
 ---
 
