@@ -61,6 +61,31 @@ Scan the manuscript for common AI-generated writing patterns and replace them wi
    - Lists that were clearly expanded from bullet points → rewrite as flowing prose
    - Conclusions that start with "In conclusion" → find a more natural transition
 
+   ### Category 8: Hedging Stacks (collapse to single hedge)
+   - "may potentially suggest" → "suggests" or "may suggest"
+   - "it could be argued that this might indicate" → "this indicates" or "this may indicate"
+   - "appears to possibly contribute to" → "contributes to" or "may contribute to"
+   - Rule: maximum ONE hedge word per clause. If you need two hedges, the evidence is too weak — cut the claim or find stronger evidence.
+   - Scan for: may/might/could/potentially/possibly/arguably/appears to/seems to — count per sentence. Flag any sentence with 2+ hedge words.
+
+   ### Category 9: Rhetorical Monotony (vary paragraph structure)
+   - Every paragraph follows: topic sentence → supporting evidence → interpretation? Restructure at least 30% of paragraphs to use different patterns:
+     - Evidence-first: open with a finding, then interpret
+     - Question-answer: pose the question the paragraph addresses, then answer
+     - Contrast: open with what others think, then present your view
+     - Narrative: walk through a logical sequence that builds to a conclusion
+   - Every section opens with "In this section, we..." → vary: some sections can open with a provocative finding, a question, or a direct statement of the key insight
+   - Check: read paragraph opening words in sequence. If 3+ consecutive paragraphs start with similar structures ("The...", "The...", "The..." or "We...", "We...", "We..."), diversify the openings
+
+   ### Category 10: Specificity Gaps (replace vague with concrete)
+   - "several studies" → name them or give a count ("seven studies", "Smith et al. and three subsequent replications")
+   - "significant improvement" → give the number ("12% improvement", "p < 0.001")
+   - "recent work" → give the year range ("work since 2023")
+   - "various approaches" → list them or give a count ("three main approaches: X, Y, and Z")
+   - "plays a crucial/important role" → explain the specific role ("controls the learning rate decay, which determines convergence speed")
+   - "has been widely studied" → cite evidence of the breadth ("studied across N domains, with M published surveys since YEAR")
+   - Rule: if a phrase could appear in any paper on any topic without modification, it's too vague. Make it specific to THIS paper.
+
 3. **Preserve**:
    - All technical content, equations, and citations
    - Necessary hedging ("may", "might") when results are genuinely uncertain

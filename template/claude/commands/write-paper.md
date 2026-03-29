@@ -56,6 +56,7 @@ After completing EACH stage or section, update `.paper-state.json`:
     "codex_cross_check": { "done": true, "completed_at": "...", "file": "research/codex_cross_check.md" },
     "source_acquisition": { "done": false, "full_text": 0, "abstract_only": 0, "metadata_only": 0 },
     "deep_read": { "done": false, "sources_read": 0, "agents_completed": [], "agents_pending": [] },
+    "literature_synthesis": { "done": false, "completed_at": null, "agents_completed": [], "agents_pending": [] },
     "codex_thesis": { "done": true,  "completed_at": "...", "file": "research/codex_thesis_review.md" },
     "novelty_check": { "done": true, "completed_at": "...", "file": "research/novelty_check.md", "status": "NOVEL" },
     "assumptions": { "done": true, "completed_at": "...", "file": "research/assumptions.md", "total": 12, "critical": 1, "risky": 3 },
@@ -68,6 +69,7 @@ After completing EACH stage or section, update `.paper-state.json`:
         "methods":       { "done": false, "words": 0, "current_substep": "expansion" }
       }
     },
+    "coherence":    { "done": false, "issues_found": 0, "critical_fixed": 0 },
     "figures":      { "done": false },
     "qa_iteration": 0,
     "qa":           { "done": false },
@@ -133,18 +135,20 @@ For each stage in order:
 | 4 | Codex Cross-Check | `pipeline/stage-1c-codex-crosscheck.md` | `stages.codex_cross_check.done` |
 | 5 | Source Acquisition | `pipeline/stage-1d-source-acquisition.md` | `stages.source_acquisition.done` |
 | 6 | Deep Source Reading | `pipeline/stage-1e-deep-read.md` | `stages.deep_read.done` |
-| 7 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
-| 8 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
-| 9 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
-| 10 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
-| 11 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
-| 12 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
-| 13 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
-| 14 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
-| 15 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
-| 16 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
+| 7 | Literature Synthesis | `pipeline/stage-1f-synthesis.md` | `stages.literature_synthesis.done` |
+| 8 | Planning | `pipeline/stage-2-planning.md` | `stages.outline.done` |
+| 9 | Codex Thesis Stress-Test | `pipeline/stage-2b-codex-thesis.md` | `stages.codex_thesis.done` |
+| 10 | Targeted Research [DEEP] | `pipeline/stage-2c-targeted-research.md` | `stages.targeted_research.done` OR depth ≠ "deep" |
+| 11 | Novelty Verification | `pipeline/stage-2d-novelty-check.md` | `stages.novelty_check.done` |
+| 12 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
+| 13 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
+| 14 | Cross-Section Coherence | `pipeline/stage-3b-coherence.md` | `stages.coherence.done` |
+| 15 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
+| 16 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
+| 17 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
+| 18 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
 
-**Important**: The QA Loop (Stage 14) reads `pipeline/stage-5-qa.md` which contains an internal loop. After the QA loop completes, proceed to Post-QA (Stage 15). The quality criteria table below defines the gate for exiting the QA loop.
+**Important**: The QA Loop (Stage 16) reads `pipeline/stage-5-qa.md` which contains an internal loop with reference spot-checks at each iteration. After the QA loop completes, proceed to Post-QA (Stage 17). The quality criteria table below defines the gate for exiting the QA loop.
 
 ---
 

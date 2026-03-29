@@ -51,10 +51,15 @@ Write checklist to research/reproducibility_checklist.md.
 
 ## Reference Validation (mandatory before finalization)
 
+**Check what's already verified.** If `research/verified_refs.jsonl` exists (from QA loop spot-checks in Stage 5a-iii), read it to build a set of already-verified reference keys. Only validate references NOT in this set. If the file doesn't exist (e.g., pipeline resumed past QA), validate ALL references.
+
 Spawn a **reference validation agent** (model: claude-sonnet-4-6[1m]):
 ```
 You are a reference verification specialist. Your job is to ensure every citation is real.
-Read references.bib. For EACH entry:
+Read references.bib.
+
+If research/verified_refs.jsonl exists, read it and skip any reference key already marked VERIFIED.
+For EACH remaining entry:
 1. If DOI present: verify via CrossRef API (curl -s "https://api.crossref.org/works/DOI")
 2. If no DOI: search for exact title using Perplexity or web search
 3. Classify: VERIFIED, METADATA MISMATCH, SUSPICIOUS, or FABRICATED
@@ -62,10 +67,11 @@ Read references.bib. For EACH entry:
 5. REMOVE fabricated entries from references.bib AND their citations from main.tex
 
 Write validation report to research/reference_validation.md.
+Include a summary of previously verified refs (from QA spot-checks) and newly verified refs.
 After fixes, compile: latexmk -pdf -interaction=nonstopmode main.tex
 ```
 
-**This is non-negotiable.** Fabricated references are the #1 risk in AI-assisted writing. Every reference must be verified before the paper is finalized. Update `.paper-state.json` with validation results.
+**This is non-negotiable.** Fabricated references are the #1 risk in AI-assisted writing. Every reference must be verified before the paper is finalized. The QA loop spot-checks catch the most dangerous fabrications early; this pass ensures complete coverage. Update `.paper-state.json` with validation results.
 
 **Codex Independent Reference Verification**
 

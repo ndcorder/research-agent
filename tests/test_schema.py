@@ -101,6 +101,8 @@ SCHEMA = {
         "auto_iterations": dict,
         "targeted_research": dict,
         "deep_read": dict,
+        "literature_synthesis": dict,
+        "coherence": dict,
         "post_qa": dict,
     },
     "auto_iterations_schema": {
@@ -283,6 +285,18 @@ def generate_example() -> dict:
                     "related_work": {"done": True, "words": 2100, "current_substep": None},
                     "methods": {"done": False, "words": 0, "current_substep": "expansion"},
                 },
+            },
+            "literature_synthesis": {
+                "done": True,
+                "completed_at": "2026-03-21T15:45:00Z",
+                "agents_completed": ["conflicts", "methods", "frameworks"],
+                "agents_pending": [],
+            },
+            "coherence": {
+                "done": True,
+                "completed_at": "2026-03-21T18:00:00Z",
+                "issues_found": 5,
+                "critical_fixed": 2,
             },
             "figures": {"done": False},
             "qa_iteration": 0,

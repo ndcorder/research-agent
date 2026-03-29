@@ -6,9 +6,11 @@
 
 Each section gets its own dedicated agent. **Run sequentially** — each section builds on prior ones.
 
-**Abstract-First Strategy**
+**Abstract-First Strategy (default: ON)**
 
-Check `.paper.json` for `"abstract_strategy": "first"`. If set:
+The draft abstract forces alignment across all sections — every writing agent knows what the paper promises to deliver. This is now the default behavior.
+
+Check `.paper.json` for `"abstract_strategy"`. If explicitly set to `"last"`, skip this block. **Otherwise (including when absent or set to `"first"`), run it:**
 
 1. **Before any section writing**, spawn a **draft abstract agent** (model: claude-opus-4-6[1m]):
 ```
@@ -40,7 +42,7 @@ The following draft abstract defines what this paper promises to deliver. Ensure
 
 3. The **final abstract** (Order 7) is still rewritten from scratch after all sections are complete — it replaces the draft with one that matches the actual content.
 
-If `abstract_strategy` is `"last"` or absent, skip this block entirely (current default behavior).
+If `abstract_strategy` is explicitly `"last"`, skip this block. This is the ONLY way to disable abstract-first — it must be an intentional opt-out.
 
 ---
 
@@ -72,7 +74,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to read relevant research/ files for content
 - Instruction to read `research/assumptions.md` for methodological assumptions (if it exists)
 - If `.venue.json` exists: instruction to read it and follow the `writing_guide` field for venue-appropriate tone, structure, and conventions
-- If `abstract_strategy` is `"first"` in `.paper.json`: instruction to read `research/draft_abstract.md` and ensure the section delivers on the abstract's promises (see Abstract-First Strategy above)
+- Unless `abstract_strategy` is explicitly `"last"` in `.paper.json`: instruction to read `research/draft_abstract.md` and ensure the section delivers on the abstract's promises (see Abstract-First Strategy above)
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
@@ -87,6 +89,13 @@ The writing agent for that section should then ALSO read `research/section_lit_[
   Do NOT just cite papers and state conclusions. Explain WHY the cited evidence supports YOUR specific claim. This is the difference between a literature dump and an argument.
 
   The claims relevant to your section are listed in `research/claims_matrix.md` with their Warrant, Qualifier, and Rebuttal columns — use these as your argumentation scaffolding.
+- **Voice & Rhetoric** — Write as a domain expert explaining to peers, not as a summarizer reporting findings. Follow these principles:
+  1. **Vary paragraph openings.** Not every paragraph starts with a topic sentence. Sometimes lead with evidence, then interpret. Sometimes open with a question, then answer it. Sometimes start with a counterargument, then rebut. If you catch yourself writing 3+ consecutive paragraphs with the same structure (claim → evidence → interpretation), restructure at least one.
+  2. **Embed evidence naturally.** Instead of always "Author (Year) showed X. This demonstrates Y." — try embedding: "The 37% improvement observed on BLEU scores (Author, Year) suggests that...". Integrate citations into the flow of argument rather than front-loading them.
+  3. **Be concrete over abstract.** "37% improvement on BLEU" not "significant improvement." "Three of seven datasets" not "several datasets." "Published between 2022 and 2025" not "recent work." If you can replace a vague word with a specific number, name, or date, do it.
+  4. **Vary sentence length.** Mix long analytical sentences (20-30 words, developing complex ideas) with short direct ones (5-10 words, delivering verdicts or transitions). Three consecutive sentences of similar length creates monotony.
+  5. **One hedge per clause.** "May suggest" is fine. "May potentially suggest that it could be argued" is not. If a claim needs heavy hedging, the evidence is too weak — either find stronger evidence or cut the claim.
+  6. **Read the literature synthesis.** If `research/literature_synthesis.md` exists (from Stage 1f), use it to understand where the field agrees and disagrees. Engage with conflicts, don't paper over them. Position your contribution relative to competing frameworks, not in a vacuum.
 - **Knowledge graph queries** (run if `research/knowledge/` exists, skip silently if not — log "Knowledge graph not available. Evidence quality may be reduced." and continue). Run section-specific queries BEFORE writing and pass results as a `## Knowledge Graph Context` section in the agent prompt (capped at 500 words, summarize rather than dumping raw results):
 
   **For Introduction**:
@@ -127,7 +136,7 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 | 4 | Results/Experiments | Data-driven | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. Present all results needed to support your claims. |
 | 5 | Discussion | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. **ASSUMPTIONS** — Read `research/assumptions.md`. The Limitations subsection MUST address: (1) every CRITICAL assumption: what happens if it doesn't hold, how bounded is the impact, (2) every RISKY assumption: evidence for and against, alternative approaches if assumption fails, (3) group assumptions by theme (data, model, evaluation) for readability. Frame limitations honestly but constructively — "We acknowledge X; however, prior work [cite] demonstrates Y, suggesting this assumption is reasonable in the context of Z." |
 | 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
-| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. If `abstract_strategy` is `"first"`, this replaces the draft abstract from `research/draft_abstract.md` — compare against it to ensure nothing promised was dropped. |
+| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. Unless `abstract_strategy` is explicitly `"last"`, this replaces the draft abstract from `research/draft_abstract.md` — compare against it to ensure nothing promised was dropped. |
 
 **Provenance for each section**: After completing each section, the writing agent must have appended at least one provenance entry per paragraph. If a paragraph draws from multiple sources, list all of them. The `reasoning` field should explain the paragraph's role in the argument (e.g., "Sets up the gap in prior work by contrasting smith2024's approach with jones2023's limitations, motivating our contribution").
 
@@ -218,10 +227,13 @@ For each claim or factual statement in this section:
 1. Is it supported by a citation? If not, flag it.
 2. If cited, does the source extract for that citation actually contain content supporting this specific claim? (Check research/sources/<key>.md)
 3. Are there claims that go BEYOND what the source extract says? (e.g., claiming "X shows that..." when the source extract only contains an abstract)
+4. **WARRANT CHECK**: For each major claim (those in research/claims_matrix.md), does the paragraph contain an explicit WARRANT — a sentence explaining WHY the cited evidence supports this specific claim? A paragraph that cites three papers but never explains the logical connection between those citations and the claim is a "citation dump." Flag missing warrants.
 
 Output a list of evidence gaps:
-- GAP: [section/paragraph] — [claim text] — [what's missing: citation needed / source is abstract-only / claim exceeds source content]
-- OK: [section/paragraph] — [claim text] — [supported by: key (access level)]
+- GAP: [section/paragraph] — [claim text] — [what's missing: citation needed / source is abstract-only / claim exceeds source content / missing_warrant]
+- OK: [section/paragraph] — [claim text] — [supported by: key (access level), warrant: present/absent]
+
+**Missing warrants count as evidence gaps** for the micro-research trigger threshold. Unlike citation gaps (which need new sources), warrant gaps need the writing agent to articulate WHY the evidence matters — this is a revision task, not a research task. When the patch step (Step 4) runs, warrant gaps trigger a quick edit agent to add the logical bridge, not a research agent.
 
 Write to reviews/evidence_gaps_[SECTION].md
 ```

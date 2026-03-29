@@ -33,12 +33,14 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-1c-codex-crosscheck.md  # Codex research cross-check
     stage-1d-source-acquisition.md  # Source audit, OA resolution, acquisition
     stage-1e-deep-read.md # Deep reading of full PDFs, rewrite source extracts
+    stage-1f-synthesis.md # Cross-source synthesis: conflicts, methodology critique, framework taxonomy
     stage-2-planning.md   # Thesis, outline, claims-evidence matrix
     stage-2b-codex-thesis.md  # Codex thesis stress-test
     stage-2c-targeted-research.md  # Deep mode targeted research
     stage-2d-novelty-check.md  # Novelty verification
     stage-2e-assumptions.md   # Methodological assumptions analysis
-    stage-3-writing.md    # Section-by-section writing
+    stage-3-writing.md    # Section-by-section writing (abstract-first alignment, warrant verification, voice guidance)
+    stage-3b-coherence.md # Cross-section coherence check (promise fulfillment, concept consistency, rebuttal threading)
     stage-4-figures.md    # Figures, tables, visual elements
     stage-5-qa.md         # QA review loop
     stage-5-post-qa.md    # Post-QA audits, ref validation, risk radar
@@ -87,11 +89,13 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 1. **Deep Research** — Parallel agents search literature, then citation snowballing discovers papers that keyword search cannot find, then co-citation analysis identifies important papers frequently cited alongside your references but missing from the bibliography
 2. **Source Acquisition** — Audit source access levels, detect source types (article/book/report/etc.), run a 14-resolver cascade (Unpaywall, OpenAlex, Semantic Scholar, CrossRef, CORE, PubMed, arXiv, DBLP, BASE, Internet Archive, DOAB, Google Books, web search, repository search) with PDF validation, then content enrichment for remaining gaps (Wikipedia, book reviews, executive summaries, citation context), pause for user to provide remaining sources
 3. **Deep Source Reading** — For every source with a PDF, spawn a dedicated agent to read the full paper and rewrite the source extract with comprehensive, topic-relevant content
-4. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
-5. **Writing** — Sequential agents write each section (1000-2500 words each); Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
-6. **Figures & Tables** — Ensure adequate visual elements
-7. **Quality Assurance** — Parallel review agents + revision loop (up to 5 iterations)
-8. **Finalization** — Polish, compile, archive all artifacts, report
+4. **Literature Synthesis** — Cross-source analysis: consensus/conflict mapping, methodological critique of cited work, competing framework taxonomy. Produces a unified synthesis document that informs thesis formulation
+5. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
+6. **Writing** — Draft abstract for alignment (default: on), then sequential agents write each section with warrant verification, voice guidance, and evidence checks. Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
+7. **Cross-Section Coherence** — Full-manuscript check for promise fulfillment, concept consistency, rebuttal threading, and narrative arc. Fixes critical coherence issues before QA
+8. **Figures & Tables** — Ensure adequate visual elements
+9. **Quality Assurance** — Parallel review agents + reference spot-checks + revision loop (up to 5 iterations). Fabricated references caught inside the loop, not after
+10. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
 
@@ -99,7 +103,7 @@ This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M 
 
 Required fields: `topic`, `depth` (`"standard"` or `"deep"`).
 
-Optional field: `abstract_strategy` (`"first"` or `"last"`, default: `"last"`). When `"first"`, a draft abstract is written after Stage 2 and used as an alignment tool during section writing. The final abstract is still rewritten after all sections are complete.
+Optional field: `abstract_strategy` (`"first"` or `"last"`, default: `"first"`). A draft abstract is written after Stage 2 and used as an alignment tool during section writing — every writing agent checks that its section delivers on the abstract's promises. The final abstract is still rewritten after all sections are complete. Set to `"last"` to disable draft abstract alignment (not recommended).
 
 Optional fields for source acquisition:
 ```json

@@ -137,13 +137,49 @@ mcp__codex-bridge__codex_review({
 {"ts":"[timestamp]","stage":"5","tool":"codex_review","purpose":"adversarial peer review","outcome":"[deliberation result]","points_raised":[N],"points_accepted":[N],"points_rejected":[N],"artifact":"reviews/codex_adversarial.md","resolution_summary":"[one-line]"}
 ```
 
-**Checkpoint**: Before proceeding to Step 5b, verify ALL 4 review files exist:
+**Checkpoint**: Before proceeding to Step 5a-iii, verify ALL 4 review files exist:
 - `reviews/technical.md` (from agent)
 - `reviews/writing.md` (from agent)
 - `reviews/completeness.md` (from agent)
 - `reviews/codex_adversarial.md` (from Codex call above)
 
 If `reviews/codex_adversarial.md` is missing, you skipped the Codex review — go back and do it.
+
+#### Step 5a-iii: Reference Spot-Check
+
+**Fabricated references are the #1 risk in AI-assisted writing.** Catch them inside the QA loop, not after.
+
+Spawn a **reference spot-check agent** (model: claude-sonnet-4-6[1m]):
+```
+You are a reference verification specialist running a targeted spot-check.
+Read references.bib.
+
+Select 10-15 references to verify, prioritizing:
+1. References added or modified since the last QA iteration (check provenance.jsonl for recent "add" actions with citations)
+2. References cited in sections that were revised in the last QA iteration
+3. If QA_ITERATION == 1, select a random sample weighted toward references supporting WEAK or MODERATE claims (from research/claims_matrix.md)
+
+For each selected reference:
+1. If DOI present: verify via CrossRef API (curl -s "https://api.crossref.org/works/DOI")
+2. If no DOI: search for exact title using Perplexity or web search
+3. Classify: VERIFIED, METADATA_MISMATCH, SUSPICIOUS, or FABRICATED
+
+For FABRICATED references:
+- REMOVE from references.bib immediately
+- REMOVE all \citep{} and \citet{} references to it from main.tex
+- Flag the claim that relied on it — it now has NO evidence support
+
+For METADATA_MISMATCH:
+- Fix metadata directly in references.bib
+
+Write results to reviews/ref_spotcheck_iter[QA_ITERATION].md.
+Track which references were checked so post-QA validation can skip them.
+Append checked keys to research/verified_refs.jsonl (one JSON object per ref: {"key": "smith2024", "status": "VERIFIED", "qa_iteration": N, "method": "crossref_doi"}).
+```
+
+**Action on results:**
+- If ANY fabricated references found: the revision agent (Step 5c) must address the claims that lost their citations — either find replacement evidence, hedge the claims, or remove them.
+- Pass the spot-check results to the review synthesis (Step 5b) so the revision agent knows which claims need attention.
 
 #### Step 5b: Synthesize Reviews
 
