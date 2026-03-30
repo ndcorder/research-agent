@@ -556,15 +556,16 @@ fn empty_frontmatter() -> ParsedFrontmatter {
 
 fn parse_yaml_array(val: &str) -> Vec<String> {
     let trimmed = val.trim();
-    if trimmed.starts_with('[') && trimmed.ends_with(']') {
-        trimmed[1..trimmed.len() - 1]
-            .split(',')
-            .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
+    let inner = if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        &trimmed[1..trimmed.len() - 1]
     } else {
-        Vec::new()
-    }
+        trimmed
+    };
+    inner
+        .split(',')
+        .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 fn yaml_to_json(yaml_str: &str) -> String {

@@ -8,10 +8,11 @@ const isTauri = !!process.env.TAURI_ENV_PLATFORM;
 
 export default defineConfig({
   plugins: [
+    // Dev backend must be first so its /__dev/invoke middleware runs
+    // before SvelteKit's catch-all SPA fallback intercepts the request.
+    ...(!isTauri ? [devBackend()] : []),
     sveltekit(),
     tailwindcss(),
-    // Only load the dev backend when running in plain browser mode (not Tauri)
-    ...(!isTauri ? [devBackend()] : []),
   ],
   clearScreen: false,
   server: {

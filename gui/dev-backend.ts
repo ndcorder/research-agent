@@ -53,6 +53,10 @@ function parseSourceFrontmatter(content: string) {
           .filter(Boolean);
       }
       if (typeof val === "string" && /^\d+$/.test(val)) val = parseInt(val, 10);
+      // Normalize authors to always be an array
+      if (key === "authors" && typeof val === "string") {
+        val = val.split(",").map((s: string) => s.trim()).filter(Boolean);
+      }
       meta[key] = val;
     }
     return meta;
