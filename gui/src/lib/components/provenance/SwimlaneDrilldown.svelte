@@ -70,9 +70,12 @@
     {#each events as event, i}
       {@const isExpanded = expandedCards.has(i)}
 
-      <button
+      <div
         class="w-full rounded border border-border bg-bg p-2 text-left transition-colors hover:border-border/80"
+        role="button"
+        tabindex="0"
         onclick={() => toggleCard(i)}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(i); } }}
       >
         <!-- Header row -->
         <div class="flex items-center gap-2">
@@ -161,7 +164,7 @@
             {/if}
           </div>
         {/if}
-      </button>
+      </div>
     {/each}
   </div>
 </div>

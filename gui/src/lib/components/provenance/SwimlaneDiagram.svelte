@@ -266,8 +266,6 @@
         {/if}
 
         <!-- Target label (clickable) -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <text
           x={8}
           y={y + ROW_HEIGHT / 2}
@@ -275,7 +273,10 @@
           class="cursor-pointer text-[11px] {isExpanded
             ? 'fill-accent font-semibold'
             : 'fill-text-bright'} hover:fill-accent"
+          role="button"
+          tabindex="0"
           onclick={() => handleRowClick(group.target)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(group.target); } }}
         >
           {group.target.length > 18
             ? group.target.slice(0, 17) + "\u2026"
@@ -298,9 +299,13 @@
               fill={color}
               class="cursor-pointer transition-transform hover:scale-125"
               opacity={isHighlighted ? 1 : 0.85}
+              role="button"
+              tabindex="0"
+              aria-label="{dominantAction(events)} event for {group.target} at stage {stage}"
               onmouseenter={(e) => handleDotHover(e, events[0])}
               onmouseleave={handleDotLeave}
               onclick={() => handleRowClick(group.target)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(group.target); } }}
             />
 
             <!-- Event count badge for multi-event dots -->

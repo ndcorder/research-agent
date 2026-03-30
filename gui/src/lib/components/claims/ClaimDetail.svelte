@@ -283,11 +283,12 @@
           </h3>
 
           <div>
-            <label class="text-xs font-medium text-accent">Warrant</label>
+            <label class="text-xs font-medium text-accent" for="claim-warrant">Warrant</label>
             {#if claim.warrant && claim.warrant.startsWith("[AUTO")}
               <p class="mt-0.5 text-xs text-text-muted/60">Auto-resolved by pipeline</p>
             {/if}
             <textarea
+              id="claim-warrant"
               bind:value={editWarrant}
               rows="3"
               placeholder="The reasoning that connects evidence to the claim..."
@@ -296,8 +297,9 @@
           </div>
 
           <div>
-            <label class="text-xs font-medium text-accent">Qualifier</label>
+            <label class="text-xs font-medium text-accent" for="claim-qualifier">Qualifier</label>
             <input
+              id="claim-qualifier"
               type="text"
               bind:value={editQualifier}
               placeholder="Hedging language (e.g. 'in most cases', 'for populations >100')"
@@ -306,8 +308,9 @@
           </div>
 
           <div>
-            <label class="text-xs font-medium text-accent">Rebuttal</label>
+            <label class="text-xs font-medium text-accent" for="claim-rebuttal">Rebuttal</label>
             <textarea
+              id="claim-rebuttal"
               bind:value={editRebuttal}
               rows="2"
               placeholder="Known counterarguments or limitations..."

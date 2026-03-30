@@ -45,10 +45,13 @@
   </div>
 
   <!-- Sidebar resize handle -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="w-1 cursor-col-resize flex-shrink-0 transition-all duration-150 {dragging === 'sidebar' ? 'bg-accent w-0.5' : 'bg-border opacity-50 hover:opacity-100 hover:bg-accent'}"
     onmousedown={() => onMouseDown("sidebar")}
     role="separator"
+    tabindex="0"
+    aria-label="Resize sidebar"
   ></div>
 
   <!-- Main editor area -->
@@ -57,10 +60,13 @@
   </div>
 
   <!-- Right panel resize handle -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="w-1 cursor-col-resize flex-shrink-0 transition-all duration-150 {dragging === 'right' ? 'bg-accent w-0.5' : 'bg-border opacity-50 hover:opacity-100 hover:bg-accent'}"
     onmousedown={() => onMouseDown("right")}
     role="separator"
+    tabindex="0"
+    aria-label="Resize right panel"
   ></div>
 
   <!-- Right panel -->

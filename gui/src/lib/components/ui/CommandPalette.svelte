@@ -315,9 +315,9 @@
 </script>
 
 {#if $showCommandPalette}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
     class="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[15vh]"
+    role="presentation"
     onclick={onBackdropClick}
   >
     <div
@@ -352,11 +352,12 @@
             </div>
             {#each group.items as item, i}
               {@const flatIdx = flatItems.indexOf(item)}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
               <div
                 data-cmd-index={flatIdx}
                 class="mx-1 flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-sm transition-colors
                   {flatIdx === selectedIndex ? 'bg-bg-tertiary text-text-bright' : 'text-text hover:bg-bg-tertiary/50'}"
+                role="option"
+                aria-selected={flatIdx === selectedIndex}
                 onclick={() => { selectedIndex = flatIdx; executeSelected(); }}
                 onmouseenter={() => { selectedIndex = flatIdx; }}
               >

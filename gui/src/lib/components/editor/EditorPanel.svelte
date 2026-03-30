@@ -23,8 +23,8 @@
   let previousTab = -1;
   let editorContainer: HTMLDivElement;
   let tabStrip: HTMLDivElement;
-  let editor: any = null;
-  let monaco: typeof import("monaco-editor") | null = null;
+  let editor: any = $state(null);
+  let monaco: typeof import("monaco-editor") | null = $state(null);
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   function extToLanguage(path: string): string {

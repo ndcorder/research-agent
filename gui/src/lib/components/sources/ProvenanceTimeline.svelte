@@ -118,6 +118,8 @@
 <div
   class="flex h-full flex-col bg-bg"
   tabindex="0"
+  role="region"
+  aria-label="Provenance timeline"
   onkeydown={handleKeydown}
 >
   <!-- Section picker -->
