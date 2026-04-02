@@ -1,4 +1,4 @@
-lightrag-hku>=1.4.13
+lightrag-hku>=1.4.12
 numpy
 networkx
 pymupdf
