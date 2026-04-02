@@ -357,7 +357,7 @@ async def cmd_build(_args):
 
     os.makedirs(WORKING_DIR, exist_ok=True)
     rag = await _init_rag()
-    await rag.ainsert(documents, ids=ids)
+    await rag.ainsert(documents, ids=ids, file_paths=ids)
 
     entity_count = 0
     relation_count = 0
@@ -481,7 +481,7 @@ async def cmd_update(_args):
           f"({new_sources} sources + {new_prepared} prepared + {new_parsed} parsed + {new_pdfs} PDFs)...")
 
     rag = await _init_rag()
-    await rag.ainsert(documents, ids=ids)
+    await rag.ainsert(documents, ids=ids, file_paths=ids)
 
     _save_build_timestamp()
     _invalidate_cache()
