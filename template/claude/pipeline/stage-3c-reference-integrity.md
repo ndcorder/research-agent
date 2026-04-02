@@ -36,7 +36,13 @@ Read the JSON output from `research/reference_integrity.json`.
 
 ## Phase 2: Misattribution Detection (agent-based)
 
-Spawn one **misattribution-check agent** per manuscript section (model: `claude-sonnet-4-6[1m]`), run in parallel.
+Before spawning agents, create the output directory:
+
+```bash
+mkdir -p research/misattribution_check
+```
+
+Extract each section's text from `main.tex` by splitting on `\section{...}` boundaries (from one `\section` to the next, or to `\end{document}`). Spawn one **misattribution-check agent** per manuscript section (model: `claude-sonnet-4-6[1m]`), run in parallel.
 
 **Prioritization**: Process sections in risk order based on `research/claims_matrix.md`:
 - **High priority** (thorough check): Sections containing WEAK (1-2.9) or MODERATE (3-5.9) claims
