@@ -679,11 +679,20 @@ def cmd_prepare(args):
         if sections:
             meth_dir = prepared / "methodology"
             meth_dir.mkdir(parents=True, exist_ok=True)
+            todo_skipped = 0
             for slug, content in sections:
+                if "[TODO]" in content:
+                    todo_skipped += 1
+                    continue
                 out = meth_dir / f"{slug}.md"
                 out.write_text(content, encoding="utf-8")
                 counts["methodology"] += 1
             print(f"  Generated {counts['methodology']} methodology documents")
+            if todo_skipped:
+                print(
+                    f"  Skipped {todo_skipped} section(s) with unfilled [TODO] markers",
+                    file=sys.stderr,
+                )
     else:
         # Generate template
         main_tex_path = Path(MAIN_TEX)

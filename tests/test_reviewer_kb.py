@@ -335,3 +335,26 @@ More text.
         p = tmp_project / "research" / "methodology-notes.md"
         p.write_text(text)
         assert reviewer_kb.decompose_methodology_notes(p) == []
+
+
+class TestTodoValidation:
+    def test_sections_with_todos_are_filtered(self, tmp_path):
+        """Sections containing [TODO] should be identified for filtering."""
+        text = (
+            "## Incomplete Section\n"
+            "- Dataset: [TODO]\n"
+            "- Choice: Logistic regression\n"
+            "\n"
+            "## Complete Section\n"
+            "- Dataset: MIMIC-IV v2.0\n"
+            "- Choice: LASSO regularization\n"
+        )
+        p = tmp_path / "methodology.md"
+        p.write_text(text)
+        sections = reviewer_kb.decompose_methodology_notes(p)
+        assert len(sections) == 2
+
+        # Apply the same filter logic as cmd_prepare
+        clean = [(s, c) for s, c in sections if "[TODO]" not in c]
+        assert len(clean) == 1
+        assert clean[0][0] == "complete-section"
