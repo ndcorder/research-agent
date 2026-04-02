@@ -42,6 +42,10 @@
       "Bash(rm -rf archive/)",
       "Bash(rm -f *.aux*)",
 
+      "Bash(docker compose up -d*)",
+      "Bash(docker compose down*)",
+      "Bash(docker compose ps*)",
+
       "mcp__perplexity__search",
       "mcp__perplexity__reason",
       "mcp__perplexity__deep_research",
