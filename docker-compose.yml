@@ -1,0 +1,24 @@
+# OpenSearch for LightRAG knowledge graph storage.
+# Usage: docker compose up -d
+# Toggle in knowledge.py: LIGHTRAG_STORAGE=opensearch
+services:
+  opensearch:
+    image: opensearchproject/opensearch:latest
+    container_name: research-agent-opensearch
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_PASSWORD:-ResearchAgent1!}
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  opensearch-data:
