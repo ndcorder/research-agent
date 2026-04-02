@@ -21,13 +21,20 @@ if [[ ! -d "$VENV_DIR" ]]; then
     python3 -m venv "$VENV_DIR"
 fi
 
-REQ_HASH=$(shasum -a 256 "$REQ_FILE" 2>/dev/null | cut -d' ' -f1)
+# Portable SHA256: try sha256sum (Linux) then shasum (macOS)
+if command -v sha256sum &>/dev/null; then
+    REQ_HASH=$(sha256sum "$REQ_FILE" | cut -d' ' -f1)
+elif command -v shasum &>/dev/null; then
+    REQ_HASH=$(shasum -a 256 "$REQ_FILE" | cut -d' ' -f1)
+else
+    REQ_HASH="no-hash-tool"
+fi
 STAMP_HASH=""
 [[ -f "$STAMP_FILE" ]] && STAMP_HASH=$(cat "$STAMP_FILE")
 
 if [[ "$REQ_HASH" != "$STAMP_HASH" ]]; then
     echo "Installing/updating dependencies ..." >&2
-    "$VENV_DIR/bin/pip" install -q -r "$REQ_FILE"
+    "$VENV_DIR/bin/pip" install -r "$REQ_FILE" >&2
     echo "$REQ_HASH" > "$STAMP_FILE"
 fi
 
