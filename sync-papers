@@ -18,6 +18,8 @@ set -euo pipefail
 #   3. Replaces .claude/pipeline/ (copied dir) with symlink → template
 #   4. Creates scripts/ symlink → template (if not present)
 #   5. Creates provenance/cuts/ directory (if not present)
+#   6. Updates .claude/settings.local.json from template (if changed)
+#   7. Adds knowledge_namespace to .paper.json (if missing)
 #
 # Safe to run multiple times — skips projects already symlinked.
 # ──────────────────────────────────────────────────────────────
@@ -120,6 +122,31 @@ for project in "$TARGET_BASE"/*/; do
     if [[ ! -d "$project/provenance/cuts" ]]; then
         mkdir -p "$project/provenance/cuts"
         changed=true
+    fi
+
+    # 6. Update settings.local.json (re-copy from template to pick up new allowlist entries)
+    if [[ -f "$project/.claude/settings.local.json" ]]; then
+        if ! diff -q "$TEMPLATE_DIR/claude/settings.local.json" "$project/.claude/settings.local.json" &>/dev/null; then
+            cp "$TEMPLATE_DIR/claude/settings.local.json" "$project/.claude/settings.local.json"
+            changed=true
+        fi
+    fi
+
+    # 7. Add knowledge_namespace to .paper.json if missing
+    if [[ -f "$project/.paper.json" ]]; then
+        if ! python3 -c "import json,sys; c=json.load(open(sys.argv[1])); sys.exit(0 if c.get('knowledge_namespace') else 1)" "$project/.paper.json" 2>/dev/null; then
+            python3 -c "
+import json, sys, secrets, re
+from pathlib import Path
+p = Path(sys.argv[1])
+c = json.loads(p.read_text())
+dir_name = Path(sys.argv[1]).resolve().parent.name
+safe = re.sub(r'[^a-z0-9-]', '-', dir_name.lower()).strip('-')[:40]
+c['knowledge_namespace'] = f'{safe}-{secrets.token_hex(2)}'
+p.write_text(json.dumps(c, indent=2) + '\n')
+" "$project/.paper.json"
+            changed=true
+        fi
     fi
 
     if $changed; then
