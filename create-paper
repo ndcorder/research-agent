@@ -206,12 +206,18 @@ ok "Template files linked"
 
 # Generate .paper.json config
 python3 - "$TOPIC" "$VENUE" "$DEPTH" <<'PYEOF'
-import json, sys
+import json, sys, secrets, re
+from pathlib import Path
 topic, venue, depth = sys.argv[1], sys.argv[2], sys.argv[3]
+# Derive namespace from directory name + random suffix for OpenSearch isolation
+dir_name = Path(".").resolve().name
+safe_name = re.sub(r"[^a-z0-9-]", "-", dir_name.lower()).strip("-")[:40]
+namespace = f"{safe_name}-{secrets.token_hex(2)}"
 config = {
     "topic": topic,
     "venue": venue,
     "depth": depth,
+    "knowledge_namespace": namespace,
     "model": "claude-opus-4-6",
     "max_revisions": 3,
     "authors": [
