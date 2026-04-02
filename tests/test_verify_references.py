@@ -1,14 +1,11 @@
 """Unit tests for verify-references.py."""
 
 import json
-import os
 import textwrap
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import urllib.request
 import urllib.error
-
-import pytest
 
 # Import the module under test (will be created in Task 2)
 import importlib.util

@@ -154,10 +154,10 @@ def check_artifacts(key: str, attachments_dir: Path, parsed_dir: Path) -> dict:
 
 
 def classify_reference(
-    key: str,
+    key: str,  # noqa: ARG001 — kept for API surface / logging
     in_bib: bool,
     extract: dict,
-    artifacts: dict,
+    artifacts: dict,  # noqa: ARG001 — reserved for future artifact-level checks
 ) -> str:
     """Classify a reference's integrity status.
 
