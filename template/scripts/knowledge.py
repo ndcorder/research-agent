@@ -90,6 +90,9 @@ EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "600"))
 
 # Storage backend: "file" (default) or "opensearch"
 LIGHTRAG_STORAGE = os.environ.get("LIGHTRAG_STORAGE", "file")
+if LIGHTRAG_STORAGE not in ("file", "opensearch"):
+    print(f"Error: Invalid LIGHTRAG_STORAGE={LIGHTRAG_STORAGE!r}. Must be 'file' or 'opensearch'.", file=sys.stderr)
+    sys.exit(1)
 
 
 def get_api_key():
@@ -224,6 +227,15 @@ def create_rag():
     return rag
 
 
+async def _init_rag():
+    """Create, initialize, and return a ready-to-use LightRAG instance."""
+    rag = create_rag()
+    await rag.initialize_storages()
+    from lightrag.kg.shared_storage import initialize_pipeline_status
+    await initialize_pipeline_status()
+    return rag
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -344,10 +356,7 @@ async def cmd_build(_args):
     print(f"Building knowledge graph from {len(documents)} total documents...")
 
     os.makedirs(WORKING_DIR, exist_ok=True)
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
     await rag.ainsert(documents, ids=ids)
 
     entity_count = 0
@@ -471,10 +480,7 @@ async def cmd_update(_args):
     print(f"Updating knowledge graph with {len(documents)} new/changed documents "
           f"({new_sources} sources + {new_prepared} prepared + {new_parsed} parsed + {new_pdfs} PDFs)...")
 
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
     await rag.ainsert(documents, ids=ids)
 
     _save_build_timestamp()
@@ -494,10 +500,7 @@ async def cmd_update(_args):
 
 async def cmd_query(args):
     """Freeform semantic search across the knowledge graph."""
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
 
     result = await _cached_query(rag, args.question, "hybrid")
 
@@ -513,10 +516,7 @@ async def cmd_query(args):
 
 async def cmd_contradictions(_args):
     """Find conflicting claims across source documents."""
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
 
     prompt = (
         "Identify contradictions, tensions, and conflicting claims across the source documents "
@@ -549,10 +549,7 @@ async def cmd_contradictions(_args):
 
 async def cmd_evidence_for(args):
     """Find sources supporting a specific claim."""
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
 
     prompt = (
         f"Find all evidence in the source documents that SUPPORTS the following claim:\n\n"
@@ -578,10 +575,7 @@ async def cmd_evidence_for(args):
 
 async def cmd_evidence_against(args):
     """Find sources challenging a specific claim."""
-    rag = create_rag()
-    await rag.initialize_storages()
-    from lightrag.kg.shared_storage import initialize_pipeline_status
-    await initialize_pipeline_status()
+    rag = await _init_rag()
 
     prompt = (
         f"Find all evidence in the source documents that CONTRADICTS or CHALLENGES "
@@ -609,10 +603,7 @@ async def cmd_evidence_against(args):
 async def cmd_entities(_args):
     """List all extracted entities from the knowledge graph."""
     if LIGHTRAG_STORAGE == "opensearch":
-        rag = create_rag()
-        await rag.initialize_storages()
-        from lightrag.kg.shared_storage import initialize_pipeline_status
-        await initialize_pipeline_status()
+        rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
         all_nodes = await graph.get_all_nodes()
@@ -669,10 +660,7 @@ async def cmd_entities(_args):
 async def cmd_relationships(args):
     """Show how a specific entity connects to others in the graph."""
     if LIGHTRAG_STORAGE == "opensearch":
-        rag = create_rag()
-        await rag.initialize_storages()
-        from lightrag.kg.shared_storage import initialize_pipeline_status
-        await initialize_pipeline_status()
+        rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
         all_nodes = await graph.get_all_nodes()
@@ -745,10 +733,7 @@ async def cmd_coverage(args):
     doc_text = doc_path.read_text(encoding="utf-8").lower()
 
     if LIGHTRAG_STORAGE == "opensearch":
-        rag = create_rag()
-        await rag.initialize_storages()
-        from lightrag.kg.shared_storage import initialize_pipeline_status
-        await initialize_pipeline_status()
+        rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
         all_nodes = await graph.get_all_nodes()
