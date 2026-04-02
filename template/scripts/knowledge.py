@@ -207,7 +207,7 @@ def create_rag():
             embedding_dim=EMBEDDING_DIM,
             max_token_size=EMBEDDING_LENGTH,
             func=partial(
-                openai_embed,
+                openai_embed.func,
                 model=EMBEDDING_MODEL,
                 base_url=OPENROUTER_BASE_URL,
                 api_key=api_key,
