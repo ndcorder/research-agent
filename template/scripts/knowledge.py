@@ -24,10 +24,35 @@ Usage:
     python scripts/knowledge.py coverage "document.md"       # Check entity coverage in a document
 """
 
+import os
+import subprocess
+import sys
+
+
+def _ensure_venv():
+    """Re-exec this script inside the research-agent .venv if needed."""
+    script_path = os.path.realpath(__file__)
+    scripts_dir = os.path.dirname(script_path)
+    repo_root = os.path.normpath(os.path.join(scripts_dir, "..", ".."))
+    venv_python = os.path.join(repo_root, ".venv", "bin", "python3")
+
+    if os.path.realpath(sys.executable) == os.path.realpath(venv_python):
+        return
+
+    ensure_script = os.path.join(scripts_dir, "ensure-venv.sh")
+    if os.path.exists(ensure_script):
+        subprocess.run(["bash", ensure_script], check=True,
+                       stdout=subprocess.DEVNULL)
+
+    if os.path.exists(venv_python):
+        os.execv(venv_python, [venv_python] + sys.argv)
+
+
+if __name__ == "__main__":
+    _ensure_venv()
+
 import argparse
 import asyncio
-import os
-import sys
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
@@ -49,7 +74,7 @@ CACHE_DIR = os.path.join(WORKING_DIR, ".cache")
 LLM_MODEL = os.environ.get("LIGHTRAG_LLM_MODEL", "google/gemini-3-flash-preview")
 EMBEDDING_MODEL = os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
 EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
-EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32768"))
+EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32000"))
 OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 # Concurrency settings — conservative defaults to avoid OpenRouter rate limits.
@@ -60,8 +85,8 @@ LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "8"))
 EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "16"))
 
 # Timeout settings (seconds) — full PDFs need more time than short extracts.
-LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "300"))
-EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "300"))
+LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "600"))
+EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "600"))
 
 
 def get_api_key():

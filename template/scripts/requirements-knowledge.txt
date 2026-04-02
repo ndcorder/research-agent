@@ -1,4 +1,5 @@
-lightrag-hku>=1.4.9
+lightrag-hku>=1.4.13
 numpy
 networkx
 pymupdf
+opensearch-py>=3.0.0
