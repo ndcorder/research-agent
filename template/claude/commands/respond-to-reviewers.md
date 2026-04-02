@@ -32,6 +32,44 @@ The user either pastes reviewer comments directly or points to a file in `attach
    - `research/sources/` — source extracts and full-text PDFs
    - `research/claims_matrix.md` — evidence-to-claim mappings (if it exists)
    - `research/notes/` — research notes (if they exist)
+
+### Knowledge Graph Integration (Phase 2 enhancement)
+
+For each reviewer point, after identifying the relevant claim(s) from the claims matrix,
+use the best available evidence tier:
+
+**Tier 1 — Pre-computed defense brief** (fastest, use when available):
+
+If `research/prepared/defense/defense-brief.md` exists:
+1. Read the per-claim defense sheet for the relevant claim
+   (e.g., `research/prepared/defense/claim-C3.md`)
+2. Use the pre-built objection responses and supporting/challenging evidence as starting
+   points for drafting the response
+3. Only run live graph queries (Tier 2) if the reviewer raises a specific point that the
+   pre-computed defense does not cover
+
+**Tier 2 — Live knowledge graph queries** (use when no defense brief exists):
+
+If `research/knowledge/` has been built (check for any `.json` or graph data files):
+1. Run: `python scripts/knowledge.py evidence-for "<reviewer's specific concern>"`
+2. Run: `python scripts/knowledge.py evidence-against "<reviewer's specific concern>"`
+3. Run: `python scripts/knowledge.py query "<any specific factual claim the reviewer makes>"`
+4. If the reviewer challenges a methodology decision:
+   Run: `python scripts/knowledge.py query "<specific methodological concern>"`
+5. Use the results to determine whether the reviewer is correct, partially correct, or
+   incorrect before drafting the response
+
+**Tier 3 — Manual source reading** (fallback when no graph exists):
+
+If neither a defense brief nor a built knowledge graph is available, continue with the
+standard behavior: read `research/sources/` directly and cross-reference the claims matrix
+by hand.
+
+**Always** cross-reference `research/claims_matrix.md` (if it exists) for:
+- Warrant quality — is this claim well-grounded, or is the reviewer identifying a real gap?
+- Evidence score — how strong is the paper's position on this claim?
+- Known rebuttals — has the paper already anticipated this objection?
+
 6. **For each CRITICAL and MAJOR point**, determine:
    - **Is the reviewer correct?** Cross-reference claims against source extracts in `research/sources/` and the claims matrix. Check if the reviewer identified a genuine gap or misread the text.
    - **What is the appropriate response?**
