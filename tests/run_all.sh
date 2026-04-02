@@ -33,6 +33,28 @@ run_test "test_structure.sh" "bash '$SCRIPT_DIR/test_structure.sh'"
 run_test "test_prompts.sh"   "bash '$SCRIPT_DIR/test_prompts.sh'"
 run_test "test_schema.py"    "python3 '$SCRIPT_DIR/test_schema.py'"
 
+# Python unit tests (reviewer-kb, knowledge). Exit code 5 = no tests collected (skip OK).
+PYTEST_CMD="python3 -m pytest '$SCRIPT_DIR' -v --tb=short"
+((TOTAL++))
+echo ""
+echo "================================================================"
+echo "  Running: pytest"
+echo "================================================================"
+if eval "$PYTEST_CMD"; then
+    ((PASSED++))
+    echo ""
+    echo "  >>> pytest: PASSED"
+elif [ $? -eq 5 ]; then
+    ((PASSED++))
+    echo ""
+    echo "  >>> pytest: SKIPPED (no tests collected)"
+else
+    ((FAILED++))
+    FAILED_NAMES+=("pytest")
+    echo ""
+    echo "  >>> pytest: FAILED"
+fi
+
 echo ""
 echo "================================================================"
 echo "  SUMMARY: $PASSED/$TOTAL passed, $FAILED failed"
