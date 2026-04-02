@@ -214,6 +214,12 @@ def create_rag():
 
     if LIGHTRAG_STORAGE == "opensearch":
         namespace = _get_namespace()
+        # Set OpenSearch defaults if not explicitly configured.
+        # LightRAG requires OPENSEARCH_HOSTS even though it defaults to localhost:9200.
+        os.environ.setdefault("OPENSEARCH_HOSTS", "localhost:9200")
+        os.environ.setdefault("OPENSEARCH_USER", "admin")
+        os.environ.setdefault("OPENSEARCH_PASSWORD", "ResearchAgent1!")
+        os.environ.setdefault("OPENSEARCH_USE_SSL", "false")
         kwargs.update(
             workspace=namespace,
             kv_storage="OpenSearchKVStorage",
