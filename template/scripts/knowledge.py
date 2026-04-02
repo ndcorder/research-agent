@@ -88,6 +88,9 @@ EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "16"))
 LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "600"))
 EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "600"))
 
+# Storage backend: "file" (default) or "opensearch"
+LIGHTRAG_STORAGE = os.environ.get("LIGHTRAG_STORAGE", "file")
+
 
 def get_api_key():
     """Get OpenRouter API key from environment."""
@@ -154,6 +157,21 @@ async def _cached_query(rag, query: str, mode: str) -> str:
 # LightRAG initialization
 # ---------------------------------------------------------------------------
 
+
+def _get_namespace():
+    """Read knowledge_namespace from .paper.json for OpenSearch index isolation."""
+    paper_json = Path(".paper.json")
+    if paper_json.exists():
+        import json
+        config = json.loads(paper_json.read_text(encoding="utf-8"))
+        ns = config.get("knowledge_namespace")
+        if ns:
+            return ns
+    # Fallback: hash of cwd for projects without the field
+    import hashlib
+    return hashlib.sha256(os.getcwd().encode()).hexdigest()[:16]
+
+
 def create_rag():
     """Create and return a LightRAG instance configured for OpenRouter."""
     from lightrag import LightRAG
@@ -166,7 +184,7 @@ def create_rag():
     except ImportError:
         from lightrag.base import EmbeddingFunc
 
-    rag = LightRAG(
+    kwargs = dict(
         working_dir=WORKING_DIR,
         llm_model_func=openai_complete,
         llm_model_name=LLM_MODEL,
@@ -190,6 +208,19 @@ def create_rag():
         ),
         embedding_batch_num=EMBEDDING_BATCH_NUM,
     )
+
+    if LIGHTRAG_STORAGE == "opensearch":
+        namespace = _get_namespace()
+        kwargs.update(
+            workspace=namespace,
+            kv_storage="OpenSearchKVStorage",
+            vector_storage="OpenSearchVectorDBStorage",
+            graph_storage="OpenSearchGraphStorage",
+            doc_status_storage="OpenSearchDocStatusStorage",
+        )
+        print(f"Using OpenSearch backend (namespace: {namespace})", file=sys.stderr)
+
+    rag = LightRAG(**kwargs)
     return rag
 
 
@@ -321,15 +352,25 @@ async def cmd_build(_args):
 
     entity_count = 0
     relation_count = 0
-    try:
-        import networkx as nx
-        graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
-        if graph_path.exists():
-            G = nx.read_graphml(str(graph_path))
-            entity_count = G.number_of_nodes()
-            relation_count = G.number_of_edges()
-    except Exception:
-        pass
+    if LIGHTRAG_STORAGE == "opensearch":
+        try:
+            graph = rag.chunk_entity_relation_graph
+            all_nodes = await graph.get_all_nodes()
+            all_edges = await graph.get_all_edges()
+            entity_count = len(all_nodes) if all_nodes else 0
+            relation_count = len(all_edges) if all_edges else 0
+        except Exception:
+            pass
+    else:
+        try:
+            import networkx as nx
+            graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
+            if graph_path.exists():
+                G = nx.read_graphml(str(graph_path))
+                entity_count = G.number_of_nodes()
+                relation_count = G.number_of_edges()
+        except Exception:
+            pass
 
     summary = (
         f"Built knowledge graph: {entity_count} entities, "
@@ -567,6 +608,35 @@ async def cmd_evidence_against(args):
 
 async def cmd_entities(_args):
     """List all extracted entities from the knowledge graph."""
+    if LIGHTRAG_STORAGE == "opensearch":
+        rag = create_rag()
+        await rag.initialize_storages()
+        from lightrag.kg.shared_storage import initialize_pipeline_status
+        await initialize_pipeline_status()
+
+        graph = rag.chunk_entity_relation_graph
+        all_nodes = await graph.get_all_nodes()
+        entities = {}
+        for node in all_nodes:
+            data = await graph.get_node(node)
+            entity_type = (data or {}).get("entity_type", "unknown")
+            entities.setdefault(entity_type, []).append(node)
+
+        total = sum(len(v) for v in entities.values())
+        print(f"## Entities ({total} total)\n")
+        for entity_type, names in sorted(entities.items()):
+            print(f"### {entity_type} ({len(names)})")
+            for name in sorted(names):
+                print(f"- {name}")
+            print()
+
+        log_operation("Entities", {
+            "Tool": "scripts/knowledge.py entities",
+            "Result": f"{total} entities across {len(entities)} types",
+        })
+        return
+
+    # File-based: read GraphML directly
     import networkx as nx
 
     graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
@@ -598,6 +668,42 @@ async def cmd_entities(_args):
 
 async def cmd_relationships(args):
     """Show how a specific entity connects to others in the graph."""
+    if LIGHTRAG_STORAGE == "opensearch":
+        rag = create_rag()
+        await rag.initialize_storages()
+        from lightrag.kg.shared_storage import initialize_pipeline_status
+        await initialize_pipeline_status()
+
+        graph = rag.chunk_entity_relation_graph
+        all_nodes = await graph.get_all_nodes()
+        target = args.entity.lower()
+        matches = [n for n in all_nodes if target in n.lower()]
+
+        if not matches:
+            print(f"No entity matching '{args.entity}' found in the graph.", file=sys.stderr)
+            print("Try 'entities' command to see all available entities.", file=sys.stderr)
+            sys.exit(1)
+
+        for match in matches:
+            print(f"## Relationships for: {match}\n")
+            edges = await graph.get_node_edges(match)
+            if edges:
+                for edge in edges:
+                    src, tgt = edge[0], edge[1]
+                    data = edge[2] if len(edge) > 2 else {}
+                    other = tgt if src == match else src
+                    rel = data.get("relationship", data.get("label", "related_to"))
+                    print(f"  -- {rel} -- {other}")
+            print()
+
+        log_operation("Relationships", {
+            "Tool": "scripts/knowledge.py relationships",
+            "Query": args.entity,
+            "Result": f"Found {len(matches)} matching entities",
+        })
+        return
+
+    # File-based: read GraphML directly
     import networkx as nx
 
     graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
@@ -632,6 +738,52 @@ async def cmd_relationships(args):
 
 async def cmd_coverage(args):
     """Check which graph entities appear in a document."""
+    doc_path = Path(args.document)
+    if not doc_path.exists():
+        print(f"Error: Document not found: {args.document}", file=sys.stderr)
+        sys.exit(1)
+    doc_text = doc_path.read_text(encoding="utf-8").lower()
+
+    if LIGHTRAG_STORAGE == "opensearch":
+        rag = create_rag()
+        await rag.initialize_storages()
+        from lightrag.kg.shared_storage import initialize_pipeline_status
+        await initialize_pipeline_status()
+
+        graph = rag.chunk_entity_relation_graph
+        all_nodes = await graph.get_all_nodes()
+
+        missing = []
+        present = []
+        for node in all_nodes:
+            edges = await graph.get_node_edges(node)
+            degree = len(edges) if edges else 0
+            if node.lower() in doc_text:
+                present.append((node, degree))
+            else:
+                missing.append((node, degree))
+
+        missing.sort(key=lambda x: x[1], reverse=True)
+        total = len(present) + len(missing)
+        print(f"## Entity Coverage for {args.document}\n")
+        print(f"**Present**: {len(present)}/{total} entities found in document\n")
+        if missing:
+            print(f"### Missing Entities ({len(missing)}) — sorted by importance\n")
+            for name, degree in missing:
+                print(f"- **{name}** ({degree} connections)")
+        else:
+            print("All entities are covered in the document.")
+
+        log_operation("Coverage", {
+            "Tool": "scripts/knowledge.py coverage",
+            "Document": args.document,
+            "Present": str(len(present)),
+            "Missing": str(len(missing)),
+            "Total": str(total),
+        })
+        return
+
+    # File-based: read GraphML directly
     import networkx as nx
 
     graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
@@ -639,12 +791,6 @@ async def cmd_coverage(args):
         print("Error: Knowledge graph not built yet. Run 'build' first.", file=sys.stderr)
         sys.exit(1)
 
-    doc_path = Path(args.document)
-    if not doc_path.exists():
-        print(f"Error: Document not found: {args.document}", file=sys.stderr)
-        sys.exit(1)
-
-    doc_text = doc_path.read_text(encoding="utf-8").lower()
     G = nx.read_graphml(str(graph_path))
 
     # Build entity list with connection counts
