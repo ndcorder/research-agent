@@ -99,6 +99,22 @@ class TestParseCitations:
         result = vr.parse_citations(tex)
         assert len(result) == 2  # both occurrences kept
 
+    def test_mid_line_comment_ignored(self, tmp_path):
+        vr = _load_module()
+        tex = tmp_path / "main.tex"
+        tex.write_text("real \\citep{real2024} % \\citep{fake2024}\n")
+        result = vr.parse_citations(tex)
+        assert len(result) == 1
+        assert result[0]["key"] == "real2024"
+
+    def test_escaped_percent_not_treated_as_comment(self, tmp_path):
+        vr = _load_module()
+        tex = tmp_path / "main.tex"
+        tex.write_text("improved by 15\\% \\citep{smith2024}\n")
+        result = vr.parse_citations(tex)
+        assert len(result) == 1
+        assert result[0]["key"] == "smith2024"
+
 
 # ---------------------------------------------------------------------------
 # BibTeX parsing
@@ -175,6 +191,14 @@ class TestParseBib:
         """))
         result = vr.parse_bib(bib)
         assert "Deep Learning" in result["smith2024"]["title"]
+
+    def test_indented_closing_brace(self, tmp_path):
+        vr = _load_module()
+        bib = tmp_path / "references.bib"
+        bib.write_text("@article{smith2024,\n  title = {A Paper},\n  year = {2024},\n  }\n")
+        result = vr.parse_bib(bib)
+        assert "smith2024" in result
+        assert result["smith2024"]["title"] == "A Paper"
 
 
 # ---------------------------------------------------------------------------

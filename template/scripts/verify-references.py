@@ -20,6 +20,7 @@ Exit codes:
 import argparse
 import json
 import re
+import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -37,12 +38,23 @@ PROVENANCE_FILE = "research/provenance.jsonl"
 CITE_RE = re.compile(r"\\cite[pt]?\{([^}]+)\}")
 
 
+def _strip_latex_comment(line: str) -> str:
+    """Strip the portion of a LaTeX line after an unescaped % comment character."""
+    i = 0
+    while i < len(line):
+        if line[i] == "%" and (i == 0 or line[i - 1] != "\\"):
+            return line[:i]
+        i += 1
+    return line
+
+
 def parse_citations(tex_path: Path) -> list[dict]:
     """Extract all citation keys from a LaTeX file with line numbers and context.
 
     Returns a list of dicts: {"key": str, "line": int, "context": str, "cmd": str}
     Each key in a multi-key citation (e.g., \\citep{a,b,c}) produces a separate entry.
-    Commented-out lines (starting with %) are skipped.
+    Commented-out lines (starting with %) are skipped, and mid-line comments
+    (text after an unescaped %) are stripped before matching.
     """
     results = []
     text = tex_path.read_text(encoding="utf-8")
@@ -50,7 +62,9 @@ def parse_citations(tex_path: Path) -> list[dict]:
         stripped = line.lstrip()
         if stripped.startswith("%"):
             continue
-        for match in CITE_RE.finditer(line):
+        # Strip mid-line comments: find first unescaped %
+        active = _strip_latex_comment(line)
+        for match in CITE_RE.finditer(active):
             keys_str = match.group(1)
             cmd = match.group(0).split("{")[0]  # e.g., \citep
             context = line.strip()
@@ -68,7 +82,7 @@ def parse_citations(tex_path: Path) -> list[dict]:
 
 # Matches @type{key, ... } blocks
 BIB_ENTRY_RE = re.compile(
-    r"@(\w+)\s*\{([^,]+),\s*(.*?)\n\}",
+    r"@(\w+)\s*\{([^,]+),\s*(.*?)\n\s*\}",
     re.DOTALL,
 )
 BIB_FIELD_RE = re.compile(
@@ -375,7 +389,7 @@ def main():
     parsed_dir = Path(PARSED_DIR)
 
     if not tex_path.exists():
-        print(f"Error: {tex_path} not found", file=__import__("sys").stderr)
+        print(f"Error: {tex_path} not found", file=sys.stderr)
         raise SystemExit(2)
 
     report = verify_all(
