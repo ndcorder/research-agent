@@ -24,7 +24,7 @@ provenance/       # Provenance audit trail (cuts archive, auto-iteration artifac
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/
-  commands/       # Slash commands (39 commands)
+  commands/       # Slash commands (42 commands)
   pipeline/       # Stage-specific instructions for /write-paper and /auto (read on-demand per stage/phase)
     shared-protocols.md   # Codex deliberation, codex telemetry, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
@@ -41,6 +41,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-2e-assumptions.md   # Methodological assumptions analysis
     stage-3-writing.md    # Section-by-section writing (abstract-first alignment, warrant verification, voice guidance)
     stage-3b-coherence.md # Cross-section coherence check (promise fulfillment, concept consistency, rebuttal threading)
+    stage-3c-reference-integrity.md  # Reference integrity: artifact verification + misattribution detection
     stage-4-figures.md    # Figures, tables, visual elements
     stage-5-qa.md         # QA review loop
     stage-5-post-qa.md    # Post-QA audits, ref validation, risk radar
@@ -93,9 +94,10 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 5. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
 6. **Writing** — Draft abstract for alignment (default: on), then sequential agents write each section with warrant verification, voice guidance, and evidence checks. Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
 7. **Cross-Section Coherence** — Full-manuscript check for promise fulfillment, concept consistency, rebuttal threading, and narrative arc. Fixes critical coherence issues before QA
-8. **Figures & Tables** — Ensure adequate visual elements
-9. **Quality Assurance** — Parallel review agents + reference spot-checks + revision loop (up to 5 iterations). Fabricated references caught inside the loop, not after
-10. **Finalization** — Polish, compile, archive all artifacts, report
+8. **Reference Integrity** — Programmatic verification that every citation has backing artifacts (bib entry, source extract, content snapshot), auto-removal of fabricated references, then per-section misattribution detection by Sonnet agents cross-checking claims against source extract Content Snapshots
+9. **Figures & Tables** — Ensure adequate visual elements
+10. **Quality Assurance** — Parallel review agents + reference spot-checks + revision loop (up to 5 iterations). Fabricated references caught inside the loop, not after
+11. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
 
@@ -169,6 +171,7 @@ For interactive, step-by-step work:
 - `/check-consistency` — Find notation, terminology, abbreviation, and tense inconsistencies
 - `/audit-claims` — Flag overclaims, unsupported statements, missing significance tests
 - `/validate-references` — Verify every citation is real (CrossRef, search). Critical before submission.
+- `/verify-references` — Run Stage 3c reference integrity check (artifact verification + misattribution detection)
 - `/novelty-check` — Verify the paper's contribution hasn't already been published
 - `/de-ai-polish` — Remove AI writing patterns from the manuscript
 - `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)
