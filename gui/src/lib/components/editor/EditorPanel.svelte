@@ -168,12 +168,15 @@
     tab.dirty = true;
     tabs = [...tabs];
 
+    const delay = get(settings).autoSaveDelay;
+    if (delay <= 0) return; // auto-save disabled
+
     saveTimeout = setTimeout(async () => {
       await saveTab(tab);
       if (tab.language === "latex") {
         updateTexMetadata();
       }
-    }, 1000);
+    }, delay);
   }
 
   function openFile(name: string, path: string) {
@@ -224,25 +227,27 @@
 
     const content = await loadFileContent(tabs[activeTab]);
 
+    const s = get(settings);
     editor = m.editor.create(editorContainer, {
       value: content,
       language: tabs[activeTab].language,
       theme: "research-dark",
       fontFamily: "var(--font-mono)",
-      fontSize: 15,
+      fontSize: s.editorFontSize,
       lineHeight: 24,
-      minimap: { enabled: true, scale: 2 },
-      wordWrap: "on",
-      lineNumbers: "on",
-      renderLineHighlight: "gutter",
+      minimap: { enabled: s.editorMinimap, scale: 2 },
+      wordWrap: s.wordWrap ? "on" : "off",
+      lineNumbers: s.showLineNumbers ? "on" : "off",
+      renderLineHighlight: s.lineHighlight,
       scrollBeyondLastLine: false,
       padding: { top: 8, bottom: 8 },
-      bracketPairColorization: { enabled: true },
+      bracketPairColorization: { enabled: s.bracketPairColorization },
       automaticLayout: false,
-      tabSize: 2,
-      smoothScrolling: true,
+      tabSize: s.editorTabSize,
+      smoothScrolling: s.smoothScrolling,
       cursorBlinking: "smooth",
       cursorSmoothCaretAnimation: "on",
+      cursorStyle: s.cursorStyle,
     });
 
     editor.onDidChangeModelContent(() => {
@@ -419,6 +424,54 @@
     const wrap = $settings.wordWrap;
     if (editor) {
       editor.updateOptions({ wordWrap: wrap ? "on" : "off" });
+    }
+  });
+
+  // Settings: line numbers toggle
+  $effect(() => {
+    const show = $settings.showLineNumbers;
+    if (editor) {
+      editor.updateOptions({ lineNumbers: show ? "on" : "off" });
+    }
+  });
+
+  // Settings: tab size
+  $effect(() => {
+    const tabSize = $settings.editorTabSize;
+    if (editor) {
+      editor.getModel()?.updateOptions({ tabSize });
+    }
+  });
+
+  // Settings: cursor style
+  $effect(() => {
+    const style = $settings.cursorStyle;
+    if (editor) {
+      editor.updateOptions({ cursorStyle: style });
+    }
+  });
+
+  // Settings: line highlight
+  $effect(() => {
+    const highlight = $settings.lineHighlight;
+    if (editor) {
+      editor.updateOptions({ renderLineHighlight: highlight });
+    }
+  });
+
+  // Settings: bracket pair colorization
+  $effect(() => {
+    const enabled = $settings.bracketPairColorization;
+    if (editor) {
+      editor.updateOptions({ bracketPairColorization: { enabled } });
+    }
+  });
+
+  // Settings: smooth scrolling
+  $effect(() => {
+    const smooth = $settings.smoothScrolling;
+    if (editor) {
+      editor.updateOptions({ smoothScrolling: smooth });
     }
   });
 

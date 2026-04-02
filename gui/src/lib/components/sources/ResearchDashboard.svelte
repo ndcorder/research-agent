@@ -1,6 +1,7 @@
 <script lang="ts">
   import { sources, claims, wordCount, texContent } from "$lib/stores/project";
   import { parseCiteKeys } from "$lib/utils/latex";
+  import { extractSourceKeys } from "$lib/components/graph/graphUtils";
 
   // --- Derived data ---
 
@@ -49,10 +50,11 @@
   });
 
   let evidenceCoverage = $derived.by(() => {
+    const sourceKeys = new Set($sources.map((s) => s.key));
     return $claims.map((claim) => {
-      const supportCount = $sources.filter(
-        (s) => s.evidence_for?.includes(claim.id)
-      ).length;
+      // Parse source keys from evidence_sources (format: "key (meta)=N, ...")
+      const keys = extractSourceKeys(claim.evidence_sources);
+      const supportCount = keys.filter((k) => sourceKeys.has(k)).length;
       return { claim, supportCount };
     });
   });

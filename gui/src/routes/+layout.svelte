@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import { activePage, projectDir, showCommandPalette, showSettings, sources, claims, paperState } from "$lib/stores/project";
+  import { settings, ACCENT_COLORS } from "$lib/stores/settings";
   import { stopWatching } from "$lib/utils/ipc";
   import StatusBar from "$lib/components/layout/StatusBar.svelte";
   import ToastContainer from "$lib/components/ui/ToastContainer.svelte";
@@ -8,6 +9,12 @@
   import CommandPalette from "$lib/components/ui/CommandPalette.svelte";
   import { setupShortcuts } from "$lib/utils/shortcuts";
   import { onMount } from "svelte";
+
+  const fontFamilyMap: Record<string, string> = {
+    mono: "var(--font-mono)",
+    sans: "var(--font-sans)",
+    serif: "var(--font-serif)",
+  };
 
   function closeProject() {
     stopWatching().catch(() => {});
@@ -22,6 +29,22 @@
   onMount(() => {
     const cleanup = setupShortcuts();
     return cleanup;
+  });
+
+  $effect(() => {
+    document.body.style.fontFamily = fontFamilyMap[$settings.fontFamily] || fontFamilyMap.mono;
+  });
+
+  $effect(() => {
+    document.documentElement.style.fontSize = `${$settings.uiFontSize}px`;
+  });
+
+  $effect(() => {
+    const colors = ACCENT_COLORS[$settings.accentColor];
+    if (colors) {
+      document.documentElement.style.setProperty("--color-accent", colors.accent);
+      document.documentElement.style.setProperty("--color-accent-hover", colors.hover);
+    }
   });
 </script>
 
