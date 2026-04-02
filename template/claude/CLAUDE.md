@@ -316,6 +316,10 @@ Each paper can optionally have a knowledge graph built from its source extracts 
 
 **Requires**: `OPENROUTER_API_KEY` environment variable. The knowledge graph is optional — the pipeline works without it.
 
+**Venv**: Auto-bootstraps on first `knowledge.py` run (`.venv/` at the research-agent repo root). No manual `pip install` needed.
+
+**OpenSearch backend** (optional): Set `LIGHTRAG_STORAGE=opensearch` to use OpenSearch instead of the default file-based storage. Start the single-node instance with `docker compose up -d` from the research-agent repo root. Per-project namespace isolation is automatic via `knowledge_namespace` in `.paper.json`, so multiple papers can share one OpenSearch instance without cross-contamination.
+
 **Commands**:
 - `build` — full rebuild of the knowledge graph from all sources and PDFs
 - `update` — incremental update (only ingests files newer than last build)
