@@ -104,6 +104,7 @@ SCHEMA = {
         "literature_synthesis": dict,
         "coherence": dict,
         "post_qa": dict,
+        "reference_integrity": dict,
     },
     "auto_iterations_schema": {
         "required": {"completed": int, "requested": int, "history": list},

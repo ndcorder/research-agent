@@ -161,12 +161,13 @@ For each stage in order:
 | 12 | Assumptions Analysis | `pipeline/stage-2e-assumptions.md` | `stages.assumptions.done` |
 | 13 | Section Writing | `pipeline/stage-3-writing.md` | `stages.writing.done` |
 | 14 | Cross-Section Coherence | `pipeline/stage-3b-coherence.md` | `stages.coherence.done` |
-| 15 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
-| 16 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
-| 17 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
-| 18 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
+| 15 | Reference Integrity | `pipeline/stage-3c-reference-integrity.md` | `stages.reference_integrity.done` |
+| 16 | Figures & Tables | `pipeline/stage-4-figures.md` | `stages.figures.done` |
+| 17 | QA Loop | `pipeline/stage-5-qa.md` | `stages.qa.done` |
+| 18 | Post-QA Audits | `pipeline/stage-5-post-qa.md` | `stages.post_qa.done` |
+| 19 | Finalization | `pipeline/stage-6-finalization.md` | `stages.finalization.done` |
 
-**Important**: The QA Loop (Stage 16) reads `pipeline/stage-5-qa.md` which contains an internal loop with reference spot-checks at each iteration. After the QA loop completes, proceed to Post-QA (Stage 17). The quality criteria table below defines the gate for exiting the QA loop.
+**Important**: The QA Loop (Stage 17) reads `pipeline/stage-5-qa.md` which contains an internal loop with reference spot-checks at each iteration. After the QA loop completes, proceed to Post-QA (Stage 18). The quality criteria table below defines the gate for exiting the QA loop.
 
 ---
 
