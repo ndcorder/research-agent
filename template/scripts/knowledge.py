@@ -34,9 +34,13 @@ def _ensure_venv():
     script_path = os.path.realpath(__file__)
     scripts_dir = os.path.dirname(script_path)
     repo_root = os.path.normpath(os.path.join(scripts_dir, "..", ".."))
-    venv_python = os.path.join(repo_root, ".venv", "bin", "python3")
+    venv_dir = os.path.join(repo_root, ".venv")
+    venv_python = os.path.join(venv_dir, "bin", "python3")
 
-    if os.path.realpath(sys.executable) == os.path.realpath(venv_python):
+    # Check if we're running inside the project's .venv by looking at
+    # sys.prefix, not sys.executable (all venvs symlink to the same
+    # underlying Python binary, so realpath comparison doesn't work).
+    if os.path.realpath(sys.prefix) == os.path.realpath(venv_dir):
         return
 
     ensure_script = os.path.join(scripts_dir, "ensure-venv.sh")
