@@ -39,7 +39,7 @@ archive/          # Browsable research archive with index (created at end of /wr
     stage-2c-targeted-research.md  # Deep mode targeted research
     stage-2d-novelty-check.md  # Novelty verification
     stage-2e-assumptions.md   # Methodological assumptions analysis
-    stage-3-writing.md    # Section-by-section writing (abstract-first alignment, warrant verification, voice guidance)
+    stage-3-writing.md    # Phased parallel writing (Phase 1: Intro+Related+Methods in parallel, coherence reconciliation, then serial Results→Discussion→Conclusion→Abstract)
     stage-3b-coherence.md # Cross-section coherence check (promise fulfillment, concept consistency, rebuttal threading)
     stage-3c-reference-integrity.md  # Reference integrity: artifact verification + misattribution detection
     stage-4-figures.md    # Figures, tables, visual elements
@@ -92,11 +92,11 @@ The primary workflow. Run `/write-paper <topic>` to launch the full pipeline:
 3. **Deep Source Reading** — For every source with a PDF, spawn a dedicated agent to read the full paper and rewrite the source extract with comprehensive, topic-relevant content
 4. **Literature Synthesis** — Cross-source analysis: consensus/conflict mapping, methodological critique of cited work, competing framework taxonomy. Produces a unified synthesis document that informs thesis formulation
 5. **Planning** — Thesis statement, contribution, detailed outline, claims-evidence matrix, novelty verification, methodological assumptions analysis
-6. **Writing** — Draft abstract for alignment (default: on), then sequential agents write each section with warrant verification, voice guidance, and evidence checks. Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
+6. **Writing** — Draft abstract for alignment (default: on), then phased parallel writing: Phase 1 runs Introduction, Related Work, and Methods in parallel (each with its own evidence check pipeline), followed by a lightweight coherence reconciliation, then sequential phases for Results, Discussion, Conclusion, and Abstract. Warrant verification, voice guidance, and evidence checks apply to all sections. Methods states assumptions explicitly, Discussion addresses risky/critical assumptions in Limitations
 7. **Cross-Section Coherence** — Full-manuscript check for promise fulfillment, concept consistency, rebuttal threading, and narrative arc. Fixes critical coherence issues before QA
 8. **Reference Integrity** — Programmatic verification that every citation has backing artifacts (bib entry, source extract, content snapshot), auto-removal of fabricated references, then per-section misattribution detection by Sonnet agents cross-checking claims against source extract Content Snapshots
 9. **Figures & Tables** — Ensure adequate visual elements
-10. **Quality Assurance** — Parallel review agents + reference spot-checks + revision loop (up to 5 iterations). Fabricated references caught inside the loop, not after
+10. **Quality Assurance** — Parallel review agents + reference spot-checks + revision loop with adaptive convergence detection (early exit when severity stabilizes, plateau/divergence detection, adaptive max iterations based on initial severity). Fabricated references caught inside the loop, not after
 11. **Finalization** — Polish, compile, archive all artifacts, report
 
 This runs for 1-4 hours (standard) or 3-8 hours (deep). Two model tiers with 1M context: `claude-opus-4-6[1m]` for writing/reasoning, `claude-sonnet-4-6[1m]` for research/review/mechanical tasks. Set `depth` in `.paper.json` to `"deep"` for 3x research effort.
@@ -354,4 +354,12 @@ The graph is built automatically during `/write-paper` (after Stage 1d), rebuilt
 - BibTeX keys: `authorYear` format (e.g., `smith2024`)
 - Figure filenames: descriptive, lowercase, hyphens (e.g., `model-architecture.pdf`)
 - Prefer vector formats (PDF, EPS) for figures; PNG only for photographs/screenshots
-- Float placement: use `[htbp]` not `[H]` unless absolutely necessary
+- Float placement: always `[htbp]`, never `[H]` or bare `[h]`. Place float source before its first text reference
+- Caption below figures, above tables
+- `\label{}` after `\caption{}` inside floats
+- Non-breaking space (`~`) before `\cite`, `\ref`, `\cref`, `\eqref`
+- Tables: booktabs only, no vertical lines
+- Math: `\[...\]` not `$$`, `align` not `eqnarray`
+- Units: use siunitx `\qty{}{}` and `\num{}`
+- Cross-refs: use `\cref{}` when cleveref is loaded
+- Check `.venue.json` `forbidden_packages` before adding any `\usepackage`

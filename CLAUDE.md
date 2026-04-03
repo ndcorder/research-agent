@@ -56,7 +56,7 @@ The `/write-paper` slash command (~200 lines) is the orchestrator. It does NOT c
 4. Spawns parallel agents (Sonnet 1M for research/review, Opus 1M for writing/reasoning)
 5. Checkpoints progress to `.paper-state.json` for resume-on-interrupt
 
-Stages: research (5-12 parallel agents) -> snowballing -> co-citation -> codex cross-check -> source acquisition (14-resolver OA cascade) -> deep source reading (parallel agents read full PDFs) -> synthesis (cross-source analysis) -> planning -> codex thesis stress-test -> targeted research (deep only) -> novelty check -> assumptions -> section writing (sequential) -> coherence check -> reference integrity -> figures -> QA loop (parallel reviewers, up to 5 iterations) -> post-QA audits -> finalization.
+Stages: research (5-12 parallel agents) -> snowballing -> co-citation -> codex cross-check -> source acquisition (14-resolver OA cascade) -> deep source reading (parallel agents read full PDFs) -> synthesis (cross-source analysis) -> planning -> codex thesis stress-test -> targeted research (deep only) -> novelty check -> assumptions -> section writing (sequential) -> coherence check -> reference integrity -> figures -> QA loop (parallel reviewers, adaptive convergence detection, up to 5-10 iterations) -> post-QA audits -> finalization.
 
 ### `/auto` improvement loop (`template/claude/commands/auto.md`)
 
@@ -114,6 +114,14 @@ Create `template/claude/commands/<name>.md`. It's automatically available in all
 2. Update `template/claude/CLAUDE.md` project structure listing
 3. Update `template/claude/commands/write-paper.md` to read and execute the stage
 4. Add stage to schema in `tests/test_schema.py`
+
+### Venue JSON fields
+
+Each venue config now includes:
+- `preamble_extra`: LaTeX lines emitted after packages (float tuning, orphan/widow control, caption position). Injected by `create-paper`.
+- `forbidden_packages`: packages incompatible with the venue's document class. Checked by QA reviewers and the Stage 6 preamble audit.
+
+When editing venues, ensure `preamble_extra` and `forbidden_packages` are present. The test suite validates this.
 
 ### Model references
 
