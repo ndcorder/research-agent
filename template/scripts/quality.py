@@ -190,15 +190,20 @@ def _estimate_paragraph_targets(tex: str) -> set:
     for line in tex.splitlines():
         stripped = line.strip()
 
-        # Detect section headers
-        m = re.match(r"\\section\{([^}]+)\}", stripped)
+        # Detect section and subsection headers
+        m = re.match(r"\\(?:sub)*section\{([^}]+)\}", stripped)
         if m:
             section_name = m.group(1).lower().replace(" ", "-")
             # Simplified: map common names
             section_name = re.sub(r"[^a-z0-9-]", "", section_name)
-            current_section = section_name
-            para_count = 0
-            in_text_block = False
+            # Only top-level \section resets the current section for target keys
+            if stripped.startswith(r"\section{"):
+                current_section = section_name
+                para_count = 0
+                in_text_block = False
+            # Subsections: keep parent section name, just reset text block tracking
+            else:
+                in_text_block = False
             continue
 
         if current_section is None:
@@ -341,9 +346,14 @@ def score_writing(tex: str) -> dict:
     sentence_count = len(sentences)
 
     # AI pattern detection (0-50 points)
+    # Em dash patterns run against raw tex (LaTeX convention); word-level
+    # patterns run against stripped plain text to avoid false positives on
+    # LaTeX commands (e.g. \section{Furthermore}).
+    _EM_DASH_PATTERNS = {r"\u2014", r"---", r"(?<!\d)\u2013(?!\d)"}
     ai_pattern_count = 0
     for pattern in _AI_PATTERNS:
-        ai_pattern_count += len(re.findall(pattern, tex, re.IGNORECASE | re.MULTILINE))
+        target = tex if pattern in _EM_DASH_PATTERNS else text
+        ai_pattern_count += len(re.findall(pattern, target, re.IGNORECASE | re.MULTILINE))
 
     density = (ai_pattern_count / max(word_count, 1)) * 1000
     ai_score = max(0, 50 - density * 5)
@@ -590,14 +600,14 @@ def compute_scorecard(project: Path) -> dict:
         compile_warnings = len(re.findall(r"LaTeX Warning:", log_text))
 
     # Count citations in tex
-    citation_count = len(re.findall(r"\\cite[pt]?\{[^}]*\}", tex))
+    citation_count = len(re.findall(r"\\cite\w*\{[^}]*\}", tex))
 
     # Count words in stripped text
     stripped = _strip_latex_commands(tex)
     word_count = len(stripped.split()) if stripped.strip() else 0
 
     # Check knowledge graph availability
-    kg_available = (project / "knowledge_graph").is_dir()
+    kg_available = (project / "research" / "knowledge").is_dir()
 
     # Score each dimension
     ev = score_evidence(claims)
