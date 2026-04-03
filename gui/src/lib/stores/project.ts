@@ -28,6 +28,8 @@ export const cursorParagraph = writable<string | null>(null);
 export const timelineScrollTo = writable<string | null>(null);
 
 export const activePage = writable<"workspace" | "terminal">("workspace");
+export const bottomTerminalVisible = writable<boolean>(false);
+export const bottomTerminalHeight = writable<number>(250);
 export const openFileRequest = writable<{ name: string; path: string } | null>(null);
 export const closeActiveTabRequest = writable<boolean>(false);
 export const saveActiveTabRequest = writable<boolean>(false);
