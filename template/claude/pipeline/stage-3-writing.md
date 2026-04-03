@@ -135,6 +135,14 @@ The writing agent for that section should then ALSO read `research/section_lit_[
   4. If you discover a contradiction between sources while writing, flag it explicitly in the text rather than silently choosing one side
   ```
 - Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
+- **LaTeX Conventions** (see shared-protocols.md § LaTeX Conventions Protocol):
+  - Float placement: `[htbp]` always. Place float environment *before* its first text reference. Caption below figures, above tables.
+  - Cross-refs: Use `\cref{}` if cleveref is loaded (check `.venue.json` packages), otherwise `Figure~\ref{}`. Always `\label{}` after `\caption{}`.
+  - Non-breaking spaces: `~` before `\citep`, `\citet`, `\cite`, `\ref`, `\cref`, `\eqref` and after abbreviations (e.g.,~ i.e.,~ Fig.~ Eq.~).
+  - Math: `\[...\]` not `$$`, `align` not `eqnarray`, punctuate equations, use `\mathrm{}` for multi-letter names.
+  - Numbers with units: use `\qty{}{}` and `\num{}` from siunitx.
+  - Tables: booktabs only (`\toprule/\midrule/\bottomrule`), no vertical lines, `@{}` at edges.
+  - Check `forbidden_packages` from `.venue.json` before adding any `\usepackage`.
 
 **Section writing order and targets:**
 
