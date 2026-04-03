@@ -138,15 +138,15 @@ After all agents complete:
 
 1. **Spot-check** 2-3 source extracts — verify they have substantial Content Snapshots and the `Deep-Read: true` flag
 2. **Count results**: how many sources were deep-read, any failures
-3. **Rebuild knowledge graph** (if `scripts/knowledge.py` exists and `OPENROUTER_API_KEY` is set):
+3. **Update knowledge graph** (if `scripts/knowledge.py` exists and `OPENROUTER_API_KEY` is set):
    ```bash
-   python scripts/knowledge.py build
+   python scripts/knowledge.py enqueue --reindex research/sources/*.md
    ```
-   Run with `run_in_background: true` — the enriched source extracts will produce a richer graph. If a knowledge graph build was already triggered by Stage 1d, run `update` instead of `build`:
+   The `--reindex` flag forces re-ingestion of source extracts that were rewritten by deep-read agents. If the ingestion worker is not running (no prior Stage 1d), start it first:
    ```bash
-   python scripts/knowledge.py update
+   python scripts/knowledge.py serve
    ```
-   If prerequisites are not met, log `"⚠ Knowledge graph not available — skipping rebuild after deep read"` and continue. Update `.paper-state.json` knowledge_graph status if it changes.
+   Run `serve` with `run_in_background: true`. Then enqueue. If prerequisites are not met, log `"⚠ Knowledge graph not available — skipping re-enqueue after deep read"` and continue. Update `.paper-state.json` knowledge_graph status if it changes.
 
 ---
 

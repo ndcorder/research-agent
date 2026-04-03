@@ -322,9 +322,9 @@ After all three agents complete:
 
 3. **Knowledge graph update** (if `research/knowledge/` exists, skip silently if not):
    ```bash
-   python scripts/knowledge.py update
+   python scripts/knowledge.py enqueue research/prepared/**/*.md
    ```
-   Run with `run_in_background: true` — the synthesis files add new relationships and entities to the graph.
+   Enqueues the synthesis files so the knowledge graph incorporates new relationships and entities. Instant — the background worker processes them.
 
 4. **Update source manifest**:
    ```bash

@@ -334,6 +334,16 @@ Each paper can optionally have a knowledge graph built from its source extracts 
 - `relationships "entity"` — show how a concept connects to others
 - `coverage "document.md"` — check which graph entities appear in a document, report missing entities sorted by importance
 
+**Streaming ingestion** (used by the pipeline for non-blocking graph building):
+- `serve` — start a long-running worker that owns the RAG instance and processes a queue
+- `enqueue <files>...` — instantly queue files for ingestion (priority: sources > prepared > parsed > PDFs)
+- `enqueue --reindex <files>...` — force re-ingestion of already-processed files (e.g., after deep-read rewrites)
+- `status` — show queue state: pending/done/failed counts, worker liveness
+- `drain [--timeout N]` — block until queue is empty
+- `stop` — graceful worker shutdown
+
+The pipeline starts `serve` at Stage 1d and enqueues files as they arrive throughout Stages 1d-1f and beyond. Standalone commands (`/knowledge`, `/audit-sources`) use `build` instead since blocking is fine for one-off use.
+
 Query results are cached in `research/knowledge/.cache/` until the next build or update.
 
 The graph is built automatically during `/write-paper` (after Stage 1d), rebuilt incrementally after Stage 2c (deep targeted research) and `/auto` iterations that add references, and queried at every stage where evidence matters: thesis validation (Stage 2), section writing (Stage 3, mandatory section-specific queries), and QA review (Stage 5, contradiction + entity coverage analysis).

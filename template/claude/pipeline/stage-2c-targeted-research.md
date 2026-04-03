@@ -67,10 +67,11 @@ RESEARCH LOG: [same format]
 
 After all agents complete, run the bibliography builder again to add new references to `references.bib`.
 
-**Rebuild knowledge graph** — new papers from targeted research need to be incorporated:
+**Update knowledge graph** — new papers from targeted research need to be incorporated:
 ```bash
-python scripts/knowledge.py update
+python scripts/knowledge.py enqueue research/sources/*.md
+python scripts/knowledge.py enqueue attachments/parsed/*.md
 ```
-**Run with `run_in_background: true`** — incremental updates can take several minutes depending on new source count. You will be notified when it completes. If the knowledge graph was not previously built (no `research/knowledge/` directory), skip this step silently.
+The enqueue command automatically skips files that have already been ingested and haven't changed. Only new/modified sources are queued. If the knowledge graph was not previously built (no `research/knowledge/` directory), skip this step silently.
 
 **Checkpoint**: Verify targeted research files exist. Update `.paper-state.json`: mark `targeted_research` as done.

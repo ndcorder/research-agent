@@ -750,23 +750,34 @@ Include a **Validation Summary**:
 
 ---
 
-## Phase 5: Knowledge Graph Build
+## Phase 5: Knowledge Graph Worker
 
-After source acquisition is complete, build the knowledge graph from all source extracts and PDFs:
+Start the streaming knowledge graph worker and enqueue all acquired sources:
 
-```bash
-python scripts/knowledge.py build
-```
+1. **Start the worker** (if `scripts/knowledge.py` exists and `OPENROUTER_API_KEY` is set):
+   ```bash
+   python scripts/knowledge.py serve
+   ```
+   **Run with `run_in_background: true`** — the worker initializes the RAG instance once and then processes queued files as they arrive. It runs throughout the remainder of the pipeline.
 
-**Run this command with `run_in_background: true`** — the knowledge graph build can take 10-30+ minutes depending on source count and PDF volume. Running in background avoids the Bash timeout limit and lets you continue with other work while it builds. You will be notified when it completes.
+2. **Enqueue all source extracts and parsed PDFs**:
+   ```bash
+   python scripts/knowledge.py enqueue research/sources/*.md
+   python scripts/knowledge.py enqueue attachments/parsed/*.md
+   ```
+   These commands are instant (append to a queue file). The worker processes them in priority order: source extracts first (fast, high value), then parsed PDFs (slower, enrichment).
 
-This creates a queryable knowledge graph in `research/knowledge/` from all files in `research/sources/` and PDFs in `attachments/`. The graph extracts entities (papers, theories, methods, findings, authors) and relationships (cites, contradicts, supports, extends) that agents can query during writing.
+3. **Check status**:
+   ```bash
+   python scripts/knowledge.py status
+   ```
+   Log the output. The graph is now building incrementally in the background. Downstream stages can query whatever has been ingested so far — the Knowledge Graph Availability Protocol handles partial availability.
 
 **If `scripts/knowledge.py` does not exist or `OPENROUTER_API_KEY` is not set**, skip this step but log explicitly: `"⚠ Knowledge graph not available (reason: [missing script / missing OPENROUTER_API_KEY]). Downstream stages will apply compensating checks per the Knowledge Graph Availability Protocol in shared-protocols.md."` The pipeline works without it, but quality is reduced — see the Knowledge Graph Availability Protocol.
 
-Update `.paper-state.json`: add `"knowledge_graph": { "available": true/false, "reason": "[ok / missing_script / missing_api_key / build_failed]", "entities": N, "relationships": N }` to the stages object. If skipped, set `"available": false` with the appropriate reason and `"entities": 0, "relationships": 0`.
+Update `.paper-state.json`: add `"knowledge_graph": { "available": true/false, "reason": "[ok / missing_script / missing_api_key / serve_failed]", "entities": "building", "relationships": "building" }` to the stages object. If skipped, set `"available": false` with the appropriate reason.
 
-If the build command fails (non-zero exit code), set `"available": false, "reason": "build_failed"` and log the error. Do not retry — downstream stages will compensate.
+If the serve command fails (non-zero exit code), try the batch fallback: `python scripts/knowledge.py build` with `run_in_background: true`. If that also fails, set `"available": false, "reason": "build_failed"` and log the error. Do not retry — downstream stages will compensate.
 
 ---
 

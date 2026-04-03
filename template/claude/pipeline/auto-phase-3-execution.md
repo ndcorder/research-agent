@@ -25,11 +25,12 @@ RESEARCH LOG: Append entries to research/log.md.
 Create source extracts in research/sources/ for any new papers.
 ```
 
-**After the research agent completes** (if it ran and added new source extracts or references), rebuild the knowledge graph incrementally:
+**After the research agent completes** (if it ran and added new source extracts or references), enqueue new sources for the knowledge graph:
 ```bash
-python scripts/knowledge.py update
+python scripts/knowledge.py enqueue research/sources/*.md
+python scripts/knowledge.py enqueue attachments/parsed/*.md
 ```
-**Run with `run_in_background: true`** — incremental updates can take several minutes. You will be notified when it completes. If `research/knowledge/` does not exist, log `"⚠ Knowledge graph not available — skipping update"` and continue.
+The enqueue command skips already-ingested files automatically. If `research/knowledge/` does not exist, log `"⚠ Knowledge graph not available — skipping enqueue"` and continue. If the ingestion worker is not running, start it first with `python scripts/knowledge.py serve` (run with `run_in_background: true`).
 
 ### Revision phase
 

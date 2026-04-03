@@ -20,6 +20,37 @@ python scripts/knowledge.py build
 ```
 Run this after adding new source extracts or when the graph is stale.
 
+**Start streaming ingestion worker (for long sessions):**
+```bash
+python scripts/knowledge.py serve
+```
+Run with `run_in_background: true`. Starts a long-running worker that processes queued files. Use this instead of `build` when sources will arrive incrementally.
+
+**Enqueue files for ingestion:**
+```bash
+python scripts/knowledge.py enqueue research/sources/*.md
+python scripts/knowledge.py enqueue attachments/parsed/*.md
+python scripts/knowledge.py enqueue --reindex research/sources/*.md  # force re-ingestion
+```
+Instant — appends to the queue. The worker processes files in priority order (source extracts first).
+
+**Check ingestion status:**
+```bash
+python scripts/knowledge.py status
+```
+Shows pending/done/failed counts and whether the worker is alive.
+
+**Wait for ingestion to complete:**
+```bash
+python scripts/knowledge.py drain
+python scripts/knowledge.py drain --timeout 300  # fail after 5 minutes
+```
+
+**Stop the worker:**
+```bash
+python scripts/knowledge.py stop
+```
+
 **Query the knowledge graph:**
 ```bash
 python scripts/knowledge.py query "your question here"
