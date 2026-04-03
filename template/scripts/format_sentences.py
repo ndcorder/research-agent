@@ -282,9 +282,29 @@ def _sentence_split_pass(content: str) -> str:
 def lint_line(line: str) -> str:
     """Apply formatting fixes to a single content line."""
 
+    # --- Fix bare [h] and [H] float specifiers → [htbp] ---
+    line = re.sub(
+        r"(\\begin\{(?:figure|table)\*?\})\[[hH]\]",
+        r"\1[htbp]",
+        line,
+    )
+
+    # --- Fix obsolete {\bf text} → \textbf{text} ---
+    line = re.sub(r"\{\\bf\s+([^}]*)\}", r"\\textbf{\1}", line)
+
+    # --- Fix obsolete {\it text} → \emph{text} ---
+    line = re.sub(r"\{\\it\s+([^}]*)\}", r"\\emph{\1}", line)
+
     # --- Non-breaking spaces before \ref, \eqref, \autoref, etc. after label words ---
     line = re.sub(
         rf"((?:{_LABEL_WORDS})) +({_REF_COMMANDS})",
+        r"\1~\2",
+        line,
+    )
+
+    # --- Non-breaking space before \ref, \cref, \eqref after any word character ---
+    line = re.sub(
+        rf"(\w) +({_REF_COMMANDS})",
         r"\1~\2",
         line,
     )
