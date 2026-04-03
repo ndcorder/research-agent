@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import textwrap
+import unittest
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
@@ -469,3 +470,90 @@ class TestFullScorecard:
         assert q._grade(55) == "C"
         assert q._grade(45) == "D"
         assert q._grade(30) == "F"
+
+
+# ---------------------------------------------------------------------------
+# Analytics persistence
+# ---------------------------------------------------------------------------
+
+
+class TestAnalyticsPersistence(unittest.TestCase):
+    """Tests for cross-paper analytics persistence functions."""
+
+    def setUp(self):
+        self._tmpdir = tempfile.mkdtemp()
+        self._orig_analytics_dir = None
+        self.q = _load()
+        self._orig_analytics_dir = self.q.ANALYTICS_DIR
+        self.q.ANALYTICS_DIR = Path(self._tmpdir) / "analytics"
+
+    def tearDown(self):
+        if self._orig_analytics_dir is not None:
+            self.q.ANALYTICS_DIR = self._orig_analytics_dir
+        import shutil
+        shutil.rmtree(self._tmpdir, ignore_errors=True)
+
+    def _make_scorecard(self, overall=75, grade="B"):
+        return {
+            "timestamp": "2026-04-03T00:00:00+00:00",
+            "project": "/tmp/test-paper",
+            "dimensions": {
+                "evidence": {"score": 80, "details": {}},
+                "writing": {"score": 70, "details": {}},
+                "structure": {"score": 65, "details": {}},
+                "research": {"score": 85, "details": {}},
+                "provenance": {"score": 50, "details": {}},
+            },
+            "overall": overall,
+            "grade": grade,
+        }
+
+    def test_save_creates_directory(self):
+        analytics_dir = self.q.ANALYTICS_DIR
+        assert not analytics_dir.exists()
+        self.q.save_score("test-paper", self._make_scorecard())
+        assert analytics_dir.exists()
+        assert (analytics_dir / "scores.jsonl").is_file()
+
+    def test_save_appends_to_scores(self):
+        self.q.save_score("paper-a", self._make_scorecard(overall=75, grade="B"))
+        self.q.save_score("paper-b", self._make_scorecard(overall=60, grade="C+"), checkpoint="stage-5")
+        scores_path = self.q.ANALYTICS_DIR / "scores.jsonl"
+        lines = [l for l in scores_path.read_text().splitlines() if l.strip()]
+        assert len(lines) == 2
+        first = json.loads(lines[0])
+        assert first["paper"] == "paper-a"
+        assert first["checkpoint"] == "manual"
+        assert first["overall"] == 75
+        assert first["evidence"] == 80
+        second = json.loads(lines[1])
+        assert second["paper"] == "paper-b"
+        assert second["checkpoint"] == "stage-5"
+        assert second["overall"] == 60
+
+    def test_load_history(self):
+        self.q.save_score("paper-a", self._make_scorecard(overall=75))
+        self.q.save_score("paper-b", self._make_scorecard(overall=60))
+        self.q.save_score("paper-a", self._make_scorecard(overall=80))
+        # Load all
+        all_entries = self.q.load_history()
+        assert len(all_entries) == 3
+        # Filter by paper name
+        a_entries = self.q.load_history("paper-a")
+        assert len(a_entries) == 2
+        assert all(e["paper"] == "paper-a" for e in a_entries)
+        b_entries = self.q.load_history("paper-b")
+        assert len(b_entries) == 1
+
+    def test_save_outcome(self):
+        self.q.save_outcome("test-paper", "accepted", venue="NeurIPS", notes="Camera-ready done")
+        outcomes_path = self.q.ANALYTICS_DIR / "outcomes.jsonl"
+        assert outcomes_path.is_file()
+        lines = [l for l in outcomes_path.read_text().splitlines() if l.strip()]
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["paper"] == "test-paper"
+        assert entry["outcome"] == "accepted"
+        assert entry["venue"] == "NeurIPS"
+        assert entry["notes"] == "Camera-ready done"
+        assert "timestamp" in entry

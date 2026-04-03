@@ -22,6 +22,65 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
+# Cross-paper analytics persistence
+# ---------------------------------------------------------------------------
+
+ANALYTICS_DIR = Path.home() / ".research-agent" / "analytics"
+
+
+def save_score(paper_name: str, scorecard: dict, checkpoint: str = "manual") -> None:
+    """Append a scorecard entry to ~/.research-agent/analytics/scores.jsonl."""
+    ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "paper": paper_name,
+        "checkpoint": checkpoint,
+        "timestamp": scorecard.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "overall": scorecard.get("overall", 0),
+        "grade": scorecard.get("grade", "F"),
+    }
+    dims = scorecard.get("dimensions", {})
+    for dim_name in ("evidence", "writing", "structure", "research", "provenance"):
+        entry[dim_name] = dims.get(dim_name, {}).get("score", 0)
+    scores_path = ANALYTICS_DIR / "scores.jsonl"
+    with open(scores_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def load_history(paper_name: str | None = None) -> list[dict]:
+    """Read scores.jsonl, optionally filter by paper name."""
+    scores_path = ANALYTICS_DIR / "scores.jsonl"
+    if not scores_path.is_file():
+        return []
+    entries = []
+    for line in scores_path.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if paper_name is None or entry.get("paper") == paper_name:
+            entries.append(entry)
+    return entries
+
+
+def save_outcome(paper_name: str, outcome: str, venue: str = "", notes: str = "") -> None:
+    """Append to ~/.research-agent/analytics/outcomes.jsonl."""
+    ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "paper": paper_name,
+        "outcome": outcome,
+        "venue": venue,
+        "notes": notes,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    outcomes_path = ANALYTICS_DIR / "outcomes.jsonl"
+    with open(outcomes_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+# ---------------------------------------------------------------------------
 # Parsers
 # ---------------------------------------------------------------------------
 
@@ -733,11 +792,40 @@ def _cmd_score(args):
 
 
 def _cmd_history(args):
-    print("Not yet implemented")
+    history = load_history(getattr(args, "paper", None))
+    if not history:
+        print("No scoring history found.")
+        return
+    # Header
+    print(f"{'Paper':<30} {'Checkpoint':<12} {'Overall':>7} {'Grade':>5}  "
+          f"{'Ev':>3} {'Wr':>3} {'St':>3} {'Re':>3} {'Pv':>3}  {'Timestamp'}")
+    print("-" * 110)
+    for entry in history:
+        print(f"{entry.get('paper', '?'):<30} {entry.get('checkpoint', '?'):<12} "
+              f"{entry.get('overall', 0):>7} {entry.get('grade', '?'):>5}  "
+              f"{entry.get('evidence', 0):>3} {entry.get('writing', 0):>3} "
+              f"{entry.get('structure', 0):>3} {entry.get('research', 0):>3} "
+              f"{entry.get('provenance', 0):>3}  {entry.get('timestamp', '?')}")
 
 
 def _cmd_record_outcome(args):
-    print("Not yet implemented")
+    project = Path(args.project).resolve() if hasattr(args, "project") else Path.cwd().resolve()
+    paper_name = getattr(args, "name", None) or project.name
+    venue = getattr(args, "venue", "") or ""
+    notes = getattr(args, "notes", "") or ""
+    save_outcome(paper_name, args.outcome, venue=venue, notes=notes)
+    print(f"Recorded outcome '{args.outcome}' for paper '{paper_name}'.")
+
+
+def _cmd_save(args):
+    project = Path(args.project).resolve()
+    if not (project / "main.tex").is_file():
+        print(f"Error: {project / 'main.tex'} not found. Are you in a paper project?", file=sys.stderr)
+        sys.exit(1)
+    paper_name = args.name or project.name
+    scorecard = compute_scorecard(project)
+    save_score(paper_name, scorecard, checkpoint=args.checkpoint)
+    print(f"Saved scores for '{paper_name}' (checkpoint: {args.checkpoint}, overall: {scorecard['overall']}/{scorecard['grade']})")
 
 
 def _cmd_insights(args):
@@ -755,13 +843,22 @@ def main():
     p_score.add_argument("--project", default=".", help="Path to paper project")
     p_score.set_defaults(func=_cmd_score)
 
+    p_save = sub.add_parser("save", help="Compute scorecard and save to analytics")
+    p_save.add_argument("--project", default=".", help="Path to paper project")
+    p_save.add_argument("--name", default=None, help="Paper name (defaults to directory basename)")
+    p_save.add_argument("--checkpoint", default="manual", help="Checkpoint label")
+    p_save.set_defaults(func=_cmd_save)
+
     p_history = sub.add_parser("history", help="Show scoring history")
+    p_history.add_argument("--paper", default=None, help="Filter by paper name")
     p_history.set_defaults(func=_cmd_history)
 
     p_record = sub.add_parser("record-outcome", help="Record submission outcome")
     p_record.add_argument("outcome", help="Outcome (accepted, rejected, etc.)")
-    p_record.add_argument("--venue", "-v", default=None)
-    p_record.add_argument("--notes", "-n", default=None)
+    p_record.add_argument("--project", default=".", help="Path to paper project")
+    p_record.add_argument("--name", default=None, help="Paper name (defaults to directory basename)")
+    p_record.add_argument("--venue", "-v", default="")
+    p_record.add_argument("--notes", "-n", default="")
     p_record.set_defaults(func=_cmd_record_outcome)
 
     p_insights = sub.add_parser("insights", help="Show quality insights")

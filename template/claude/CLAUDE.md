@@ -178,6 +178,7 @@ For interactive, step-by-step work:
 - `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)
 - `/lay-summary` — Generate plain-language summary, tweet thread, elevator pitch
 - `/compile` — Compile LaTeX to PDF and report errors
+- `/score` — Multi-dimensional quality scorecard (evidence, writing, structure, research, provenance)
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)
 - `/auto` — Run N autonomous improvement iterations on a completed paper (assess → prioritize → execute → verify)
