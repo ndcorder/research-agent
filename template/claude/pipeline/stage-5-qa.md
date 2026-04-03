@@ -4,9 +4,21 @@
 
 ---
 
-**This stage LOOPS until all quality criteria pass.** Maximum 5 iterations (or 8 if depth is `"deep"`).
+**This stage LOOPS until all quality criteria pass or convergence is detected.** Initial maximum: 5 iterations (or 8 if depth is `"deep"`). The adaptive iteration system may adjust this after iteration 1 (see Step 5d).
 
 Track `QA_ITERATION` starting at 1, incrementing each time the loop repeats from Step 5d back to Step 5a.
+
+Initialize convergence tracking in `.paper-state.json` at the start of the QA stage (if not already present):
+```json
+"qa": {
+  "done": false,
+  "max_iterations": 5,
+  "converged_at": null,
+  "convergence_reason": null,
+  "iterations": []
+}
+```
+Set `max_iterations` to 5 (standard) or 8 (deep). This value may be adjusted after iteration 1.
 
 #### Step 5a: Parallel Review
 
@@ -147,6 +159,27 @@ Verify:
 Write review to reviews/completeness.md with every issue found.
 ```
 
+**LaTeX Quality Checks** (every QA iteration):
+
+After the three review agents complete, check for these LaTeX anti-patterns in `main.tex`. This can run in parallel with the Codex adversarial review (Step 5a-ii).
+
+1. **Float placement**: Any `[H]` specifiers? Any `[h]` without `tbp`? Floats referenced after their appearance?
+2. **Caption order**: Captions below tables or above figures? (Both are wrong.)
+3. **Cross-reference issues**: `\label` before `\caption`? Manual "Figure 1" instead of `\ref`/`\cref`?
+4. **Non-breaking spaces**: Missing `~` before `\cite`/`\ref`/`\cref`? After `e.g.`/`i.e.`/`Fig.`/`Eq.`?
+5. **Table formatting**: Any `|` column separators or `\hline`? Should use booktabs.
+6. **Math issues**: `$$...$$` instead of `\[...\]`? `eqnarray` instead of `align`? Unpunctuated display math? Italic multi-letter names (`$loss$`)?
+7. **Typography**: `\vspace`/`\hspace` layout hacks? `{\bf ...}` or `{\it ...}` instead of `\textbf`/`\emph`? `\sloppy`?
+8. **Forbidden packages**: Any `\usepackage` in the document that's in `.venue.json` `forbidden_packages`?
+9. **Overfull boxes**: After compilation, check log for overfull hbox warnings > 1pt.
+
+Write findings to `reviews/latex_quality.md`. Grade the manuscript:
+- **CLEAN**: 0 issues found
+- **MINOR**: 1-3 cosmetic issues (e.g., missing `~` before `\cite`)
+- **MAJOR**: 4+ issues, or any structural issue like `[H]` abuse, `$$...$$`, or forbidden packages
+
+The revision agent (Step 5c) must fix all MAJOR LaTeX issues. MINOR issues should be fixed if iteration budget allows. Include the grade in the review synthesis (Step 5b).
+
 #### Step 5a-ii: Codex Adversarial Review
 
 **This is a separate step. Do NOT skip it. Do NOT merge it with the agent reviews above.**
@@ -224,6 +257,43 @@ Read ALL files in `reviews/` including `codex_adversarial.md`. Also read `resear
 4. Missing citations
 5. Evidence density upgrades — actions that would move WEAK claims toward MODERATE (e.g., finding additional sources, strengthening evidence descriptions)
 
+#### Step 5b-ii: Issue Severity Tracking
+
+After synthesizing reviews, count and classify all issues from the consolidated fix list:
+
+```
+QA_METRICS for iteration [QA_ITERATION]:
+- CRITICAL issues: [count]
+- MAJOR issues: [count]
+- MINOR issues: [count]
+- Total severity score: (CRITICAL × 10) + (MAJOR × 3) + (MINOR × 1)
+```
+
+Compare against previous iterations to identify recurring vs new issues:
+- **Recurring**: An issue that matches (same section + same category) an issue from a prior iteration
+- **New**: An issue not present in any prior iteration
+
+Record metrics in `.paper-state.json` under `stages.qa.iterations`:
+```json
+{
+  "iteration": QA_ITERATION,
+  "critical": 0,
+  "major": 2,
+  "minor": 5,
+  "severity_score": 11,
+  "new_issues": 1,
+  "recurring_issues": 4,
+  "sections_modified": ["methods", "discussion"]
+}
+```
+
+**Adaptive Max Iterations (iteration 1 only):** After recording iteration 1 metrics, adjust `max_iterations`:
+- If `severity_score < 10` (paper is already in good shape): reduce `max_iterations` to 3 (standard) or 5 (deep)
+- If `severity_score > 50` (many issues): increase `max_iterations` by 2 (e.g., 7 for standard, 10 for deep)
+- Otherwise: keep the original max
+
+Update `stages.qa.max_iterations` in `.paper-state.json` and log: `"Adaptive QA: iteration 1 severity [X] → max iterations adjusted to [Y]"`
+
 #### Step 5c: Revision Agent
 
 Spawn a revision agent (model: claude-opus-4-6[1m]):
@@ -270,11 +340,19 @@ After the revision agent completes, generate `reviews/qa_iter[QA_ITERATION]_cont
 ## Sections Unchanged
 - [Section] (unchanged since QA iteration [M] or initial pipeline)
 
+## Quality Trend
+| Iteration | Critical | Major | Minor | Score | Δ |
+|-|-|-|-|-|-|
+[For each completed iteration, add a row from stages.qa.iterations in .paper-state.json]
+Example:
+| 1 | 2 | 5 | 8 | 43 | — |
+| 2 | 0 | 3 | 6 | 15 | -28 |
+
 ## Deferred Issues
 [MEDIUM/MINOR issues not addressed in this iteration]
 ```
 
-Keep under 500 words.
+Keep under 600 words (increased from 500 to accommodate the quality trend table).
 
 #### Step 5d: Quality Gate Check
 
