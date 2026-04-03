@@ -100,6 +100,20 @@ This is a mechanical check, not a creative task. Do it yourself (no agent needed
 
 ---
 
+**Quality Scorecard** — Run the quality scoring engine to produce the final paper scorecard:
+
+```bash
+python scripts/quality.py score --format json --project . > .paper-quality.json
+python scripts/quality.py save --project . --checkpoint final
+python scripts/quality.py score --format text --project .
+```
+
+Read the text output and include it in the final completion report. Store the JSON scorecard in `.paper-state.json` under `stages.quality_scores.final`.
+
+If any dimension scores below 40, flag it as a known weakness in the completion report with the dimension-specific recommendation from `/score`.
+
+---
+
 Spawn a **final polish agent** (model: claude-opus-4-6[1m]):
 ```
 You are a senior editor doing the final pass before journal submission.

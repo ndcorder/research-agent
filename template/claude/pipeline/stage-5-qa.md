@@ -318,6 +318,13 @@ Record metrics in `.paper-state.json` under `stages.qa.iterations`:
 
 Update `stages.qa.max_iterations` in `.paper-state.json` and log: `"Adaptive QA: iteration 1 severity [X] → max iterations adjusted to [Y]"`
 
+**Quality snapshot (iteration 1 only):** On the first QA iteration, run the quality scorer to establish a pre-QA baseline:
+```bash
+python scripts/quality.py score --format json --project . > .paper-quality-pre-qa.json
+python scripts/quality.py save --project . --checkpoint pre_qa
+```
+Store the JSON output in `.paper-state.json` under `stages.quality_scores.pre_qa`. This enables measuring the quality improvement from the QA loop.
+
 #### Step 5c: Revision Agent
 
 Spawn a revision agent (model: claude-opus-4-6[1m]):

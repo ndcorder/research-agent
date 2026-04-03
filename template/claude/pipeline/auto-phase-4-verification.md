@@ -39,6 +39,19 @@ Write verification report to reviews/auto_iter[N]_verify.md.
      "history": [..., {"iteration": N, "started_at": "...", "completed_at": "...", "changes_made": X, "cuts_made": Y, "research_queries": Z, "summary": "..."}]
    }
    ```
+3b. **Quality score snapshot** — Run the quality scorer to track improvement across iterations:
+    ```bash
+    python scripts/quality.py score --format json --project .
+    ```
+    Store the result in the current iteration's history entry (in `.paper-state.json` `stages.auto_iterations.history[N]`) under a `quality_scores` key. If this is iteration 2+, compare each dimension with the previous iteration's scores and report the delta:
+    ```
+    Quality delta from iteration [N-1]:
+      evidence:   72 → 78 (+6)
+      writing:    65 → 63 (-2)  ← regression
+      ...
+      overall:    68 → 71 (+3)
+    ```
+    Flag any dimension that decreased as a regression.
 4. Update `.paper-progress.txt`: "Auto iteration [N]/[total] complete: [summary of changes]"
 5. **Generate iteration context file** — write `reviews/auto_iter[N]_context.md` for use by the next iteration's assessment agents. Build it from the plan (`reviews/auto_iter[N]_plan.md`), verification report (`reviews/auto_iter[N]_verify.md`), and provenance entries (`research/provenance.jsonl` filtered to `iteration: N`):
    ```markdown
