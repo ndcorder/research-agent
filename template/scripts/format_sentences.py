@@ -30,6 +30,12 @@ PROTECTED_ENVS = {
 # Environments where linting is also disabled (literal text)
 LITERAL_ENVS = {"verbatim", "lstlisting", "minted", "alltt"}
 
+# Environments that use display math (tracked separately for sentence splitting)
+DISPLAY_MATH_ENVS = {
+    "equation", "equation*", "align", "align*", "gather", "gather*",
+    "multline", "multline*", "flalign", "flalign*", "eqnarray", "eqnarray*",
+}
+
 # Abbreviations that don't end sentences
 ABBREVIATIONS = {
     "e.g.", "i.e.", "cf.", "vs.", "etc.", "al.", "Fig.", "fig.",
@@ -41,12 +47,20 @@ ABBREVIATIONS = {
     "Refs.", "refs.", "Secs.", "secs.", "Chs.", "chs.",
 }
 
+_MAX_ABBREV_LEN = max(len(a) for a in ABBREVIATIONS)
+
 # Label words that need non-breaking space before \ref/\eqref
 _LABEL_WORDS = (
     r"Figure|Table|Section|Theorem|Lemma|Definition|Corollary|"
     r"Proposition|Chapter|Appendix|Algorithm|Listing|Equation|"
     r"Fig\.|Eq\.|Sec\.|Ch\.|Tab\."
 )
+
+# Reference commands that should have a non-breaking space before them
+_REF_COMMANDS = r"\\(?:ref|eqref|pageref|autoref|cref|Cref)\b"
+
+# Citation commands that should have a non-breaking space before them
+_CITE_COMMANDS = r"\\(?:cite|citep|citet|citealt|citealp|citeauthor|citeyear|citenum)\b"
 
 
 # ---------------------------------------------------------------------------
@@ -80,10 +94,37 @@ def find_sentence_breaks(text: str) -> list[int]:
     breaks = []
     i = 0
     in_math = False
+    in_display_math = False
 
     while i < len(text):
         ch = text[i]
 
+        # --- Display math: $$ ... $$ ---
+        if (
+            ch == "$"
+            and i + 1 < len(text)
+            and text[i + 1] == "$"
+            and (i == 0 or text[i - 1] != "\\")
+        ):
+            in_display_math = not in_display_math
+            i += 2
+            continue
+
+        # --- Display math: \[ ... \] ---
+        if ch == "\\" and i + 1 < len(text) and text[i + 1] == "[" and not in_math:
+            in_display_math = True
+            i += 2
+            continue
+        if ch == "\\" and i + 1 < len(text) and text[i + 1] == "]" and in_display_math:
+            in_display_math = False
+            i += 2
+            continue
+
+        if in_display_math:
+            i += 1
+            continue
+
+        # --- Inline math: $ ... $ ---
         if ch == "$" and (i == 0 or text[i - 1] != "\\"):
             in_math = not in_math
             i += 1
@@ -93,22 +134,23 @@ def find_sentence_breaks(text: str) -> list[int]:
             i += 1
             continue
 
-        # Recognize \ldots as a potential sentence boundary
-        if text[i : i + 6] == "\\ldots":
-            rest = text[i + 6 :]
+        # --- Skip LaTeX commands that contain dots (e.g. \ldots, \cdots, \dots) ---
+        if text[i : i + 6] == "\\ldots" or text[i : i + 5] == "\\dots" or text[i : i + 6] == "\\cdots":
+            cmd_len = 6 if text[i : i + 6] in ("\\ldots", "\\cdots") else 5
+            rest = text[i + cmd_len :]
             m = re.match(r"([}\)\]]*)\s+", rest)
             if m:
-                next_pos = i + 6 + m.end()
+                next_pos = i + cmd_len + m.end()
                 if next_pos < len(text) and (
                     text[next_pos].isupper() or text[next_pos] == "\\"
                 ):
-                    split_at = i + 6 + len(m.group(1))
+                    split_at = i + cmd_len + len(m.group(1))
                     breaks.append(split_at)
-            i += 6
+            i += cmd_len
             continue
 
         if ch in ".?!":
-            before = text[max(0, i - 11) : i + 1]
+            before = text[max(0, i - _MAX_ABBREV_LEN) : i + 1]
             is_abbrev = False
             for a in ABBREVIATIONS:
                 if before.endswith(a):
@@ -120,6 +162,12 @@ def find_sentence_breaks(text: str) -> list[int]:
                 i += 1
                 continue
 
+            # --- Skip decimal numbers: "3.14", "0.5" ---
+            if ch == "." and i > 0 and text[i - 1].isdigit():
+                if i + 1 < len(text) and text[i + 1].isdigit():
+                    i += 1
+                    continue
+
             rest = text[i + 1 :]
             m = re.match(r"([}\)\]]*)\s+", rest)
             if m:
@@ -130,10 +178,22 @@ def find_sentence_breaks(text: str) -> list[int]:
                     split_at = i + 1 + len(m.group(1))
                     breaks.append(split_at)
 
+        # --- Colon followed by a capital letter can start a new "sentence" ---
+        if ch == ":":
+            rest = text[i + 1 :]
+            m = re.match(r"\s+", rest)
+            if m:
+                next_pos = i + 1 + m.end()
+                if next_pos < len(text) and text[next_pos].isupper():
+                    # Only split if the text after looks like a full sentence
+                    # (at least ~20 chars or another sentence-ending punctuation)
+                    remaining = text[next_pos:]
+                    if len(remaining) > 30 or re.search(r"[.?!]", remaining):
+                        breaks.append(i + 1)
+
         i += 1
 
     return breaks
-
 
 def _sentence_split_pass(content: str) -> str:
     """Reformat paragraphs to one sentence per line."""
@@ -222,9 +282,25 @@ def _sentence_split_pass(content: str) -> str:
 def lint_line(line: str) -> str:
     """Apply formatting fixes to a single content line."""
 
-    # --- Non-breaking spaces before \ref, \eqref after label words ---
+    # --- Non-breaking spaces before \ref, \eqref, \autoref, etc. after label words ---
     line = re.sub(
-        rf"((?:{_LABEL_WORDS})) +(\\(?:ref|eqref)\b)",
+        rf"((?:{_LABEL_WORDS})) +({_REF_COMMANDS})",
+        r"\1~\2",
+        line,
+    )
+
+    # --- Non-breaking space before \cite, \citep, \citet, etc. ---
+    # Matches a regular space before a citation command and replaces with ~
+    line = re.sub(
+        rf"(\S) +({_CITE_COMMANDS})",
+        r"\1~\2",
+        line,
+    )
+
+    # --- Non-breaking space between number and unit commands ---
+    # e.g., "5 \%" → "5~\%", "100 \si{...}" → "100~\si{...}"
+    line = re.sub(
+        r"(\d) +(\\(?:si|SI|%|percent)\b)",
         r"\1~\2",
         line,
     )
@@ -234,21 +310,40 @@ def lint_line(line: str) -> str:
     if "``" not in line and "''" not in line:
         line = re.sub(r'(?<!\\)"([^"]*)"', r"``\1''", line)
 
+    # --- Single smart quotes: 'text' → `text' ---
+    # Only when surrounded by spaces/start-of-line (avoid contractions like don't)
+    if "`" not in line:
+        line = re.sub(r"(?<=\s)'([^']+)'(?=[\s,.\);:!?])", r"`\1'", line)
+
     # --- Ellipsis: ... → \ldots ---
     line = re.sub(r"(?<!\.)\.\.\.(?!\.)", r"\\ldots", line)
 
     # --- En-dash for number ranges: 1-10 → 1--10 ---
     line = re.sub(r"(\d)\s*-(?!-)\s*(\d)", r"\1--\2", line)
 
+    # --- En-dash for page ranges after pp.: pp. 10-20 → pp. 10--20 ---
+    line = re.sub(r"(pp\.\s*\d+)\s*-(?!-)\s*(\d)", r"\1--\2", line)
+
+    # --- Normalize display math: $$...$$ → \[...\] ---
+    line = re.sub(r"\$\$(.+?)\$\$", r"\\[\1\\]", line)
+
     # --- Normalize \(...\) → $...$ (only if no $ on line to avoid nesting) ---
     if "$" not in line:
         line = re.sub(r"\\\((.+?)\\\)", r"$\1$", line)
+
+    # --- Prefer \emph over \textit for semantic emphasis ---
+    line = re.sub(r"\\textit\{([^}]*)\}", r"\\emph{\1}", line)
+
+    # --- Fix common ligature-breaking: fi, fl in copy-pasted text ---
+    line = line.replace("ﬁ", "fi").replace("ﬂ", "fl")
+
+    # --- Remove double periods (common typo, but skip \ldots and ...) ---
+    line = re.sub(r"(?<!\\)(?<!\.)\.\.(?!\.)", ".", line)
 
     # --- Collapse multiple spaces (preserve leading indent) ---
     line = re.sub(r"(?<=\S)  +", " ", line)
 
     return line
-
 
 def _lint_pass(content: str) -> str:
     """Apply linting fixes. Skips preamble, literal environments, and comments."""
@@ -256,6 +351,7 @@ def _lint_pass(content: str) -> str:
     result: list[str] = []
     in_preamble = True
     literal_depth = 0
+    display_math_depth = 0
 
     for line in lines:
         # Always strip trailing whitespace
@@ -278,6 +374,17 @@ def _lint_pass(content: str) -> str:
             result.append(line)
             continue
 
+        # Track display math environments (don't lint math content)
+        for env in DISPLAY_MATH_ENVS:
+            if f"\\begin{{{env}}}" in line:
+                display_math_depth += 1
+            if f"\\end{{{env}}}" in line:
+                display_math_depth = max(0, display_math_depth - 1)
+
+        if display_math_depth > 0:
+            result.append(line)
+            continue
+
         # Skip comment-only lines (trailing whitespace already stripped)
         if line.strip().startswith("%"):
             result.append(line)
@@ -286,7 +393,6 @@ def _lint_pass(content: str) -> str:
         result.append(lint_line(line))
 
     return "\n".join(result)
-
 
 # ---------------------------------------------------------------------------
 # Combined
@@ -302,27 +408,32 @@ def format_latex(content: str) -> str:
 def main() -> None:
     check_mode = "--check" in sys.argv
     args = [a for a in sys.argv[1:] if a != "--check"]
-    path = args[0] if args else "main.tex"
+    paths = args if args else ["main.tex"]
 
-    with open(path, encoding="utf-8") as f:
-        original = f.read()
+    any_changed = False
+    for path in paths:
+        with open(path, encoding="utf-8") as f:
+            original = f.read()
 
-    formatted = format_latex(original)
+        formatted = format_latex(original)
 
-    if check_mode:
-        if formatted != original:
-            print(f"{path}: would reformat")
-            sys.exit(1)
+        if check_mode:
+            if formatted != original:
+                print(f"{path}: would reformat")
+                any_changed = True
+            else:
+                print(f"{path}: already formatted")
         else:
-            print(f"{path}: already formatted")
-            sys.exit(0)
+            if formatted != original:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(formatted)
+                print(f"Formatted {path}")
+                any_changed = True
+            else:
+                print(f"{path}: no changes needed")
 
-    if formatted != original:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(formatted)
-        print(f"Formatted {path}")
-    else:
-        print(f"{path}: no changes needed")
+    if check_mode and any_changed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

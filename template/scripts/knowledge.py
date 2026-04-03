@@ -92,8 +92,13 @@ PROGRESS_FILE = os.path.join(WORKING_DIR, ".queue_progress.json")
 WORKER_PID_FILE = os.path.join(WORKING_DIR, ".worker.pid")
 WORKER_LOG_FILE = os.path.join(WORKING_DIR, "worker.log")
 
-# --- LLM & Embedding models ---
+# --- Models ---
+# Ingestion model: used for entity extraction and merge summarization during build/update.
+# Needs: fast, cheap, good at structured extraction. Flash-tier models excel here.
 LLM_MODEL = os.environ.get("LIGHTRAG_LLM_MODEL", "google/gemini-3-flash-preview")
+# Query model: used when answering questions against the graph. Falls back to LLM_MODEL.
+# Needs: reasoning, synthesis, nuanced writing. Smarter models pay off here.
+QUERY_LLM_MODEL = os.environ.get("LIGHTRAG_QUERY_LLM_MODEL", "")
 EMBEDDING_MODEL = os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
 EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
 EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32000"))
@@ -103,7 +108,7 @@ OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.
 # Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC.
 # Override via env vars if your API plan supports higher throughput.
 MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "20"))
-LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "16"))
+LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "32"))
 EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "16"))
 EMBEDDING_FUNC_MAX_ASYNC = int(os.environ.get("LIGHTRAG_EMBEDDING_FUNC_MAX_ASYNC", "16"))
 
@@ -167,6 +172,10 @@ EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "600"))
 WORKER_POLL_INTERVAL = float(os.environ.get("LIGHTRAG_WORKER_POLL_INTERVAL", "2.0"))
 WORKER_STOP_TIMEOUT = int(os.environ.get("LIGHTRAG_WORKER_STOP_TIMEOUT", "30"))
 DRAIN_POLL_INTERVAL = float(os.environ.get("LIGHTRAG_DRAIN_POLL_INTERVAL", "5.0"))
+# How many pending files to batch into a single ainsert() call.
+# Higher = better utilization of max_parallel_insert (documents processed concurrently).
+# 1 = legacy one-at-a-time behavior.
+WORKER_BATCH_SIZE = int(os.environ.get("LIGHTRAG_WORKER_BATCH_SIZE", "10"))
 
 # --- Storage backend: "file" (default) or "opensearch" ---
 LIGHTRAG_STORAGE = os.environ.get("LIGHTRAG_STORAGE", "file")
@@ -221,6 +230,19 @@ def _get_cache_path(query: str, mode: str) -> Path:
     return Path(CACHE_DIR) / f"{key}.txt"
 
 
+def _get_query_model_func():
+    """Return an LLM function for query-time if QUERY_LLM_MODEL is set, else None."""
+    if not QUERY_LLM_MODEL or QUERY_LLM_MODEL == LLM_MODEL:
+        return None
+    from lightrag.llm.openai import openai_complete
+    return partial(
+        openai_complete,
+        model=QUERY_LLM_MODEL,
+        base_url=OPENROUTER_BASE_URL,
+        api_key=get_api_key(),
+    )
+
+
 async def _cached_query(rag, query: str, mode: str) -> str:
     """Query with file-based caching. Returns cached result if available."""
     from lightrag import QueryParam
@@ -230,7 +252,8 @@ async def _cached_query(rag, query: str, mode: str) -> str:
         print("(using cached result)", file=sys.stderr)
         return cache_path.read_text(encoding="utf-8")
 
-    result = await rag.aquery(query, param=QueryParam(mode=mode))
+    query_model = _get_query_model_func()
+    result = await rag.aquery(query, param=QueryParam(mode=mode, model_func=query_model))
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_path.write_text(str(result), encoding="utf-8")
     return result
@@ -1092,25 +1115,25 @@ async def cmd_serve(_args):
                 except asyncio.TimeoutError:
                     continue  # poll again
 
-            # Process highest-priority item first (small sources before big PDFs)
+            # Process highest-priority items first (small sources before big PDFs)
             pending.sort(key=lambda x: x.get("priority", 99))
-            item = pending[0]
-            doc_id = item["doc_id"]
-            file_path = Path(item["path"])
 
-            if not file_path.exists():
-                _log_worker(f"SKIP (missing): {doc_id}")
-                progress["processed"][doc_id] = {
-                    "status": "skipped",
-                    "reason": "file_not_found",
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
-                _save_progress(progress)
-                continue
+            # --- Pre-read phase: build batch, skipping missing/empty files ---
+            batch_docs = []
+            batch_ids = []
+            for item in pending[:WORKER_BATCH_SIZE]:
+                doc_id = item["doc_id"]
+                file_path = Path(item["path"])
 
-            _log_worker(f"INGEST: {doc_id} ({file_path.name})")
+                if not file_path.exists():
+                    _log_worker(f"SKIP (missing): {doc_id}")
+                    progress["processed"][doc_id] = {
+                        "status": "skipped",
+                        "reason": "file_not_found",
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    continue
 
-            try:
                 content = _read_file_content(file_path)
                 if not content or not content.strip():
                     _log_worker(f"SKIP (empty): {doc_id}")
@@ -1119,24 +1142,43 @@ async def cmd_serve(_args):
                         "reason": "empty_file",
                         "completed_at": datetime.now(timezone.utc).isoformat(),
                     }
-                else:
-                    await rag.ainsert([content], ids=[doc_id], file_paths=[doc_id])
+                    continue
+
+                batch_docs.append(content)
+                batch_ids.append(doc_id)
+
+            # Persist any skip decisions before the potentially long ingest
+            _save_progress(progress)
+
+            if not batch_docs:
+                continue
+
+            # --- Ingest phase: single ainsert() for the whole batch ---
+            _log_worker(f"BATCH INGEST: {len(batch_docs)} docs ({', '.join(batch_ids[:5])}{'...' if len(batch_ids) > 5 else ''})")
+            try:
+                await rag.ainsert(batch_docs, ids=batch_ids, file_paths=batch_ids)
+                now = datetime.now(timezone.utc).isoformat()
+                for doc_id, content in zip(batch_ids, batch_docs):
                     ingested_count += 1
                     progress["processed"][doc_id] = {
                         "status": "done",
                         "chars": len(content),
-                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                        "completed_at": now,
                     }
-                    _log_worker(f"OK: {doc_id} ({len(content)} chars)")
-                    _save_build_timestamp()
-                    _invalidate_cache()
+                _log_worker(f"OK: batch of {len(batch_ids)} docs")
+                _save_build_timestamp()
+                _invalidate_cache()
             except Exception as e:
-                _log_worker(f"FAIL: {doc_id}: {e}")
-                progress["processed"][doc_id] = {
-                    "status": "failed",
-                    "error": str(e),
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
+                # On batch failure, mark all docs in the batch as failed.
+                # A future enhancement could retry individually.
+                _log_worker(f"FAIL (batch): {e}")
+                now = datetime.now(timezone.utc).isoformat()
+                for doc_id in batch_ids:
+                    progress["processed"][doc_id] = {
+                        "status": "failed",
+                        "error": str(e),
+                        "completed_at": now,
+                    }
 
             _save_progress(progress)
 
