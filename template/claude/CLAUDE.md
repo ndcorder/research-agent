@@ -174,6 +174,7 @@ For interactive, step-by-step work:
 - `/check-ref-integrity` — Run Stage 3c reference integrity check (artifact integrity + misattribution detection)
 - `/novelty-check` — Verify the paper's contribution hasn't already been published
 - `/de-ai-polish` — Remove AI writing patterns from the manuscript
+- `/debug-research` — Diagnose research failures: test API connectivity, analyze logs, identify source gaps, suggest fixes
 - `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)
 - `/lay-summary` — Generate plain-language summary, tweet thread, elevator pitch
 - `/compile` — Compile LaTeX to PDF and report errors

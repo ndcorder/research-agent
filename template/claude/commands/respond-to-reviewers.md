@@ -50,7 +50,9 @@ If `research/prepared/defense/defense-brief.md` exists:
 
 **Tier 2 — Live knowledge graph queries** (use when no defense brief exists):
 
-If `research/knowledge/` has been built (check for any `.json` or graph data files):
+First check availability: read `stages.knowledge_graph.available` from `.paper-state.json` if it exists, or check `[ -n "$OPENROUTER_API_KEY" ]` and whether `research/knowledge/` has content. If the knowledge graph is NOT available, skip to Tier 3 with a log message: `"⚠ Knowledge graph not available — falling back to manual source reading."`
+
+If the knowledge graph IS available (`research/knowledge/` has been built):
 1. Run: `python scripts/knowledge.py evidence-for "<reviewer's specific concern>"`
 2. Run: `python scripts/knowledge.py evidence-against "<reviewer's specific concern>"`
 3. Run: `python scripts/knowledge.py query "<any specific factual claim the reviewer makes>"`

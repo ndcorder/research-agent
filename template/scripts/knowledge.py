@@ -185,13 +185,30 @@ if LIGHTRAG_STORAGE not in ("file", "opensearch"):
 
 
 def get_api_key():
-    """Get OpenRouter API key from environment."""
+    """Get OpenRouter API key from environment. Exits with code 1 on missing key."""
     key = os.environ.get("OPENROUTER_API_KEY")
     if not key:
         print("Error: OPENROUTER_API_KEY environment variable not set.", file=sys.stderr)
         print("Get a key at https://openrouter.ai/keys", file=sys.stderr)
         sys.exit(1)
     return key
+
+
+def check_api_key_available():
+    """Check if OPENROUTER_API_KEY is set. Returns the key or None."""
+    return os.environ.get("OPENROUTER_API_KEY")
+
+
+def _graceful_exit_no_api_key(command_name: str):
+    """Print a user-friendly message and exit 0 when API key is missing.
+
+    Used by commands that should degrade gracefully (exit 0) rather than
+    crash, so that bash && chains and pipeline orchestration continue.
+    """
+    print(f"Knowledge graph {command_name}: skipped (OPENROUTER_API_KEY not set).")
+    print("Set the key to enable knowledge graph features: export OPENROUTER_API_KEY=your-key")
+    print("Get a key at https://openrouter.ai/keys")
+    sys.exit(0)
 
 
 def log_operation(operation: str, details: dict):
@@ -424,6 +441,8 @@ def extract_pdf_text(pdf_path: Path) -> str:
 
 async def cmd_build(_args):
     """Build or update the knowledge graph from source extracts and PDFs."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("build")
     sources_path = Path(SOURCES_DIR)
     attachments_path = Path(ATTACHMENTS_DIR)
 
@@ -558,6 +577,8 @@ async def cmd_build(_args):
 
 async def cmd_update(_args):
     """Incremental update: only ingest files newer than last build."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("update")
     last_build_path = Path(LAST_BUILD_FILE)
     if not last_build_path.exists():
         print("No previous build found. Running full build instead.")
@@ -652,6 +673,8 @@ async def cmd_update(_args):
 
 async def cmd_query(args):
     """Freeform semantic search across the knowledge graph."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("query")
     rag = await _init_rag()
 
     mode = getattr(args, "mode", None) or DEFAULT_QUERY_MODE
@@ -669,6 +692,8 @@ async def cmd_query(args):
 
 async def cmd_contradictions(_args):
     """Find conflicting claims across source documents."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("contradictions")
     rag = await _init_rag()
 
     prompt = (
@@ -702,6 +727,8 @@ async def cmd_contradictions(_args):
 
 async def cmd_evidence_for(args):
     """Find sources supporting a specific claim."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("evidence-for")
     rag = await _init_rag()
 
     prompt = (
@@ -728,6 +755,8 @@ async def cmd_evidence_for(args):
 
 async def cmd_evidence_against(args):
     """Find sources challenging a specific claim."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("evidence-against")
     rag = await _init_rag()
 
     prompt = (
@@ -756,6 +785,8 @@ async def cmd_evidence_against(args):
 async def cmd_entities(_args):
     """List all extracted entities from the knowledge graph."""
     if LIGHTRAG_STORAGE == "opensearch":
+        if not check_api_key_available():
+            _graceful_exit_no_api_key("entities")
         rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
@@ -813,6 +844,8 @@ async def cmd_entities(_args):
 async def cmd_relationships(args):
     """Show how a specific entity connects to others in the graph."""
     if LIGHTRAG_STORAGE == "opensearch":
+        if not check_api_key_available():
+            _graceful_exit_no_api_key("relationships")
         rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
@@ -886,6 +919,8 @@ async def cmd_coverage(args):
     doc_text = doc_path.read_text(encoding="utf-8").lower()
 
     if LIGHTRAG_STORAGE == "opensearch":
+        if not check_api_key_available():
+            _graceful_exit_no_api_key("coverage")
         rag = await _init_rag()
 
         graph = rag.chunk_entity_relation_graph
@@ -1067,6 +1102,8 @@ def _read_file_content(path):
 
 async def cmd_serve(_args):
     """Long-running worker that processes the ingestion queue."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("serve")
     os.makedirs(WORKING_DIR, exist_ok=True)
 
     # Atomically create PID file to prevent duplicate workers
@@ -1192,6 +1229,8 @@ async def cmd_serve(_args):
 
 async def cmd_enqueue(args):
     """Add files to the ingestion queue. Instant, non-blocking."""
+    if not check_api_key_available():
+        _graceful_exit_no_api_key("enqueue")
     os.makedirs(WORKING_DIR, exist_ok=True)
 
     progress = _read_progress()

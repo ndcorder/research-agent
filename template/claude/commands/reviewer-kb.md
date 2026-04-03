@@ -35,6 +35,10 @@ Build, refresh, or query the reviewer defense knowledge base for `/respond-to-re
 
 ## Instructions
 
+**Availability check** — before running any subcommand that touches the knowledge graph (`build`, `refresh`, `defense-brief`, `status`):
+1. Check: `[ -n "$OPENROUTER_API_KEY" ] && echo "OK" || echo "MISSING"`
+2. If MISSING: tell the user "Knowledge graph requires OPENROUTER_API_KEY. Set it with: export OPENROUTER_API_KEY=your-key (get a key at https://openrouter.ai/keys)." The `prepare` subcommand does NOT need the API key (it only writes markdown files) and can proceed without it.
+
 Run the command the user requested:
 
 ```bash

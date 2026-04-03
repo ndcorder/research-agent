@@ -4,7 +4,7 @@
 
 ---
 
-Each section gets its own dedicated agent. **Run sequentially** — each section builds on prior ones.
+Each section gets its own dedicated agent. Sections are organized into **phases** — sections within a phase run in **parallel** (they draw from shared research artifacts, not from each other), while phases run **sequentially** (later phases depend on earlier ones). Each parallel agent handles its own post-section pipeline (expansion, spot-check, evidence check) internally before reporting completion.
 
 **Abstract-First Strategy (default: ON)**
 
@@ -146,15 +146,56 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 
 **Section writing order and targets:**
 
-| Order | Section | Guidance | Key instruction |
-|-|-|-|-|
-| 1 | Introduction | Comprehensive | Broad context → specific problem → contribution → findings preview → paper organization. Cite 8-12 works. Write until the reader fully understands the problem and why this work matters. |
-| 2 | Related Work | Thorough | Organize THEMATICALLY in 3-5 subsections. Discuss 3-5 papers per theme. Position this work explicitly. Cite 15-20 works. Cover the field completely — don't leave gaps a reviewer would notice. |
-| 3 | Methods/Approach | Exhaustive | Full detail for reproduction. Math in equation/align environments. Pseudocode if applicable. Design rationale. Use `sympy` skill for formulations if appropriate. Another researcher should be able to reproduce this from your description alone. **ASSUMPTIONS** — Read `research/assumptions.md`. For each assumption categorized as REASONABLE, RISKY, or CRITICAL: (1) state it explicitly at the point where it's introduced, (2) for RISKY and CRITICAL: briefly justify why it's appropriate (cite prior art if available), (3) forward-reference the Discussion/Limitations section for detailed analysis of RISKY and CRITICAL assumptions. Do NOT bury assumptions — state them near the methodological choice they relate to. A reviewer should be able to find every assumption by reading Methods. |
-| 4 | Results/Experiments | Data-driven | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. Present all results needed to support your claims. |
-| 5 | Discussion | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. **ASSUMPTIONS** — Read `research/assumptions.md`. The Limitations subsection MUST address: (1) every CRITICAL assumption: what happens if it doesn't hold, how bounded is the impact, (2) every RISKY assumption: evidence for and against, alternative approaches if assumption fails, (3) group assumptions by theme (data, model, evaluation) for readability. Frame limitations honestly but constructively — "We acknowledge X; however, prior work [cite] demonstrates Y, suggesting this assumption is reasonable in the context of Z." |
-| 6 | Conclusion | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
-| 7 | Abstract | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. Unless `abstract_strategy` is explicitly `"last"`, this replaces the draft abstract from `research/draft_abstract.md` — compare against it to ensure nothing promised was dropped. |
+Sections are organized into phases. Sections within the same phase run as **parallel agents**. Phases run sequentially.
+
+| Phase | Section | Execution | Guidance | Key instruction |
+|-|-|-|-|-|
+| 1 | Introduction | Parallel | Comprehensive | Broad context → specific problem → contribution → findings preview → paper organization. Cite 8-12 works. Write until the reader fully understands the problem and why this work matters. |
+| 1 | Related Work | Parallel | Thorough | Organize THEMATICALLY in 3-5 subsections. Discuss 3-5 papers per theme. Position this work explicitly. Cite 15-20 works. Cover the field completely — don't leave gaps a reviewer would notice. |
+| 1 | Methods/Approach | Parallel | Exhaustive | Full detail for reproduction. Math in equation/align environments. Pseudocode if applicable. Design rationale. Use `sympy` skill for formulations if appropriate. Another researcher should be able to reproduce this from your description alone. **ASSUMPTIONS** — Read `research/assumptions.md`. For each assumption categorized as REASONABLE, RISKY, or CRITICAL: (1) state it explicitly at the point where it's introduced, (2) for RISKY and CRITICAL: briefly justify why it's appropriate (cite prior art if available), (3) forward-reference the Discussion/Limitations section for detailed analysis of RISKY and CRITICAL assumptions. Do NOT bury assumptions — state them near the methodological choice they relate to. A reviewer should be able to find every assumption by reading Methods. |
+| — | Coherence Reconciliation | Serial | — | Lightweight check after Phase 1 parallel writes (see below) |
+| 2 | Results/Experiments | Serial | Data-driven | Setup → quantitative results (tables) → ablations → qualitative analysis. At least 2 booktabs tables. Use `statistical-analysis` skill, `matplotlib` or `scientific-visualization` skill for figures. Present all results needed to support your claims. |
+| 3 | Discussion | Serial | Reflective | Interpret findings → compare with prior work → limitations (be honest) → broader implications → future work. Use `scientific-critical-thinking` skill. Be thorough on limitations — reviewers respect honesty. **ASSUMPTIONS** — Read `research/assumptions.md`. The Limitations subsection MUST address: (1) every CRITICAL assumption: what happens if it doesn't hold, how bounded is the impact, (2) every RISKY assumption: evidence for and against, alternative approaches if assumption fails, (3) group assumptions by theme (data, model, evaluation) for readability. Frame limitations honestly but constructively — "We acknowledge X; however, prior work [cite] demonstrates Y, suggesting this assumption is reasonable in the context of Z." |
+| 4 | Conclusion | Serial | Concise | Restate problem → summarize approach → highlight key results (with numbers) → impact statement. No new information. Brief and impactful. |
+| 4 | Abstract | Serial (after Conclusion) | Self-contained | Written LAST. Specific quantitative claims. Read the ENTIRE paper first. Must stand alone — a reader should understand the full contribution from the abstract. Unless `abstract_strategy` is explicitly `"last"`, this replaces the draft abstract from `research/draft_abstract.md` — compare against it to ensure nothing promised was dropped. |
+
+**Phase execution details:**
+
+- **Phase 0 (Draft Abstract)**: Already runs before all section writing (see Abstract-First Strategy above). No change.
+- **Phase 1 (Parallel)**: Spawn 3 agents simultaneously for Introduction, Related Work, and Methods/Approach. Each agent reads the shared research artifacts (thesis, claims matrix, draft abstract, sources, references.bib) independently. Each agent writes to its own section of main.tex. Each agent runs its own post-section pipeline internally (expansion → spot-check → evidence check → micro-research if needed). Wait for ALL 3 agents to complete before proceeding.
+- **Coherence Reconciliation**: After Phase 1, run a lightweight reconciliation pass (see below). This is lighter than Stage 3b — it only reconciles the parallel writes.
+- **Phase 2 (Serial)**: Results/Experiments. Needs Methods written (must know what methodology is described to present results). Can also reference Introduction and Related Work.
+- **Phase 3 (Serial)**: Discussion. Needs Results (interprets findings, compares with prior work). The Codex-authored Limitations draft also runs here.
+- **Phase 4 (Serial)**: Conclusion, then Abstract. Conclusion synthesizes everything. Abstract is rewritten last (replaces draft).
+
+**Coherence Reconciliation (after Phase 1)**
+
+After all Phase 1 agents complete, spawn a reconciliation agent (model: `claude-sonnet-4-6[1m]`) that reads the Introduction, Related Work, and Methods/Approach sections from main.tex:
+
+```
+You are a coherence reconciliation agent. Three sections (Introduction, Related Work, Methods/Approach) were written in parallel by independent agents. Your job is to fix inconsistencies between them BEFORE the rest of the paper is written.
+
+Read the Introduction, Related Work, and Methods/Approach sections from main.tex.
+
+Check for and fix:
+1. **Terminology consistency**: Ensure the same terms are used for the same concepts across all 3 sections. If Introduction calls it "transfer learning" but Methods calls it "domain adaptation" for the same technique, standardize.
+2. **No contradictory framing**: Introduction's problem statement must align with what Methods describes. If Introduction promises approach X, Methods must deliver approach X.
+3. **Narrative arc**: Introduction's problem statement should flow into Related Work's identified gap, which should motivate the approach in Methods. Ensure this logical chain is intact.
+4. **Cross-references**: Ensure forward/backward references between sections are consistent (e.g., "as described in Section 3" actually matches what Section 3 contains).
+
+Fix any inconsistencies directly in main.tex. Prefer minimal, targeted edits — do NOT rewrite sections. Standardize toward whichever phrasing is clearest and most precise.
+
+Log all changes to research/provenance.jsonl with action "reconcile" and reasoning explaining each fix.
+```
+
+Write the reconciliation summary to `reviews/phase1_reconciliation.md`. Update `.paper-state.json`:
+```json
+"writing": {
+  "phase1_reconciliation": { "done": true, "fixes": [N] }
+}
+```
+
+If the reconciliation agent finds 0 issues, proceed immediately. This step should be fast (1-3 minutes) — it is NOT a full coherence check (that is Stage 3b).
 
 **Provenance for each section**: After completing each section, the writing agent must have appended at least one provenance entry per paragraph. If a paragraph draws from multiple sources, list all of them. The `reasoning` field should explain the paragraph's role in the argument (e.g., "Sets up the gap in prior work by contrasting smith2024's approach with jones2023's limitations, motivating our contribution").
 
@@ -317,29 +358,51 @@ Micro-research runs **at most once per section**. If gaps remain after research,
 **Pipeline flow with evidence check:**
 
 ```
-Write Intro → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
-Write Related Work → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
-Write Methods → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
-Write Results → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
-Write Discussion → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed] →
-Write Conclusion → [Expansion/Spot-check] → Evidence Check (no micro-research) →
-Write Abstract
+Phase 0: Draft Abstract (alignment tool)
+
+Phase 1 (PARALLEL — 3 agents simultaneously):
+  ┌─ Write Intro    → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed]
+  ├─ Write Related   → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed]
+  └─ Write Methods   → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed]
+  (wait for all 3)
+
+Coherence Reconciliation (terminology, framing, narrative arc)
+
+Phase 2:
+  Write Results → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed]
+
+Phase 3:
+  Write Discussion → [Expansion/Spot-check] → Evidence Check → [Micro-Research if needed]
+  + Codex Limitations Draft
+
+Phase 4:
+  Write Conclusion → [Expansion/Spot-check] → Evidence Check (no micro-research)
+  Write Abstract (replaces draft)
 ```
+
+**Parallel agent requirements**: Each Phase 1 agent is fully self-contained. It reads research artifacts, writes to its own section of main.tex, and runs its own post-section pipeline (expansion, spot-check, evidence check, micro-research). Agents must NOT read each other's output during Phase 1 — they work from the shared research base only. The coherence reconciliation step after Phase 1 handles any cross-section inconsistencies.
 
 **State tracking** — After each section's evidence check, update `.paper-state.json` under the writing stage:
 
 ```json
 "writing": {
+  "current_phase": 2,
+  "phase1_reconciliation": { "done": true, "fixes": 2 },
   "sections": {
-    "introduction": { "done": true, "words": 1250, "evidence_gaps": 1, "micro_research": false },
-    "related_work": { "done": true, "words": 2100, "evidence_gaps": 4, "micro_research": true, "new_refs": 3 },
-    "methods": { "done": true, "words": 1800, "evidence_gaps": 0, "micro_research": false }
+    "introduction": { "done": true, "phase": 1, "words": 1250, "evidence_gaps": 1, "micro_research": false },
+    "related_work": { "done": true, "phase": 1, "words": 2100, "evidence_gaps": 4, "micro_research": true, "new_refs": 3 },
+    "methods": { "done": true, "phase": 1, "words": 1800, "evidence_gaps": 0, "micro_research": false },
+    "results": { "done": false, "phase": 2, "words": 0, "current_substep": "write" }
   }
 }
 ```
 
-Record `evidence_gaps` (count from evidence check), `micro_research` (whether it triggered), and `new_refs` (count of references added by micro-research, if any).
+Record `evidence_gaps` (count from evidence check), `micro_research` (whether it triggered), `new_refs` (count of references added by micro-research, if any), and `phase` (which phase the section belongs to).
 
 **Partial resume**: Update `.paper-state.json` after each section completes AND after each sub-step (expansion, spot_check, evidence_check, micro_research, patch). Set the section's `current_substep` field to track progress within a section. The sub-step order is: `"write"` → `"expansion"` → `"spot_check"` → `"evidence_check"` → `"micro_research"` → `"patch"`. On resume, if a section's `done` is false but `current_substep` is set, skip completed sub-steps and resume from the recorded sub-step. When a section fully completes, set `done: true` and `current_substep: null`. Also set `writing.current_substep` at the stage level to the currently active sub-step for quick status visibility.
+
+**Phase-level resume**: Track `writing.current_phase` to know which phase is active. On resume:
+- If `current_phase` is 1: check which Phase 1 sections are done. Re-spawn only the incomplete ones in parallel. If all Phase 1 sections are done but `phase1_reconciliation.done` is false, run reconciliation.
+- If `current_phase` is 2-4: resume serial execution from the current section.
 
 ---

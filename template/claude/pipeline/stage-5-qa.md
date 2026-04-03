@@ -22,7 +22,11 @@ Set `max_iterations` to 5 (standard) or 8 (deep). This value may be adjusted aft
 
 #### Step 5a: Parallel Review
 
-**Load QA iteration context (iterations 2+):** If `QA_ITERATION > 1` and `reviews/qa_iter[QA_ITERATION-1]_context.md` exists, read it and store as `QA_CONTEXT`. Prepend the following block to EVERY review agent prompt below:
+**Load QA iteration context (iterations 2+):** If `QA_ITERATION > 1`, read the context file from the previous iteration:
+- For iterations 2-3: read `reviews/qa_iter[QA_ITERATION-1]_context.md`
+- For iterations 4+: read `reviews/qa_cumulative_context.md`
+
+Store the contents as `QA_CONTEXT`. If the context file doesn't exist, skip — agents run without context as before. Prepend the following block to EVERY review agent prompt below:
 
 ```
 QA ITERATION CONTEXT — This is QA iteration [QA_ITERATION]. The paper has been revised [QA_ITERATION-1] times in this QA stage.
@@ -77,7 +81,7 @@ Also add to the Technical Reviewer's existing entity coverage and contradiction 
 - Replace `[paste content of research/knowledge_contradictions.md]` with `"Knowledge graph contradictions not available — see Manual Contradiction Check section above for compensating analysis."`
 - Replace `[paste entity coverage report]` with `"Entity coverage report not available — see Manual Entity Coverage Check section above."`
 
-Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]):
+Spawn **3 review agents in parallel** (model: claude-sonnet-4-6[1m]), plus a 4th regression detection agent for iterations 2+ (see below):
 
 **Technical Reviewer:**
 ```
@@ -159,9 +163,29 @@ Verify:
 Write review to reviews/completeness.md with every issue found.
 ```
 
+**QA Regression Detector (iterations 2+ only, parallel with review agents above)**
+
+Only spawn this agent if `QA_ITERATION > 1`. Model: claude-sonnet-4-6[1m].
+
+```
+You are a regression detector for QA iteration [QA_ITERATION].
+Read reviews/qa_iter[QA_ITERATION-1]_context.md (or reviews/qa_cumulative_context.md for iterations 4+) for what changed in the last QA iteration.
+Read main.tex completely.
+
+For each change listed in "Changes Made":
+1. Find the modified section/paragraph in main.tex
+2. Check: does the change still make sense in context? Did it break transitions with surrounding text?
+3. Check: did the change introduce any new issues (AI patterns, citation errors, logical gaps)?
+4. Check: is the change consistent with changes made elsewhere in the same iteration?
+
+Report ONLY regressions — things that got worse because of the last iteration's changes.
+If no regressions found, write an empty report (just "No regressions detected.").
+Write to reviews/qa_iter[QA_ITERATION]_regressions.md.
+```
+
 **LaTeX Quality Checks** (every QA iteration):
 
-After the three review agents complete, check for these LaTeX anti-patterns in `main.tex`. This can run in parallel with the Codex adversarial review (Step 5a-ii).
+After the review agents complete, check for these LaTeX anti-patterns in `main.tex`. This can run in parallel with the Codex adversarial review (Step 5a-ii).
 
 1. **Float placement**: Any `[H]` specifiers? Any `[h]` without `tbp`? Floats referenced after their appearance?
 2. **Caption order**: Captions below tables or above figures? (Both are wrong.)
@@ -250,7 +274,7 @@ Append checked keys to research/verified_refs.jsonl (one JSON object per ref: {"
 
 #### Step 5b: Synthesize Reviews
 
-Read ALL files in `reviews/` including `codex_adversarial.md`. Also read `research/claims_matrix.md` for the evidence density heatmap. Build a prioritized fix list:
+Read ALL files in `reviews/` including `codex_adversarial.md` and `qa_iter[QA_ITERATION]_regressions.md` (if it exists). Also read `research/claims_matrix.md` for the evidence density heatmap. **Regressions get automatic HIGH priority** — fixes that undo damage from the last iteration come before new improvements. Build a prioritized fix list:
 1. All CRITICAL issues (must fix) — including any CRITICAL-strength claims that must be removed, supported, or heavily hedged
 2. All MAJOR issues (should fix) — including WEAK claims written with unjustified confidence
 3. Word count shortfalls
@@ -354,9 +378,76 @@ Example:
 
 Keep under 600 words (increased from 500 to accommodate the quality trend table).
 
+**Generate cumulative QA context (iterations 3+ only):** If `QA_ITERATION >= 3`, generate `reviews/qa_cumulative_context.md` by merging all individual QA context files. For iterations 4+, this file replaces individual context files in review agent and regression detector prompts (to keep prompt size manageable):
+
+```markdown
+# Cumulative QA Iteration History
+
+## All Deliberate Decisions (across all QA iterations)
+[Merged from all previous QA context files. Only keep decisions from the last 2 iterations — older decisions that weren't re-flagged are considered resolved.]
+
+## Section Stability
+| Section | Last Modified | Iterations Since Change |
+|-|-|-|
+| Introduction | QA iteration 2 | 1 |
+| Related Work | Initial pipeline | 3 (stable) |
+| ... | ... | ... |
+
+## Quality Trend
+| Iteration | Critical | Major | Minor | Score | Δ |
+|-|-|-|-|-|-|
+[Copy from the latest individual context file]
+
+## Current Deferred Issues
+[Only from the most recent QA iteration — older deferred issues not re-flagged are considered resolved]
+```
+
+Keep the cumulative file under 800 words.
+
 #### Step 5d: Quality Gate Check
 
-After revision, check ALL criteria from the table below. If all pass, proceed to Stage 6. If any fail and `QA_ITERATION < MAX_ITERATIONS`, loop back to Step 5a with fresh reviewers.
+After revision, check ALL criteria from the table below. If all pass, proceed to Stage 6.
+
+**If any criteria fail, evaluate convergence BEFORE deciding whether to loop:**
+
+Read `stages.qa.iterations` from `.paper-state.json` and apply these checks in order:
+
+1. **Divergence Detection**: If `QA_ITERATION >= 2` and the severity_score INCREASED from iteration N-1 to N:
+   - Log: `"⚠ QA iteration [N] introduced more issues than it fixed (score: [prev] → [curr])"`
+   - If this happened in BOTH of the last two consecutive iterations (sustained divergence), STOP and ask the user:
+     ```
+     ⚠ QA is diverging — the last 2 iterations introduced more issues than they fixed.
+     Severity trend: [list scores]. Remaining issues: [summary].
+     Options: (1) Continue iterating anyway, (2) Proceed to finalization with current state.
+     ```
+   - Update `.paper-state.json`: `stages.qa.convergence_reason = "diverging_stopped"`
+
+2. **Plateau Detection**: If `QA_ITERATION >= 3` and the severity_score has not decreased for 3 consecutive iterations (each score within ±1 of the previous):
+   - Ask the user:
+     ```
+     QA appears to have plateaued at severity [X] after [N] iterations.
+     Remaining issues: [list]. Continue iterating (may not improve) or proceed to finalization?
+     ```
+   - If user chooses to proceed, update `.paper-state.json`: `stages.qa.convergence_reason = "plateau_accepted"`
+
+3. **Convergence (Early Exit)**: If `QA_ITERATION >= 2` and the last 2 iterations BOTH have `severity_score` at or below the threshold AND the score did not increase between them:
+   - Threshold: 5 (standard mode), 3 (deep mode)
+   - Early exit with message: `"QA converged after [N] iterations (severity score: [X] → [Y]). Proceeding to post-QA."`
+   - Update `.paper-state.json`: `stages.qa.converged_at = QA_ITERATION`, `stages.qa.convergence_reason = "converged"`, `stages.qa.done = true`
+   - **Skip** to Stage 6 (post-QA audits). Do NOT run the exhaustion handler.
+
+4. **No New Issues (context-aware)**: If `QA_ITERATION >= 2` and QA_CONTEXT was loaded: check whether all review agents reported no issues beyond those already listed in "Deliberate Decisions" from the previous context file. If nothing genuinely new was found:
+   - Early exit with message: `"QA converged after [N] iterations — no new issues beyond previous deliberate decisions. Proceeding to post-QA."`
+   - Update `.paper-state.json`: `stages.qa.converged_at = QA_ITERATION`, `stages.qa.convergence_reason = "no_new_issues"`, `stages.qa.done = true`
+   - **Skip** to Stage 6 (post-QA audits). Do NOT run the exhaustion handler.
+
+5. **Persistent Low-Priority Only (context-aware)**: If `QA_ITERATION >= 3` and QA_CONTEXT was loaded: check whether the only issues found appear in "Deferred Issues" from 2+ consecutive QA iterations and were deprioritized each time. If so:
+   - Early exit with message: `"QA converged after [N] iterations — only persistent low-priority issues remain. Proceeding to post-QA."`
+   - Log: `"Persistent low-priority issues that were never addressed: [list]. These are unlikely to be worth further iteration."`
+   - Update `.paper-state.json`: `stages.qa.converged_at = QA_ITERATION`, `stages.qa.convergence_reason = "persistent_low_priority_only"`, `stages.qa.done = true`
+   - **Skip** to Stage 6 (post-QA audits). Do NOT run the exhaustion handler.
+
+6. **Continue or Exhaust**: If none of the above triggered and `QA_ITERATION < MAX_ITERATIONS`, loop back to Step 5a with fresh reviewers. If `QA_ITERATION == MAX_ITERATIONS`, fall through to the exhaustion handler below.
 
 **If any fail and `QA_ITERATION == MAX_ITERATIONS` (iterations exhausted):**
 

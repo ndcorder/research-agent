@@ -10,6 +10,12 @@ Interact with the per-paper knowledge graph built from source extracts using Lig
 
 ## Instructions
 
+**Availability check** — before running any operation, verify prerequisites:
+1. Check if `OPENROUTER_API_KEY` is set: `[ -n "$OPENROUTER_API_KEY" ] && echo "OK" || echo "MISSING"`
+2. If MISSING: tell the user "Knowledge graph requires OPENROUTER_API_KEY. Set it with: export OPENROUTER_API_KEY=your-key (get a key at https://openrouter.ai/keys)" and stop. Do not attempt to run knowledge.py commands.
+3. Check if lightrag is installed: `python3 -c "import lightrag" 2>/dev/null && echo "OK" || echo "MISSING"`
+4. If lightrag MISSING: tell the user "lightrag not installed. Run: pip install lightrag-hku" and stop.
+
 Parse $ARGUMENTS to determine the operation. If no arguments, show a status summary.
 
 ### Operations
@@ -96,9 +102,10 @@ Shows how a concept connects to other entities in the knowledge graph.
 
 ### Error Handling
 
-- If `OPENROUTER_API_KEY` is not set, tell the user to set it: `export OPENROUTER_API_KEY=your-key`
+- If `OPENROUTER_API_KEY` is not set: the availability check above catches this. The script also exits gracefully (exit 0) with a helpful message, so it will not crash.
 - If `scripts/knowledge.py` is not found, the template may not have been updated — check if the file exists
 - If lightrag is not installed: `pip install lightrag-hku`
+- All knowledge.py commands exit 0 (not crash) when OPENROUTER_API_KEY is missing, printing a clear explanation. This prevents bash `&&` chains from breaking.
 
 ## Arguments
 
