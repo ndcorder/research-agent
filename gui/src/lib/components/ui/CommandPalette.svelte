@@ -11,6 +11,7 @@
     activePage,
     projectDir,
     showSettings,
+    bottomTerminalVisible,
   } from "$lib/stores/project";
   import { compileLatex } from "$lib/utils/ipc";
   import { exportResearchSummary } from "$lib/utils/export";
@@ -149,6 +150,12 @@
           const cur = get(rightPanel);
           rightPanel.set(cur === "timeline" ? "source" : "timeline");
         },
+      },
+      {
+        label: "Toggle Bottom Terminal",
+        hint: "\u2318`",
+        prefix: ">_",
+        execute: () => bottomTerminalVisible.update((v) => !v),
       },
       {
         label: "Open Settings",
