@@ -829,7 +829,71 @@ def _cmd_save(args):
 
 
 def _cmd_insights(args):
-    print("Not yet implemented")
+    """Analyze trends across all scored papers."""
+    history = load_history()
+    if not history:
+        print("No quality scores recorded yet. Run /score on a paper project first.")
+        return
+
+    # Group by paper (use latest score per paper)
+    papers = {}
+    for entry in history:
+        name = entry.get("paper", "unknown")
+        papers[name] = entry  # latest wins
+
+    print(f"Quality Analytics — {len(papers)} paper(s) scored\n")
+
+    # Dimension header
+    dims = ["evidence", "writing", "structure", "research", "provenance"]
+    header = f"{'Paper':<30} {'Overall':>7} {'Grade':>5}"
+    for d in dims:
+        header += f" {d[:8]:>8}"
+    print(header)
+    print("-" * len(header))
+
+    dim_totals = {d: [] for d in dims}
+    for name, entry in sorted(papers.items()):
+        overall = entry.get("overall", 0)
+        grade = entry.get("grade", "?")
+        row = f"{name:<30} {overall:>7} {grade:>5}"
+        for d in dims:
+            val = entry.get("dimensions", {}).get(d, {}).get("score", entry.get(d, 0))
+            dim_totals[d].append(val)
+            row += f" {val:>8}"
+        print(row)
+
+    # Averages
+    if len(papers) >= 2:
+        print(f"\n{'Averages':<30} ", end="")
+        all_avgs = {}
+        for d in dims:
+            vals = dim_totals[d]
+            avg = sum(vals) / len(vals) if vals else 0
+            all_avgs[d] = avg
+        overall_avg = sum(all_avgs[d] * w for d, w in [("evidence", 0.30), ("writing", 0.20), ("structure", 0.15), ("research", 0.20), ("provenance", 0.15)])
+        print(f"{overall_avg:>7.0f}      ", end="")
+        weakest = min(all_avgs, key=all_avgs.get)
+        for d in dims:
+            marker = " <-weak" if d == weakest else ""
+            print(f" {all_avgs[d]:>5.0f}{marker}", end="")
+        print()
+
+    # Load outcomes
+    outcomes_path = ANALYTICS_DIR / "outcomes.jsonl"
+    if outcomes_path.exists():
+        outcomes = []
+        for line in outcomes_path.read_text().splitlines():
+            if line.strip():
+                try:
+                    outcomes.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        if outcomes:
+            print(f"\nOutcomes: {len(outcomes)} recorded")
+            for status in ["accepted", "rejected", "revision", "withdrawn"]:
+                count = sum(1 for o in outcomes if o.get("outcome") == status)
+                if count:
+                    print(f"  {status}: {count}")
 
 
 def main():

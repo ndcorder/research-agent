@@ -179,6 +179,8 @@ For interactive, step-by-step work:
 - `/lay-summary` — Generate plain-language summary, tweet thread, elevator pitch
 - `/compile` — Compile LaTeX to PDF and report errors
 - `/score` — Multi-dimensional quality scorecard (evidence, writing, structure, research, provenance)
+- `/record-outcome` — Log paper submission result (accepted/rejected/revision/withdrawn) for cross-paper analytics
+- `/insights` — Cross-paper quality trends and improvement opportunities
 - `/status` — Progress dashboard (word counts, refs, pipeline stage)
 - `/preview-pipeline` — Dry run of `/write-paper` (shows plan without executing)
 - `/auto` — Run N autonomous improvement iterations on a completed paper (assess → prioritize → execute → verify)
