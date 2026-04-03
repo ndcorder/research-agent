@@ -8,8 +8,15 @@
     "\\usepackage{amsmath}",
     "\\usepackage{graphicx}",
     "\\usepackage{booktabs}",
-    "\\usepackage{microtype}"
+    "\\usepackage[activate={true,nocompatibility},final]{microtype}",
+    "\\usepackage{siunitx}"
   ],
+  "preamble_extra": [
+    "\\pdfoutput=1",
+    "\\widowpenalty=10000",
+    "\\clubpenalty=10000"
+  ],
+  "forbidden_packages": ["geometry", "hyperref", "natbib", "setspace", "titlesec"],
   "bibliography_style": "apacite",
   "citation_style": "apa",
   "citation_commands": ["\\citep{}", "\\citet{}"],

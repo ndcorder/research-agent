@@ -62,6 +62,17 @@ for json_file in "$TEMPLATE/venues"/*.json; do
     else
         fail "$basename — invalid JSON"
     fi
+    # Validate preamble_extra and forbidden_packages are present and are arrays
+    if python3 -c "
+import json, sys
+d = json.load(open('$json_file'))
+assert isinstance(d.get('preamble_extra'), list), 'preamble_extra missing or not array'
+assert isinstance(d.get('forbidden_packages'), list), 'forbidden_packages missing or not array'
+" 2>/dev/null; then
+        pass "$basename — has preamble_extra and forbidden_packages arrays"
+    else
+        fail "$basename — missing preamble_extra or forbidden_packages array"
+    fi
 done
 
 # ---------- 4. Pipeline stage files reference consistency ----------

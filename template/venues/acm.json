@@ -3,11 +3,27 @@
   "id": "acm",
   "documentclass": "\\documentclass[sigconf,review,anonymous]{acmart}",
   "packages": [
-    "\\usepackage{booktabs}",
+    "\\usepackage{amsmath}",
     "\\usepackage{algorithm}",
     "\\usepackage{algpseudocode}",
-    "\\usepackage{subcaption}"
+    "\\usepackage{siunitx}"
   ],
+  "preamble_extra": [
+    "\\pdfoutput=1",
+    "\\setcounter{topnumber}{2}",
+    "\\setcounter{bottomnumber}{2}",
+    "\\setcounter{totalnumber}{4}",
+    "\\setcounter{dbltopnumber}{2}",
+    "\\renewcommand{\\topfraction}{0.85}",
+    "\\renewcommand{\\bottomfraction}{0.70}",
+    "\\renewcommand{\\textfraction}{0.15}",
+    "\\renewcommand{\\floatpagefraction}{0.66}",
+    "\\renewcommand{\\dbltopfraction}{0.90}",
+    "\\renewcommand{\\dblfloatpagefraction}{0.66}",
+    "\\widowpenalty=10000",
+    "\\clubpenalty=10000"
+  ],
+  "forbidden_packages": ["amssymb", "lmodern", "geometry", "hyperref", "natbib", "xcolor", "booktabs", "setspace", "microtype", "caption", "subfigure", "subfig", "titlesec"],
   "bibliography_style": "ACM-Reference-Format",
   "citation_style": "natbib",
   "citation_commands": ["\\citep{}", "\\citet{}", "\\cite{}"],
