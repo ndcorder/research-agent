@@ -1,4 +1,4 @@
-# Verify References — Artifact Integrity + Misattribution Check
+# Check Ref Integrity — Artifact Integrity + Misattribution Check
 
 Run the full Stage 3c reference integrity check outside the pipeline. Useful for spot-checking during `/auto` iterations or standalone quality assurance.
 

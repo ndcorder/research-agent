@@ -170,8 +170,8 @@ For interactive, step-by-step work:
 - `/review` — Comprehensive manuscript quality review
 - `/check-consistency` — Find notation, terminology, abbreviation, and tense inconsistencies
 - `/audit-claims` — Flag overclaims, unsupported statements, missing significance tests
-- `/validate-references` — Verify every citation is real (CrossRef, search). Critical before submission.
-- `/verify-references` — Run Stage 3c reference integrity check (artifact verification + misattribution detection)
+- `/check-citations` — Verify every citation is real (CrossRef, search). Critical before submission.
+- `/check-ref-integrity` — Run Stage 3c reference integrity check (artifact integrity + misattribution detection)
 - `/novelty-check` — Verify the paper's contribution hasn't already been published
 - `/de-ai-polish` — Remove AI writing patterns from the manuscript
 - `/reproducibility-checklist` — Check methods completeness (NeurIPS/ICML style checklist)

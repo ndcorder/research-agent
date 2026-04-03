@@ -6,7 +6,7 @@ An autonomous research paper writing toolkit for Claude Code. From a topic promp
 >
 > **Visual overview?** Open [docs/pipeline-diagram.html](docs/pipeline-diagram.html) in a browser.
 >
-> **Security model?** See [SECURITY.md](SECURITY.md). Additional docs: [Architecture](docs/ARCHITECTURE.md), [Developer Guide](docs/DEVELOPER-GUIDE.md), [Venue Reference](docs/VENUE-REFERENCE.md).
+> **Security model?** See [SECURITY.md](SECURITY.md). Additional docs: [Architecture](docs/ARCHITECTURE.md), [Developer Guide](docs/DEVELOPER-GUIDE.md), [Venue Reference](docs/VENUE-REFERENCE.md), [Pipeline Reference](docs/PIPELINE-REFERENCE.md), [Scripts Reference](docs/SCRIPTS-REFERENCE.md).
 
 ---
 
@@ -702,7 +702,7 @@ The `/knowledge` slash command wraps these operations interactively. If the grap
 | `/review` | Comprehensive manuscript quality review covering technical soundness, writing quality, and citation completeness. |
 | `/check-consistency` | Find and fix notation inconsistencies, terminology drift, abbreviations used before definition or defined twice, and reference format inconsistencies. |
 | `/audit-claims` | Flag overclaims — "novel"/"first" without evidence, "significantly" without statistical tests, "prove" based only on experiments, unsupported factual claims. |
-| `/validate-references` | Verify every citation via CrossRef API or search, fix metadata mismatches, remove fabricated entries, attempt OA resolution for newly verified papers. |
+| `/check-citations` | Verify every citation via CrossRef API or search, fix metadata mismatches, remove fabricated entries, attempt OA resolution for newly verified papers. |
 | `/novelty-check [contribution]` | Verify the paper's contribution hasn't been published. Uses multiple databases plus Codex cross-model verification. Returns NOVEL, PARTIALLY NOVEL, or NOT NOVEL. |
 | `/de-ai-polish [section]` | Remove AI writing patterns across 7 categories: filler phrases, AI vocabulary, formulaic transitions, redundant phrasing, empty emphasis, em dashes, structural tells. |
 | `/reproducibility-checklist` | Check Methods completeness against a structured checklist (general scientific, ML-specific if applicable, ethical considerations). Reports YES/NO/N/A per item with section references. |
@@ -989,7 +989,7 @@ Created by `create-paper`, read by the pipeline and most commands.
 
 #### `oa_resolution` sub-object
 
-Controls which APIs are tried during source acquisition (Stage 1d), `/audit-sources`, and `/validate-references`. The pipeline tries each enabled API in order and stops on the first successful PDF download.
+Controls which APIs are tried during source acquisition (Stage 1d), `/audit-sources`, and `/check-citations`. The pipeline tries each enabled API in order and stops on the first successful PDF download.
 
 | Key | Default | Description |
 |-|-|-|

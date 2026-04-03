@@ -3,3 +3,4 @@ numpy
 networkx
 pymupdf
 opensearch-py>=3.0.0
+pytest

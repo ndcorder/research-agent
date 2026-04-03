@@ -128,7 +128,7 @@ Update the source coverage report to show which API resolved each paper:
 
 1. `template/claude/pipeline/stage-1d-source-acquisition.md` — Phase 2: expand OA resolution chain
 2. `template/claude/commands/audit-sources.md` — Phase 2: same expanded chain
-3. `template/claude/commands/validate-references.md` — Step 5: same expanded chain for OA during validation
+3. `template/claude/commands/check-citations.md` — Step 5: same expanded chain for OA during validation
 4. `template/claude/CLAUDE.md` — Document new optional config fields
 
 ## Files to Create

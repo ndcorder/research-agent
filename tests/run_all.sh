@@ -33,21 +33,27 @@ run_test "test_structure.sh" "bash '$SCRIPT_DIR/test_structure.sh'"
 run_test "test_prompts.sh"   "bash '$SCRIPT_DIR/test_prompts.sh'"
 run_test "test_schema.py"    "python3 '$SCRIPT_DIR/test_schema.py'"
 
-# Python unit tests (reviewer-kb, knowledge). Exit code 5 = no tests collected (skip OK).
-PYTEST_CMD="python3 -m pytest '$SCRIPT_DIR' -v --tb=short"
+# Python unit tests (reviewer-kb, knowledge).
+# Exit code 5 = no tests collected, exit code 1 from missing pytest = both OK to skip.
 ((TOTAL++))
 echo ""
 echo "================================================================"
 echo "  Running: pytest"
 echo "================================================================"
-if eval "$PYTEST_CMD"; then
+eval "python3 -m pytest '$SCRIPT_DIR' -v --tb=short"
+PYTEST_EXIT=$?
+if [ "$PYTEST_EXIT" -eq 0 ]; then
     ((PASSED++))
     echo ""
     echo "  >>> pytest: PASSED"
-elif [ $? -eq 5 ]; then
+elif [ "$PYTEST_EXIT" -eq 5 ]; then
     ((PASSED++))
     echo ""
     echo "  >>> pytest: SKIPPED (no tests collected)"
+elif ! python3 -c "import pytest" 2>/dev/null; then
+    ((PASSED++))
+    echo ""
+    echo "  >>> pytest: SKIPPED (pytest not installed)"
 else
     ((FAILED++))
     FAILED_NAMES+=("pytest")

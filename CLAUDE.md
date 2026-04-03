@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Research Agent is an autonomous paper-writing harness for Claude Code. It scaffolds paper projects, symlinks shared templates/commands/pipeline instructions into them, and orchestrates a 15-stage pipeline that produces journal-quality LaTeX papers from a topic prompt.
+Research Agent is an autonomous paper-writing harness for Claude Code. It scaffolds paper projects, symlinks shared templates/commands/pipeline instructions into them, and orchestrates a 19-stage pipeline that produces journal-quality LaTeX papers from a topic prompt.
 
 **This repo is the template/toolkit itself, not a paper project.** Paper projects are created elsewhere via `create-paper` and symlink back here. Edits to `template/` propagate instantly to all paper projects.
 
@@ -52,11 +52,11 @@ The `/write-paper` slash command (~200 lines) is the orchestrator. It does NOT c
 
 1. Reads `.paper.json` (topic, venue, depth) and `.venue.json` (format rules)
 2. Reads `pipeline/shared-protocols.md` once for cross-cutting concerns
-3. For each of 16 stages: reads `pipeline/stage-N-*.md` **fresh from disk** (prevents context compression from degrading late-stage instructions in multi-hour sessions)
+3. For each of 19 stages: reads `pipeline/stage-N-*.md` **fresh from disk** (prevents context compression from degrading late-stage instructions in multi-hour sessions)
 4. Spawns parallel agents (Sonnet 1M for research/review, Opus 1M for writing/reasoning)
 5. Checkpoints progress to `.paper-state.json` for resume-on-interrupt
 
-Stages: research (5-12 parallel agents) -> snowballing -> co-citation -> codex cross-check -> source acquisition (14-resolver OA cascade) -> deep source reading (parallel agents read full PDFs) -> planning -> codex thesis stress-test -> targeted research (deep only) -> novelty check -> assumptions -> section writing (sequential) -> figures -> QA loop (parallel reviewers, up to 5 iterations) -> post-QA audits -> finalization.
+Stages: research (5-12 parallel agents) -> snowballing -> co-citation -> codex cross-check -> source acquisition (14-resolver OA cascade) -> deep source reading (parallel agents read full PDFs) -> synthesis (cross-source analysis) -> planning -> codex thesis stress-test -> targeted research (deep only) -> novelty check -> assumptions -> section writing (sequential) -> coherence check -> reference integrity -> figures -> QA loop (parallel reviewers, up to 5 iterations) -> post-QA audits -> finalization.
 
 ### `/auto` improvement loop (`template/claude/commands/auto.md`)
 
@@ -66,8 +66,8 @@ Post-pipeline iterative improvement. Each iteration reads 4 phase files fresh fr
 
 | Path | Purpose |
 |-|-|
-| `claude/commands/` | 39 slash commands (`.md` files). Symlinked into paper projects. |
-| `claude/pipeline/` | 21 stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, codex telemetry, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
+| `claude/commands/` | 42 slash commands (`.md` files). Symlinked into paper projects. |
+| `claude/pipeline/` | 24 stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, codex telemetry, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
 | `venues/` | 7 venue configs (JSON). Each specifies documentclass, packages, citation style, page limit, section order, and a 500+ word writing guide. |
 | `template/scripts/knowledge.py` | LightRAG (>=1.4.12) knowledge graph builder (requires `OPENROUTER_API_KEY`). Supports optional OpenSearch backend (`LIGHTRAG_STORAGE=opensearch`). Builds from source extracts + PDFs, supports semantic queries, contradiction detection, evidence search. Venv auto-bootstraps on first run (`.venv/` at repo root). Supports streaming ingestion via `serve`/`enqueue` for non-blocking pipeline use. |
 | `template/scripts/parse-pdf.py` | Docling-based PDF parser. Converts PDFs to markdown with extracted figures. Used by Stage 1d, 1e, and `/ingest-papers`. Requires `pip install docling`. |

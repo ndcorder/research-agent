@@ -14,7 +14,7 @@ graph TB
     subgraph "Orchestration Layer"
         WP["/write-paper Orchestrator"]
         Auto["/auto Improvement Loop"]
-        Manual["35 Slash Commands"]
+        Manual["42 Slash Commands"]
     end
 
     subgraph "Pipeline Stages"
@@ -23,6 +23,8 @@ graph TB
         S1b2["Stage 1b-ii: Co-Citation"]
         S1c["Stage 1c: Codex Cross-Check"]
         S1d["Stage 1d: Source Acquisition"]
+        S1e["Stage 1e: Deep Read"]
+        S1f["Stage 1f: Synthesis"]
         S2["Stage 2: Planning"]
         S2b["Stage 2b: Codex Thesis"]
         S2c["Stage 2c: Targeted Research"]
@@ -73,6 +75,7 @@ graph TB
     S1 --> Perp & Web & FC & SS
     S1b --> SS
     S1b2 --> SS
+    S1d --> S1e --> S1f --> S2
     S1d --> UP & OA & PMC & CORE
     S5p --> CR
 
@@ -118,11 +121,13 @@ flowchart TD
     AuditSrc --> OAResolve["OA Resolution\n(7 APIs)"]
     OAResolve --> UserPause{"Paywalled\nPDFs remain?"}
     UserPause --> |yes| WaitUser["Pause for user\nto add PDFs"]
-    UserPause --> |no| KG
-    WaitUser --> KG{"Knowledge\ngraph enabled?"}
+    UserPause --> |no| S1eFlow
+    WaitUser --> S1eFlow["Stage 1e: Deep Read\n(parallel PDF agents)"]
+    S1eFlow --> KG{"Knowledge\ngraph enabled?"}
     KG --> |yes| BuildKG["Build LightRAG"]
-    KG --> |no| S2
-    BuildKG --> S2
+    KG --> |no| S1fFlow
+    BuildKG --> S1fFlow["Stage 1f: Synthesis\n(cross-source analysis)"]
+    S1fFlow --> S2
 
     S2["Stage 2: Planning"] --> Thesis["Thesis + Contribution"]
     Thesis --> Outline["Detailed Outline\nwith word targets"]
@@ -152,7 +157,9 @@ flowchart TD
     end
 
     WriteLoop --> EvidCheck["Evidence Check\n→ micro-research if gaps"]
-    EvidCheck --> S4["Stage 4: Figures & Tables"]
+    EvidCheck --> S3b["Stage 3b: Coherence\nCheck"]
+    S3b --> S3c["Stage 3c: Reference\nIntegrity"]
+    S3c --> S4["Stage 4: Figures & Tables"]
 
     S4 --> PraxisCheck{"Praxis\ndata?"}
     PraxisCheck --> |yes| PraxisFig["Praxis venue-matched\nfigures"]
@@ -217,8 +224,9 @@ graph LR
 
     subgraph "External (Optional)"
         CodexExt["Codex (codex-bridge)"]
-        Gemini["Gemini Flash (LightRAG)"]
-        Qwen["Qwen3 8B (LightRAG)"]
+        LightRAGIngest["LightRAG Ingestion\n(Gemini Flash)"]
+        LightRAGQuery["LightRAG Query\n(configurable)"]
+        LightRAGEmbed["LightRAG Embedding\n(Qwen3 8B)"]
     end
 ```
 
@@ -285,14 +293,18 @@ stateDiagram-v2
     snowballing --> cocitation
     cocitation --> codex_cross_check
     codex_cross_check --> source_acquisition
-    source_acquisition --> outline
+    source_acquisition --> deep_read
+    deep_read --> synthesis
+    synthesis --> outline
     outline --> codex_thesis
     codex_thesis --> targeted_research : deep mode
     targeted_research --> novelty_check
     codex_thesis --> novelty_check : standard mode
     novelty_check --> assumptions
     assumptions --> writing
-    writing --> figures
+    writing --> coherence
+    coherence --> reference_integrity
+    reference_integrity --> figures
     figures --> qa
     qa --> qa : iteration loop
     qa --> post_qa

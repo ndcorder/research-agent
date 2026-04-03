@@ -12,11 +12,18 @@ research-agent/
 ├── template/
 │   ├── claude/
 │   │   ├── CLAUDE.md         # Workspace instructions (symlinked into projects)
-│   │   ├── commands/         # 35 slash commands (symlinked)
+│   │   ├── commands/         # 42 slash commands (symlinked)
 │   │   ├── pipeline/         # Stage instructions (symlinked)
 │   │   └── settings.local.json
 │   ├── scripts/
-│   │   └── knowledge.py      # LightRAG knowledge graph builder
+│   │   ├── knowledge.py      # LightRAG knowledge graph builder
+│   │   ├── parse-pdf.py      # Docling-based PDF → markdown converter
+│   │   ├── format_sentences.py  # LaTeX one-sentence-per-line formatter
+│   │   ├── update-manifest.py   # Rebuilds research/source-manifest.json
+│   │   ├── reviewer-kb.py    # Prepares structured docs for knowledge graph
+│   │   ├── verify-references.py # LaTeX reference integrity checker
+│   │   ├── research-story.py # Research narrative generator
+│   │   └── openrouter-fallback.py # LLM fallback routing
 │   ├── venues/               # 7 venue JSON configs
 │   ├── main.tex              # Minimal LaTeX template
 │   ├── references.bib        # Empty BibTeX template

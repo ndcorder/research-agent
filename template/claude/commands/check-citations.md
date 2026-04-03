@@ -1,4 +1,4 @@
-# Validate References — Verify Every Citation is Real
+# Check Citations — Verify Every Citation is Real
 
 Cross-check every BibTeX entry in `references.bib` against real sources to catch fabricated, hallucinated, or incorrectly formatted references.
 
