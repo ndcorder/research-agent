@@ -73,6 +73,7 @@
     settings.set({ ...DEFAULTS });
     localStorage.removeItem("panel-sidebar");
     localStorage.removeItem("panel-right");
+    localStorage.removeItem("panel-bottom");
   }
 
   const shortcuts: [string, string][] = [

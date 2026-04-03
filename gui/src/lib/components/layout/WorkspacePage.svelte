@@ -17,9 +17,7 @@
   let dragging = $state<"sidebar" | "right" | "bottom" | null>(null);
 
   // Sync initial localStorage value into the store
-  $effect(() => {
-    bottomTerminalHeight.set(terminalHeight);
-  });
+  bottomTerminalHeight.set(terminalHeight);
 
   function onMouseDown(panel: "sidebar" | "right" | "bottom") {
     dragging = panel;
@@ -106,10 +104,7 @@
       role="button"
       tabindex="0"
     >
-      <button
-        class="flex items-center justify-center w-4 h-4 text-text-muted hover:text-text transition-colors"
-        aria-label="Toggle terminal"
-      >
+      <span class="flex items-center justify-center w-4 h-4 text-text-muted">
         {#if $bottomTerminalVisible}
           <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 5l3 3 3-3" />
@@ -119,7 +114,7 @@
             <path d="M3 7l3-3 3 3" />
           </svg>
         {/if}
-      </button>
+      </span>
       <span class="text-text-muted font-medium">Terminal</span>
       <span class="ml-auto text-text-muted/50 text-[10px]">{'\u2318'}`</span>
     </div>
