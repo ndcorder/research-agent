@@ -33,3 +33,6 @@ __pycache__/
 
 # Internal planning docs (may contain machine-specific paths)
 docs/plans/
+
+# Git worktrees
+.worktrees/
