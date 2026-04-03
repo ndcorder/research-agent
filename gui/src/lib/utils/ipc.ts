@@ -182,3 +182,34 @@ export async function readProvenance(
 ): Promise<Record<string, unknown>[]> {
   return _invoke("read_provenance", { projectDir });
 }
+
+export interface VenueInfo {
+  id: string;
+  name: string;
+}
+
+export async function listVenues(
+  researchAgentDir: string
+): Promise<VenueInfo[]> {
+  return _invoke("list_venues", { researchAgentDir });
+}
+
+export async function createPaper(
+  researchAgentDir: string,
+  directory: string,
+  topic: string,
+  venue: string,
+  deep: boolean
+): Promise<string> {
+  return _invoke("create_paper", {
+    researchAgentDir,
+    directory,
+    topic,
+    venue,
+    deep,
+  });
+}
+
+export async function getResearchAgentDir(): Promise<string> {
+  return _invoke("get_research_agent_dir");
+}

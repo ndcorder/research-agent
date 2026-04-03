@@ -85,8 +85,8 @@
   }
 
   function handleFeedbackClick(ref: string) {
-    // Could open the feedback file in editor
-    console.log("Open feedback:", ref);
+    selectedSource.set(ref);
+    rightPanel.set("source");
   }
 
   // Keyboard navigation

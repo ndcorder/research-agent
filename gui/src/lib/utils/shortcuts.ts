@@ -9,6 +9,7 @@ import {
   showCommandPalette,
   showSettings,
   showSnippetMenu,
+  bottomTerminalVisible,
 } from "$lib/stores/project";
 import { settings } from "$lib/stores/settings";
 import { compileLatex } from "$lib/utils/ipc";
@@ -44,6 +45,13 @@ export function setupShortcuts(): () => void {
     }
 
     if (!modKey(e)) return;
+
+    // Cmd+` → Toggle bottom terminal
+    if (key === "`" && !e.shiftKey) {
+      e.preventDefault();
+      bottomTerminalVisible.update((v) => !v);
+      return;
+    }
 
     // Cmd+W → Close active editor tab
     if (key === "w" && !e.shiftKey && !e.altKey) {

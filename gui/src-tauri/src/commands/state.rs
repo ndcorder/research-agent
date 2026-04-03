@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Serialize, Deserialize)]
 pub struct PaperConfig {
@@ -118,4 +119,127 @@ fn dirs_config_path() -> std::path::PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("research-agent-gui")
+}
+
+#[derive(Serialize)]
+pub struct VenueInfo {
+    pub id: String,
+    pub name: String,
+}
+
+#[tauri::command]
+pub fn list_venues(research_agent_dir: String) -> Result<Vec<VenueInfo>, String> {
+    let venues_dir = Path::new(&research_agent_dir)
+        .join("template")
+        .join("venues");
+
+    if !venues_dir.exists() {
+        return Err(format!("Venues directory not found: {}", venues_dir.display()));
+    }
+
+    let mut venues = Vec::new();
+    let entries = fs::read_dir(&venues_dir).map_err(|e| format!("Failed to read venues: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let path = entry.path();
+        if path.extension().map_or(false, |ext| ext == "json") {
+            let id = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            // Capitalize the first letter for display name
+            let name = {
+                let mut chars = id.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+                }
+            };
+            venues.push(VenueInfo { id, name });
+        }
+    }
+
+    venues.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(venues)
+}
+
+#[tauri::command]
+pub fn create_paper(
+    research_agent_dir: String,
+    directory: String,
+    topic: String,
+    venue: String,
+    deep: bool,
+) -> Result<String, String> {
+    let script_path = Path::new(&research_agent_dir).join("create-paper");
+
+    if !script_path.exists() {
+        return Err(format!(
+            "create-paper script not found at {}",
+            script_path.display()
+        ));
+    }
+
+    let mut cmd = Command::new(&script_path);
+    cmd.arg(&directory);
+
+    if !topic.is_empty() {
+        cmd.arg(&topic);
+    }
+
+    cmd.arg("--venue").arg(&venue);
+
+    if deep {
+        cmd.arg("--deep");
+    }
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to run create-paper: {}", e))?;
+
+    if output.status.success() {
+        // Resolve the absolute path of the created directory
+        let created = Path::new(&directory);
+        let abs_path = if created.is_absolute() {
+            created.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(|e| format!("Failed to get cwd: {}", e))?
+                .join(created)
+        };
+        let canonical = fs::canonicalize(&abs_path)
+            .unwrap_or(abs_path);
+        Ok(canonical.to_string_lossy().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Err(format!(
+            "create-paper failed:\n{}{}",
+            stderr,
+            if stdout.is_empty() {
+                String::new()
+            } else {
+                format!("\n{}", stdout)
+            }
+        ))
+    }
+}
+
+#[tauri::command]
+pub fn get_research_agent_dir() -> Result<String, String> {
+    // Walk up from the current executable looking for a directory that contains create-paper
+    let exe_path = std::env::current_exe()
+        .map_err(|e| format!("Failed to get current exe: {}", e))?;
+
+    let mut dir = exe_path.parent();
+    while let Some(d) = dir {
+        if d.join("create-paper").exists() {
+            return Ok(d.to_string_lossy().to_string());
+        }
+        dir = d.parent();
+    }
+
+    Err("Could not find research-agent directory (no ancestor contains create-paper)".to_string())
 }

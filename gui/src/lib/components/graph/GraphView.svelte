@@ -16,6 +16,7 @@
     projectDir,
   } from "$lib/stores/project";
   import { readFile, updateSourceStatus, listSources, listClaims, runPipelineAction } from "$lib/utils/ipc";
+  import { toasts } from "$lib/stores/toast";
   import { researchingClaims } from "$lib/stores/project";
   import type { SourceMeta, ClaimMeta } from "$lib/types";
   import type { PipelineAction } from "$lib/types";
@@ -208,7 +209,12 @@
       selectedNodes = new Set();
       render($sources, $claims);
     } else if (action.startsWith("tag:")) {
-      console.log("Tag action not yet implemented:", action, nodeIds);
+      const key = [...nodeIds][0];
+      if (key) {
+        selectedSource.set(key);
+        rightPanel.set("source");
+        toasts.info("Edit tags in the source detail panel");
+      }
     }
   }
 

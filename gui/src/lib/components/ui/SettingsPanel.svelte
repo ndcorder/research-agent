@@ -73,9 +73,11 @@
     settings.set({ ...DEFAULTS });
     localStorage.removeItem("panel-sidebar");
     localStorage.removeItem("panel-right");
+    localStorage.removeItem("panel-bottom");
   }
 
   const shortcuts: [string, string][] = [
+    ["Cmd+`", "Toggle terminal"],
     ["Cmd+W", "Close tab"],
     ["Cmd+S", "Save"],
     ["Cmd+P", "Command palette"],

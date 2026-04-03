@@ -16,6 +16,7 @@
     startWatching,
   } from "$lib/utils/ipc";
   import type { ProjectInfo } from "$lib/utils/ipc";
+  import CreatePaperDialog from "./CreatePaperDialog.svelte";
 
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -24,6 +25,7 @@
   let error = $state<string | null>(null);
   let loading = $state(false);
   let loadingPath = $state<string | null>(null);
+  let showCreateDialog = $state(false);
 
   $effect(() => {
     loadRecents();
@@ -244,6 +246,24 @@
         </svg>
         Open Folder
       </button>
+      <button
+        class="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-bg-secondary px-4 py-3 text-sm font-medium text-text transition-colors hover:border-accent hover:bg-bg-tertiary hover:text-text-bright disabled:opacity-50"
+        onclick={() => (showCreateDialog = true)}
+        disabled={loading}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          class="h-4 w-4"
+        >
+          <path
+            d="M3.5 2A1.5 1.5 0 002 3.5v13A1.5 1.5 0 003.5 18h6.757a4.5 4.5 0 01-.256-1H3.5a.5.5 0 01-.5-.5v-13a.5.5 0 01.5-.5h9a.5.5 0 01.5.5v5.001a4.5 4.5 0 011-.256V3.5A1.5 1.5 0 0012.5 2h-9z"
+          />
+          <path d="M15 12.5a.5.5 0 00-1 0V14h-1.5a.5.5 0 000 1H14v1.5a.5.5 0 001 0V15h1.5a.5.5 0 000-1H15v-1.5z" />
+        </svg>
+        Create New Paper
+      </button>
     </div>
 
     <!-- Hint -->
@@ -254,3 +274,12 @@
     </p>
   </div>
 </div>
+
+<CreatePaperDialog
+  open={showCreateDialog}
+  onclose={() => (showCreateDialog = false)}
+  oncreated={(path) => {
+    showCreateDialog = false;
+    openProject(path);
+  }}
+/>

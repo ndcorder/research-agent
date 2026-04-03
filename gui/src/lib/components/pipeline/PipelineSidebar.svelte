@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { paperState, stageList } from "$lib/stores/project";
+  import { paperState, stageList, isProjectLoaded } from "$lib/stores/project";
 
   let now = $state(Date.now());
 
@@ -74,6 +74,11 @@
   }
 </script>
 
+{#if !$isProjectLoaded}
+  <div class="flex h-full items-center justify-center p-4">
+    <p class="text-center text-xs text-text-muted">Open a project to see pipeline status</p>
+  </div>
+{:else}
 <div class="flex h-full flex-col p-4">
   <!-- Header: progress summary -->
   <div class="mb-4 flex-shrink-0">
@@ -117,7 +122,7 @@
           </span>
         </li>
       {:else}
-        <li class="px-2 py-2 text-xs text-text-muted">No stages loaded</li>
+        <li class="px-2 py-2 text-xs text-text-muted">Pipeline not started</li>
       {/each}
     </ul>
   </div>
@@ -145,3 +150,4 @@
     </div>
   {/if}
 </div>
+{/if}
