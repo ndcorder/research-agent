@@ -23,7 +23,18 @@ All other Bash commands (curl, wc, ls, mkdir, cat, cp, rm, which, pdfinfo) compl
 
 The knowledge graph (LightRAG via `scripts/knowledge.py`) is optional but provides contradiction detection, entity coverage analysis, and evidence verification that significantly improve paper quality. When unavailable, downstream stages must compensate explicitly rather than silently degrading.
 
-**Detection**: Stage 1d records `"knowledge_graph": { "available": true/false, ... }` in `.paper-state.json`. Any stage can also check directly: if `research/knowledge/` exists with content, the graph is available.
+**Detection**: The write-paper preflight (or Stage 1d) records `"knowledge_graph": { "available": true/false, "reason": "..." }` in `.paper-state.json`. Downstream stages should check this field first to avoid redundant detection.
+
+**Concrete check procedure** (use when `.paper-state.json` has no `knowledge_graph` field, or when running standalone commands outside the pipeline):
+1. Run: `python scripts/knowledge.py status 2>&1` -- if the script exits 0 and reports a worker or a built graph, the KG is available.
+2. Alternatively, check both prerequisites: `[ -n "$OPENROUTER_API_KEY" ]` AND `python3 -c "import lightrag" 2>/dev/null`. Both must pass.
+3. As a quick filesystem check: if `research/knowledge/` exists and contains files (e.g., `graph_chunk_entity_relation.graphml` or `.last_build`), the graph has been built at least once.
+
+**Recording availability in `.paper-state.json`**: When any stage first detects KG status, record it at the top level of `stages`:
+```json
+"knowledge_graph": { "available": false, "reason": "OPENROUTER_API_KEY not set" }
+```
+Valid reasons: `"ok"`, `"OPENROUTER_API_KEY not set"`, `"lightrag not installed"`, `"serve_failed"`, `"build_failed"`. Stages that read this field can skip re-detection.
 
 **When the knowledge graph is NOT available**, every stage that would have used it must:
 
@@ -304,3 +315,71 @@ API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message"
 **Requires**: `OPENROUTER_API_KEY` environment variable (same key used by `scripts/knowledge.py`).
 
 **Scope**: This protocol applies to any pipeline agent whose output is blocked by content filtering — not just deep-read agents. The pattern is the same: detect the 400 error, construct a self-contained prompt with embedded content, call the fallback script, write the result.
+
+## LaTeX Conventions Protocol
+
+All agents that write or modify LaTeX content must follow these conventions. Violations caught in QA are treated as structural issues, not style preferences.
+
+### Float placement
+
+- **Default specifier**: `[htbp]` for all figures and tables. Never use bare `[h]` (almost always fails). Use `[!htbp]` if a float is important enough to override conservative placement.
+- **Never use `[H]`** (from the `float` package) unless the float absolutely must appear at that exact position. `[H]` breaks LaTeX's layout algorithm and causes cascading placement failures.
+- **Reference before appearance**: Every float must be referenced in the text (`Figure~\ref{fig:x}`) before or on the same page as its appearance. Place the float environment in the source *before* the paragraph that first references it.
+- **Section scoping**: The `placeins` package with `[section]` option prevents floats from drifting past section boundaries. Do not add manual `\FloatBarrier` commands unless fixing a specific known issue.
+- **Two-column venues (IEEE, ACM sigconf)**: Use `\columnwidth` for single-column figures, `\textwidth` for `figure*` spanning both columns. Never use `\textwidth` inside a regular `figure` environment in two-column mode.
+
+### Caption conventions
+
+- **Figures**: caption BELOW the figure (`\caption{}` after `\includegraphics`)
+- **Tables**: caption ABOVE the table (`\caption{}` before `\begin{tabular}`)
+- **Self-contained**: Captions must be understandable without reading the main text. Include what is shown, how to read it, and key takeaway.
+
+### Cross-references
+
+- For venues with `cleveref` in packages: use `\cref{fig:x}` (auto-generates "Figure 1"), never manual "Figure~\ref{fig:x}".
+- For IEEE (no cleveref): use `Fig.~\ref{fig:x}` in text (IEEE convention: "Fig." not "Figure").
+- `\label{}` must come AFTER `\caption{}` inside float environments (otherwise it captures the section number, not the float number).
+- Use `\eqref{eq:x}` for equation references (produces "(1)" formatting).
+
+### Non-breaking spaces (mandatory `~` positions)
+
+- Before citations: `result~\citep{key}` or `result~\cite{key}`
+- Before references: `Figure~\ref{fig:x}`, `Section~\ref{sec:y}`, `Table~\ref{tab:z}`
+- After abbreviations: `e.g.,~`, `i.e.,~`, `et al.~`, `Fig.~`, `Eq.~`
+- Between number and unit (or use `\qty{}{}` from siunitx): `100~km`
+
+### Table formatting
+
+- Use `booktabs` exclusively: `\toprule`, `\midrule`, `\bottomrule`. No vertical lines (`|`). No `\hline`.
+- Use `@{}` at table edges to remove extra padding: `\begin{tabular}{@{}lcc@{}}`
+- For long tables that span pages, use `longtable` package.
+- Bold the best result in comparison tables.
+
+### Math typesetting
+
+- Use `\[...\]` for display math, never `$$...$$` (plain TeX).
+- Use `align` or `equation`, never `eqnarray` (has bad spacing around `=`).
+- Only number equations that are referenced. Use `equation*` or `align*` for unreferenced.
+- Punctuate display math: equations are part of sentences and need commas/periods.
+- Multi-letter names must be upright: `\mathrm{loss}` not `$loss$` (which renders as l·o·s·s).
+- Use operator commands: `\sin`, `\log`, `\max`, `\arg\min` — never italic versions.
+- Define notation macros in the preamble for consistency: `\newcommand{\prob}{P}`, `\newcommand{\E}{\mathbb{E}}`.
+
+### Units and numbers
+
+- Use `siunitx` for all quantities: `\qty{1.23e4}{\kilo\gram}`, `\num{12345}`, `\qtyrange{0.13}{0.67}{\milli\metre}`.
+- Never hand-format units: no `$1.23\,\text{kg}$` or `1.23 kg`.
+
+### Typography
+
+- `microtype` is loaded by the preamble — do not add manual kerning or spacing hacks.
+- Never use `\sloppy` globally. For a specific problem paragraph, use `\begin{sloppypar}...\end{sloppypar}`.
+- Never use `\vspace`, `\hspace`, `\\[12pt]`, or `\bigskip` to fix layout. These break on reflow and indicate a structural problem.
+- Use `\emph{}` for emphasis, never `\textit{}` (emph nests correctly).
+- Use `\textbf{}` for bold, never `{\bf ...}` (obsolete).
+
+### Package safety
+
+- Read `.venue.json` `forbidden_packages` before adding any package. ACM's acmart, for example, pre-loads microtype, hyperref, natbib, geometry, booktabs, setspace, and xcolor — loading any of these explicitly causes option clashes.
+- Never load both `subfig` and `subcaption`. Use whichever the venue provides.
+- When in doubt, compile and check for warnings. Zero warnings is the goal.
