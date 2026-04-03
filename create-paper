@@ -141,17 +141,37 @@ import json, sys
 with open(sys.argv[1]) as f:
     v = json.load(f)
 
+preamble_extra = v.get("preamble_extra", [])
+
+# Documentclass
 lines = [v["documentclass"]]
+
+# \pdfoutput=1 must appear within the first 5 lines (arXiv requirement)
+early_lines = [l for l in preamble_extra if l.strip().startswith("\\pdfoutput")]
+for l in early_lines:
+    lines.append(l)
+
+# Packages
 for pkg in v["packages"]:
     lines.append(pkg)
 
+# Remaining preamble_extra (float tuning, penalties, caption settings)
 lines.append("")
-lines.append("\\hypersetup{")
-lines.append("  colorlinks=true,")
-lines.append("  linkcolor=blue!70!black,")
-lines.append("  citecolor=green!50!black,")
-lines.append("  urlcolor=blue!80!black")
-lines.append("}")
+remaining = [l for l in preamble_extra if not l.strip().startswith("\\pdfoutput")]
+for l in remaining:
+    lines.append(l)
+
+# \hypersetup only when hyperref is explicitly in the packages list
+has_hyperref = any("hyperref" in pkg for pkg in v["packages"])
+if has_hyperref:
+    lines.append("")
+    lines.append("\\hypersetup{")
+    lines.append("  colorlinks=true,")
+    lines.append("  linkcolor=blue!70!black,")
+    lines.append("  citecolor=green!50!black,")
+    lines.append("  urlcolor=blue!80!black")
+    lines.append("}")
+
 lines.append("")
 lines.append("\\title{Your Paper Title Here}")
 lines.append("\\author{")
@@ -333,7 +353,7 @@ echo "  /compile               Build PDF"
 echo "  /review                Manuscript quality review"
 echo "  /check-consistency     Find notation/terminology inconsistencies"
 echo "  /audit-claims          Flag overclaims and unsupported statements"
-echo "  /validate-references   Verify every citation is real"
+echo "  /check-citations       Verify every citation is real"
 echo "  /novelty-check         Verify contribution hasn't been published"
 echo "  /codex-review          Adversarial AI review via Codex"
 echo "  /de-ai-polish          Remove AI writing patterns"
