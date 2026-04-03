@@ -63,7 +63,8 @@ class TestStateCompleteness:
         schema_keys = _schema_stage_names()
         # Exclude special keys that are pipeline-internal or optional
         # auto_iterations and codex_risk_radar are managed by /auto and post-qa, not write-paper directly
-        internal_keys = {"auto_iterations", "codex_risk_radar"}
+        # quality_scores is managed by stage-5-qa, stage-6-finalization, and /auto, not write-paper
+        internal_keys = {"auto_iterations", "codex_risk_radar", "quality_scores"}
         dead = (schema_keys - wp_keys) - internal_keys
         assert not dead, (
             f"Schema has stage keys not referenced in write-paper.md: {sorted(dead)}"

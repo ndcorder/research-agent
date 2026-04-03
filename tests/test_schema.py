@@ -105,6 +105,7 @@ SCHEMA = {
         "coherence": dict,
         "post_qa": dict,
         "reference_integrity": dict,
+        "quality_scores": dict,
     },
     "auto_iterations_schema": {
         "required": {"completed": int, "requested": int, "history": list},
@@ -307,6 +308,11 @@ def generate_example() -> dict:
             "auto_iterations": {
                 "completed": 0,
                 "requested": 0,
+                "history": [],
+            },
+            "quality_scores": {
+                "pre_qa": {"overall": 45, "timestamp": "2026-03-21T17:30:00Z"},
+                "final": {"overall": 78, "timestamp": "2026-03-21T20:00:00Z"},
                 "history": [],
             },
         },
