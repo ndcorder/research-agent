@@ -82,6 +82,24 @@ If only **MEDIUM** or **LOW** overlap (or no overlapping preprints found):
 
 ---
 
+**Preamble Audit** — Before polish, verify the LaTeX preamble is correct. Check main.tex:
+
+1. `\pdfoutput=1` present within first 5 lines
+2. `\label{}` always comes after `\caption{}` in every float (search for the pattern)
+3. No packages from `.venue.json` `forbidden_packages` are loaded
+4. hyperref is loaded after most other packages (before cleveref if present)
+5. No `$$...$$`, no `eqnarray`, no bare `[h]` or `[H]` float specifiers
+6. All `\begin{figure}` and `\begin{table}` environments use `[htbp]` or `[!htbp]`
+7. Compile with `latexmk -pdf -interaction=nonstopmode main.tex` and check for:
+   - Zero `Overfull \hbox` warnings > 1pt (fix with rewording, not `\sloppy`)
+   - Zero undefined reference warnings
+   - Zero multiply-defined label warnings
+8. If issues found, fix them before proceeding to polish
+
+This is a mechanical check, not a creative task. Do it yourself (no agent needed).
+
+---
+
 Spawn a **final polish agent** (model: claude-opus-4-6[1m]):
 ```
 You are a senior editor doing the final pass before journal submission.
