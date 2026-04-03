@@ -13,8 +13,19 @@ Ingestion priority (highest to lowest quality):
     4. attachments/*.pdf           — raw PDF fallback (pymupdf extraction)
 
 Usage:
+    # Batch ingestion (legacy — blocks until complete)
     python scripts/knowledge.py build                        # Build/update graph from sources
     python scripts/knowledge.py update                       # Incremental update (new/changed files only)
+
+    # Queue-based streaming ingestion (preferred — non-blocking)
+    python scripts/knowledge.py serve                        # Start background worker (one per project)
+    python scripts/knowledge.py enqueue file [file...]       # Queue files for ingestion (instant)
+    python scripts/knowledge.py enqueue --reindex file...    # Force re-ingestion of already-processed files
+    python scripts/knowledge.py status                       # Show queue: pending/done/failed, worker alive?
+    python scripts/knowledge.py drain [--timeout N]          # Block until queue is empty
+    python scripts/knowledge.py stop                         # Graceful worker shutdown
+
+    # Querying (works against whatever has been ingested so far)
     python scripts/knowledge.py query "question"             # Freeform semantic search
     python scripts/knowledge.py contradictions               # Find conflicting claims
     python scripts/knowledge.py evidence-for "claim"         # Sources supporting a claim
@@ -57,6 +68,8 @@ if __name__ == "__main__":
 
 import argparse
 import asyncio
+import json
+import signal
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
@@ -74,25 +87,88 @@ LOG_FILE = "research/log.md"
 CONTRADICTIONS_FILE = "research/knowledge_contradictions.md"
 LAST_BUILD_FILE = os.path.join(WORKING_DIR, ".last_build")
 CACHE_DIR = os.path.join(WORKING_DIR, ".cache")
+QUEUE_FILE = os.path.join(WORKING_DIR, ".queue.jsonl")
+PROGRESS_FILE = os.path.join(WORKING_DIR, ".queue_progress.json")
+WORKER_PID_FILE = os.path.join(WORKING_DIR, ".worker.pid")
+WORKER_LOG_FILE = os.path.join(WORKING_DIR, "worker.log")
 
+# --- LLM & Embedding models ---
 LLM_MODEL = os.environ.get("LIGHTRAG_LLM_MODEL", "google/gemini-3-flash-preview")
 EMBEDDING_MODEL = os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
 EMBEDDING_DIM = int(os.environ.get("LIGHTRAG_EMBEDDING_DIM", "4096"))
 EMBEDDING_LENGTH = int(os.environ.get("LIGHTRAG_EMBEDDING_LENGTH", "32000"))
 OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-# Concurrency settings — conservative defaults to avoid OpenRouter rate limits.
-# Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC
+# --- Concurrency ---
+# Total concurrent LLM calls ≈ MAX_PARALLEL_INSERT × LLM_MAX_ASYNC.
 # Override via env vars if your API plan supports higher throughput.
-MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "8"))
-LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "8"))
+MAX_PARALLEL_INSERT = int(os.environ.get("LIGHTRAG_MAX_PARALLEL_INSERT", "20"))
+LLM_MAX_ASYNC = int(os.environ.get("LIGHTRAG_MAX_ASYNC", "16"))
 EMBEDDING_BATCH_NUM = int(os.environ.get("LIGHTRAG_EMBEDDING_BATCH_NUM", "16"))
+EMBEDDING_FUNC_MAX_ASYNC = int(os.environ.get("LIGHTRAG_EMBEDDING_FUNC_MAX_ASYNC", "16"))
 
-# Timeout settings (seconds) — full PDFs need more time than short extracts.
+# --- Chunking ---
+# Larger chunks = fewer entities per document = fewer merge operations.
+CHUNK_TOKEN_SIZE = int(os.environ.get("LIGHTRAG_CHUNK_TOKEN_SIZE", "8000"))
+CHUNK_OVERLAP_TOKEN_SIZE = int(os.environ.get("LIGHTRAG_CHUNK_OVERLAP_TOKEN_SIZE", "100"))
+TIKTOKEN_MODEL_NAME = os.environ.get("LIGHTRAG_TIKTOKEN_MODEL", "gpt-4o-mini")
+
+# --- Entity extraction ---
+# max_gleaning: how many extra passes over ambiguous text to extract more entities (0=one pass).
+ENTITY_EXTRACT_MAX_GLEANING = int(os.environ.get("LIGHTRAG_MAX_GLEANING", "1"))
+# Max tokens fed into a single extraction call. Longer docs get split.
+MAX_EXTRACT_INPUT_TOKENS = int(os.environ.get("LIGHTRAG_MAX_EXTRACT_INPUT_TOKENS", "20480"))
+# After this many descriptions are merged for an entity, LLM re-summarizes instead of concatenating.
+FORCE_LLM_SUMMARY_ON_MERGE = int(os.environ.get("LIGHTRAG_FORCE_SUMMARY_ON_MERGE", "20"))
+# Entity types the extractor looks for.  JSON list or comma-separated.
+_DEFAULT_ENTITY_TYPES = "Person,Creature,Organization,Location,Event,Concept,Method,Content,Data,Artifact,NaturalObject"
+_raw_entity_types = os.environ.get("LIGHTRAG_ENTITY_TYPES", "")
+ENTITY_TYPES = [t.strip() for t in _raw_entity_types.split(",") if t.strip()] if _raw_entity_types else None
+
+# --- Summary generation ---
+# Controls LLM-generated entity/relation summaries during graph construction.
+SUMMARY_MAX_TOKENS = int(os.environ.get("LIGHTRAG_SUMMARY_MAX_TOKENS", "1200"))
+SUMMARY_CONTEXT_SIZE = int(os.environ.get("LIGHTRAG_SUMMARY_CONTEXT_SIZE", "12000"))
+SUMMARY_LENGTH_RECOMMENDED = int(os.environ.get("LIGHTRAG_SUMMARY_LENGTH_RECOMMENDED", "600"))
+SUMMARY_LANGUAGE = os.environ.get("LIGHTRAG_SUMMARY_LANGUAGE", "English")
+
+# --- Query & retrieval defaults ---
+# These set defaults on the LightRAG instance. Per-query overrides via QueryParam.
+TOP_K = int(os.environ.get("LIGHTRAG_TOP_K", "40"))
+CHUNK_TOP_K = int(os.environ.get("LIGHTRAG_CHUNK_TOP_K", "20"))
+MAX_ENTITY_TOKENS = int(os.environ.get("LIGHTRAG_MAX_ENTITY_TOKENS", "6000"))
+MAX_RELATION_TOKENS = int(os.environ.get("LIGHTRAG_MAX_RELATION_TOKENS", "8000"))
+MAX_TOTAL_TOKENS = int(os.environ.get("LIGHTRAG_MAX_TOTAL_TOKENS", "30000"))
+COSINE_THRESHOLD = float(os.environ.get("LIGHTRAG_COSINE_THRESHOLD", "0.2"))
+RELATED_CHUNK_NUMBER = int(os.environ.get("LIGHTRAG_RELATED_CHUNK_NUMBER", "5"))
+# "VECTOR" (embedding similarity) or "WEIGHT" (graph-edge weight).
+KG_CHUNK_PICK_METHOD = os.environ.get("LIGHTRAG_KG_CHUNK_PICK_METHOD", "VECTOR")
+# Default query mode used by the `query` subcommand: local|global|hybrid|naive|mix.
+DEFAULT_QUERY_MODE = os.environ.get("LIGHTRAG_DEFAULT_QUERY_MODE", "hybrid")
+
+# --- Graph size limits ---
+MAX_GRAPH_NODES = int(os.environ.get("LIGHTRAG_MAX_GRAPH_NODES", "10000"))
+MAX_SOURCE_IDS_PER_ENTITY = int(os.environ.get("LIGHTRAG_MAX_SOURCE_IDS_PER_ENTITY", "300"))
+MAX_SOURCE_IDS_PER_RELATION = int(os.environ.get("LIGHTRAG_MAX_SOURCE_IDS_PER_RELATION", "300"))
+SOURCE_IDS_LIMIT_METHOD = os.environ.get("LIGHTRAG_SOURCE_IDS_LIMIT_METHOD", "FIFO")
+MAX_FILE_PATHS = int(os.environ.get("LIGHTRAG_MAX_FILE_PATHS", "10000"))
+
+# --- Caching ---
+ENABLE_LLM_CACHE = os.environ.get("LIGHTRAG_ENABLE_LLM_CACHE", "true").lower() == "true"
+ENABLE_LLM_CACHE_FOR_EXTRACT = os.environ.get("LIGHTRAG_ENABLE_LLM_CACHE_FOR_EXTRACT", "true").lower() == "true"
+EMBEDDING_CACHE_ENABLED = os.environ.get("LIGHTRAG_EMBEDDING_CACHE_ENABLED", "true").lower() == "true"
+EMBEDDING_CACHE_SIMILARITY = float(os.environ.get("LIGHTRAG_EMBEDDING_CACHE_SIMILARITY", "0.95"))
+
+# --- Timeouts (seconds) --- full PDFs need more time than short extracts.
 LLM_TIMEOUT = int(os.environ.get("LIGHTRAG_LLM_TIMEOUT", "600"))
 EMBEDDING_TIMEOUT = int(os.environ.get("LIGHTRAG_EMBEDDING_TIMEOUT", "600"))
 
-# Storage backend: "file" (default) or "opensearch"
+# --- Worker tunables ---
+WORKER_POLL_INTERVAL = float(os.environ.get("LIGHTRAG_WORKER_POLL_INTERVAL", "2.0"))
+WORKER_STOP_TIMEOUT = int(os.environ.get("LIGHTRAG_WORKER_STOP_TIMEOUT", "30"))
+DRAIN_POLL_INTERVAL = float(os.environ.get("LIGHTRAG_DRAIN_POLL_INTERVAL", "5.0"))
+
+# --- Storage backend: "file" (default) or "opensearch" ---
 LIGHTRAG_STORAGE = os.environ.get("LIGHTRAG_STORAGE", "file")
 if LIGHTRAG_STORAGE not in ("file", "opensearch"):
     print(f"Error: Invalid LIGHTRAG_STORAGE={LIGHTRAG_STORAGE!r}. Must be 'file' or 'opensearch'.", file=sys.stderr)
@@ -191,8 +267,13 @@ def create_rag():
     except ImportError:
         from lightrag.base import EmbeddingFunc
 
+    addon_params = {"language": SUMMARY_LANGUAGE}
+    if ENTITY_TYPES is not None:
+        addon_params["entity_types"] = ENTITY_TYPES
+
     kwargs = dict(
         working_dir=WORKING_DIR,
+        # LLM
         llm_model_func=openai_complete,
         llm_model_name=LLM_MODEL,
         llm_model_kwargs={
@@ -200,9 +281,10 @@ def create_rag():
             "api_key": api_key,
         },
         llm_model_max_async=LLM_MAX_ASYNC,
-        max_parallel_insert=MAX_PARALLEL_INSERT,
         default_llm_timeout=LLM_TIMEOUT,
-        default_embedding_timeout=EMBEDDING_TIMEOUT,
+        enable_llm_cache=ENABLE_LLM_CACHE,
+        enable_llm_cache_for_entity_extract=ENABLE_LLM_CACHE_FOR_EXTRACT,
+        # Embedding
         embedding_func=EmbeddingFunc(
             embedding_dim=EMBEDDING_DIM,
             max_token_size=EMBEDDING_LENGTH,
@@ -214,6 +296,43 @@ def create_rag():
             ),
         ),
         embedding_batch_num=EMBEDDING_BATCH_NUM,
+        embedding_func_max_async=EMBEDDING_FUNC_MAX_ASYNC,
+        default_embedding_timeout=EMBEDDING_TIMEOUT,
+        embedding_cache_config={
+            "enabled": EMBEDDING_CACHE_ENABLED,
+            "similarity_threshold": EMBEDDING_CACHE_SIMILARITY,
+            "use_llm_check": False,
+        },
+        # Chunking
+        chunk_token_size=CHUNK_TOKEN_SIZE,
+        chunk_overlap_token_size=CHUNK_OVERLAP_TOKEN_SIZE,
+        tiktoken_model_name=TIKTOKEN_MODEL_NAME,
+        # Entity extraction
+        entity_extract_max_gleaning=ENTITY_EXTRACT_MAX_GLEANING,
+        max_extract_input_tokens=MAX_EXTRACT_INPUT_TOKENS,
+        force_llm_summary_on_merge=FORCE_LLM_SUMMARY_ON_MERGE,
+        # Summary
+        summary_max_tokens=SUMMARY_MAX_TOKENS,
+        summary_context_size=SUMMARY_CONTEXT_SIZE,
+        summary_length_recommended=SUMMARY_LENGTH_RECOMMENDED,
+        # Query/retrieval defaults
+        top_k=TOP_K,
+        chunk_top_k=CHUNK_TOP_K,
+        max_entity_tokens=MAX_ENTITY_TOKENS,
+        max_relation_tokens=MAX_RELATION_TOKENS,
+        max_total_tokens=MAX_TOTAL_TOKENS,
+        cosine_better_than_threshold=COSINE_THRESHOLD,
+        related_chunk_number=RELATED_CHUNK_NUMBER,
+        kg_chunk_pick_method=KG_CHUNK_PICK_METHOD,
+        # Graph limits
+        max_parallel_insert=MAX_PARALLEL_INSERT,
+        max_graph_nodes=MAX_GRAPH_NODES,
+        max_source_ids_per_entity=MAX_SOURCE_IDS_PER_ENTITY,
+        max_source_ids_per_relation=MAX_SOURCE_IDS_PER_RELATION,
+        source_ids_limit_method=SOURCE_IDS_LIMIT_METHOD,
+        max_file_paths=MAX_FILE_PATHS,
+        # Addon
+        addon_params=addon_params,
     )
 
     if LIGHTRAG_STORAGE == "opensearch":
@@ -512,14 +631,15 @@ async def cmd_query(args):
     """Freeform semantic search across the knowledge graph."""
     rag = await _init_rag()
 
-    result = await _cached_query(rag, args.question, "hybrid")
+    mode = getattr(args, "mode", None) or DEFAULT_QUERY_MODE
+    result = await _cached_query(rag, args.question, mode)
 
-    print(f"## Results (hybrid mode)\n\n{result}")
+    print(f"## Results ({mode} mode)\n\n{result}")
 
     log_operation("Query", {
         "Tool": "scripts/knowledge.py query",
         "Query": args.question,
-        "Mode": "hybrid",
+        "Mode": mode,
         "Result": "SUCCESS" if result else "EMPTY",
     })
 
@@ -822,6 +942,370 @@ async def cmd_coverage(args):
 
 
 # ---------------------------------------------------------------------------
+# Queue-based ingestion
+# ---------------------------------------------------------------------------
+
+
+def _classify_file(path):
+    """Determine (doc_id, priority) for a file. Priority: 1=source, 2=prepared, 3=parsed, 4=pdf."""
+    try:
+        rel = str(path.relative_to(Path.cwd().resolve()))
+    except ValueError:
+        rel = str(path)
+
+    if rel.startswith(SOURCES_DIR + "/"):
+        return path.stem, 1
+    if rel.startswith(PREPARED_DIR + "/"):
+        try:
+            rel_path = path.relative_to(Path.cwd() / PREPARED_DIR)
+        except ValueError:
+            rel_path = Path(path.name)
+        return f"prepared_{rel_path.with_suffix('').as_posix().replace('/', '_')}", 2
+    if rel.startswith(PARSED_DIR + "/"):
+        return f"parsed_{path.stem}", 3
+    if path.suffix == ".pdf":
+        return f"pdf_{path.stem}", 4
+    return path.stem, 2
+
+
+def _is_worker_alive():
+    """Check if a worker process is running. Returns (alive, pid)."""
+    pid_path = Path(WORKER_PID_FILE)
+    if not pid_path.exists():
+        return False, None
+    try:
+        pid = int(pid_path.read_text(encoding="utf-8").strip())
+        os.kill(pid, 0)
+        return True, pid
+    except (ValueError, ProcessLookupError, PermissionError, OSError):
+        pid_path.unlink(missing_ok=True)
+        return False, None
+
+
+def _read_queue():
+    """Read all items from the queue file."""
+    queue_path = Path(QUEUE_FILE)
+    if not queue_path.exists():
+        return []
+    items = []
+    for line in queue_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                items.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return items
+
+
+def _read_progress():
+    """Read progress tracking."""
+    progress_path = Path(PROGRESS_FILE)
+    if not progress_path.exists():
+        return {"processed": {}}
+    try:
+        return json.loads(progress_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"processed": {}}
+
+
+def _save_progress(progress):
+    """Save progress tracking atomically via temp file + rename."""
+    import tempfile
+
+    progress_path = Path(PROGRESS_FILE)
+    fd, tmp = tempfile.mkstemp(dir=WORKING_DIR, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(progress, f, indent=2)
+        os.replace(tmp, str(progress_path))
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _log_worker(message):
+    """Append a timestamped message to the worker log."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(WORKER_LOG_FILE, "a") as f:
+        f.write(f"[{timestamp}] {message}\n")
+    print(f"[{timestamp}] {message}", file=sys.stderr)
+
+
+def _read_file_content(path):
+    """Read content from a file, handling PDFs via pymupdf extraction."""
+    if path.suffix == ".pdf":
+        return extract_pdf_text(path)
+    return path.read_text(encoding="utf-8")
+
+
+async def cmd_serve(_args):
+    """Long-running worker that processes the ingestion queue."""
+    os.makedirs(WORKING_DIR, exist_ok=True)
+
+    # Atomically create PID file to prevent duplicate workers
+    try:
+        fd = os.open(WORKER_PID_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+    except FileExistsError:
+        alive, old_pid = _is_worker_alive()
+        if alive:
+            print(f"Worker already running (PID {old_pid})", file=sys.stderr)
+            sys.exit(1)
+        # Stale PID file from a crashed worker — reclaim it
+        Path(WORKER_PID_FILE).write_text(str(os.getpid()), encoding="utf-8")
+
+    shutdown_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGTERM, shutdown_event.set)
+    loop.add_signal_handler(signal.SIGINT, shutdown_event.set)
+
+    _log_worker(f"Worker starting (PID {os.getpid()})")
+
+    ingested_count = 0
+    try:
+        rag = await _init_rag()
+        _log_worker("RAG initialized, waiting for queue items")
+
+        progress = _read_progress()
+
+        while not shutdown_event.is_set():
+            # Deduplicate queue: last enqueue for each doc_id wins
+            items = _read_queue()
+            unique = {}
+            for item in items:
+                unique[item["doc_id"]] = item
+
+            pending = [
+                item for item in unique.values()
+                if item["doc_id"] not in progress["processed"]
+            ]
+
+            if not pending:
+                try:
+                    await asyncio.wait_for(shutdown_event.wait(), timeout=WORKER_POLL_INTERVAL)
+                    break  # shutdown signal
+                except asyncio.TimeoutError:
+                    continue  # poll again
+
+            # Process highest-priority item first (small sources before big PDFs)
+            pending.sort(key=lambda x: x.get("priority", 99))
+            item = pending[0]
+            doc_id = item["doc_id"]
+            file_path = Path(item["path"])
+
+            if not file_path.exists():
+                _log_worker(f"SKIP (missing): {doc_id}")
+                progress["processed"][doc_id] = {
+                    "status": "skipped",
+                    "reason": "file_not_found",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+                _save_progress(progress)
+                continue
+
+            _log_worker(f"INGEST: {doc_id} ({file_path.name})")
+
+            try:
+                content = _read_file_content(file_path)
+                if not content or not content.strip():
+                    _log_worker(f"SKIP (empty): {doc_id}")
+                    progress["processed"][doc_id] = {
+                        "status": "skipped",
+                        "reason": "empty_file",
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                else:
+                    await rag.ainsert([content], ids=[doc_id], file_paths=[doc_id])
+                    ingested_count += 1
+                    progress["processed"][doc_id] = {
+                        "status": "done",
+                        "chars": len(content),
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    _log_worker(f"OK: {doc_id} ({len(content)} chars)")
+                    _save_build_timestamp()
+                    _invalidate_cache()
+            except Exception as e:
+                _log_worker(f"FAIL: {doc_id}: {e}")
+                progress["processed"][doc_id] = {
+                    "status": "failed",
+                    "error": str(e),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+            _save_progress(progress)
+
+    finally:
+        Path(WORKER_PID_FILE).unlink(missing_ok=True)
+        if ingested_count > 0:
+            _save_build_timestamp()
+            _invalidate_cache()
+        _log_worker(f"Worker stopped ({ingested_count} documents ingested)")
+
+
+async def cmd_enqueue(args):
+    """Add files to the ingestion queue. Instant, non-blocking."""
+    os.makedirs(WORKING_DIR, exist_ok=True)
+
+    progress = _read_progress()
+    progress_modified = False
+    queue_path = Path(QUEUE_FILE)
+
+    added = 0
+    requeued = 0
+    skipped = 0
+
+    with open(queue_path, "a") as f:
+        for path_str in args.files:
+            path = Path(path_str).resolve()
+            if not path.exists():
+                print(f"Warning: {path_str} not found, skipping", file=sys.stderr)
+                continue
+
+            doc_id, priority = _classify_file(path)
+
+            # Check if already processed
+            if doc_id in progress["processed"]:
+                prev = progress["processed"][doc_id]
+                if not getattr(args, "reindex", False) and prev.get("status") == "done":
+                    # Skip if file hasn't been modified since last ingest
+                    completed_ts = datetime.fromisoformat(
+                        prev["completed_at"]
+                    ).timestamp()
+                    if path.stat().st_mtime <= completed_ts:
+                        skipped += 1
+                        continue
+                # File modified or --reindex: clear progress for re-processing
+                del progress["processed"][doc_id]
+                progress_modified = True
+                requeued += 1
+
+            entry = {
+                "path": str(path),
+                "doc_id": doc_id,
+                "priority": priority,
+                "enqueued_at": datetime.now(timezone.utc).isoformat(),
+            }
+            f.write(json.dumps(entry) + "\n")
+            added += 1
+
+    if progress_modified:
+        _save_progress(progress)
+
+    parts = []
+    if added:
+        parts.append(f"{added} queued")
+    if requeued:
+        parts.append(f"{requeued} re-queued")
+    if skipped:
+        parts.append(f"{skipped} up-to-date")
+    print(", ".join(parts) if parts else "No files to queue")
+
+
+async def cmd_queue_status(_args):
+    """Show ingestion queue status."""
+    items = _read_queue()
+    progress = _read_progress()
+
+    # Deduplicate by doc_id
+    unique = {}
+    for item in items:
+        unique[item["doc_id"]] = item
+
+    done = failed = skipped_count = 0
+    for doc_id in unique:
+        info = progress["processed"].get(doc_id)
+        if not info:
+            continue
+        s = info["status"]
+        if s == "done":
+            done += 1
+        elif s == "failed":
+            failed += 1
+        elif s == "skipped":
+            skipped_count += 1
+
+    pending = len(unique) - done - failed - skipped_count
+    alive, pid = _is_worker_alive()
+
+    worker_str = f"running (PID {pid})" if alive else "stopped"
+    print(f"Worker: {worker_str}")
+    print(
+        f"Queue:  {pending} pending, {done} done, "
+        f"{failed} failed, {skipped_count} skipped ({len(unique)} total)"
+    )
+
+    if failed > 0:
+        print("\nFailed:")
+        for doc_id, info in progress["processed"].items():
+            if info.get("status") == "failed":
+                print(f"  {doc_id}: {info.get('error', 'unknown')}")
+
+
+async def cmd_drain(args):
+    """Block until the ingestion queue is fully processed."""
+    timeout = getattr(args, "timeout", 0)
+    start = datetime.now(timezone.utc)
+
+    alive, _ = _is_worker_alive()
+    if not alive:
+        print("Error: No worker running. Start one with 'serve'.", file=sys.stderr)
+        sys.exit(1)
+
+    while True:
+        items = _read_queue()
+        progress = _read_progress()
+
+        unique = {}
+        for item in items:
+            unique[item["doc_id"]] = item
+
+        pending = sum(1 for d in unique if d not in progress["processed"])
+
+        if pending == 0:
+            print("Queue drained — all items processed.")
+            return
+
+        if timeout > 0:
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+            if elapsed >= timeout:
+                print(f"Timed out after {timeout}s with {pending} items pending.")
+                sys.exit(1)
+
+        alive, _ = _is_worker_alive()
+        if not alive:
+            print(f"Worker died with {pending} items pending.", file=sys.stderr)
+            sys.exit(1)
+
+        await asyncio.sleep(DRAIN_POLL_INTERVAL)
+
+
+async def cmd_stop(_args):
+    """Gracefully stop the ingestion worker."""
+    alive, pid = _is_worker_alive()
+    if not alive:
+        print("No worker running.")
+        return
+
+    os.kill(pid, signal.SIGTERM)
+    print(f"Sent SIGTERM to worker (PID {pid})")
+
+    for _ in range(WORKER_STOP_TIMEOUT):
+        await asyncio.sleep(1)
+        alive, _ = _is_worker_alive()
+        if not alive:
+            print("Worker stopped.")
+            return
+
+    print(f"Worker did not stop within {WORKER_STOP_TIMEOUT}s.", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -836,6 +1320,8 @@ def main():
 
     p_query = subparsers.add_parser("query", help="Freeform semantic search")
     p_query.add_argument("question", help="Question to search for")
+    p_query.add_argument("--mode", choices=["local", "global", "hybrid", "naive", "mix"],
+                         default=None, help=f"Query mode (default: {DEFAULT_QUERY_MODE})")
 
     subparsers.add_parser("contradictions", help="Find conflicting claims across sources")
 
@@ -853,6 +1339,22 @@ def main():
     p_cov = subparsers.add_parser("coverage", help="Check entity coverage in a document")
     p_cov.add_argument("document", help="Path to document to check")
 
+    # Queue-based ingestion
+    subparsers.add_parser("serve", help="Start ingestion worker (long-running)")
+
+    p_enqueue = subparsers.add_parser("enqueue", help="Add files to ingestion queue")
+    p_enqueue.add_argument("files", nargs="+", help="File paths to enqueue")
+    p_enqueue.add_argument("--reindex", action="store_true",
+                           help="Force re-processing of already-ingested files")
+
+    subparsers.add_parser("status", help="Show ingestion queue status")
+
+    p_drain = subparsers.add_parser("drain", help="Block until queue is fully processed")
+    p_drain.add_argument("--timeout", type=int, default=0,
+                         help="Timeout in seconds (0 = wait indefinitely)")
+
+    subparsers.add_parser("stop", help="Stop the ingestion worker")
+
     args = parser.parse_args()
 
     commands = {
@@ -865,6 +1367,11 @@ def main():
         "entities": cmd_entities,
         "relationships": cmd_relationships,
         "coverage": cmd_coverage,
+        "serve": cmd_serve,
+        "enqueue": cmd_enqueue,
+        "status": cmd_queue_status,
+        "drain": cmd_drain,
+        "stop": cmd_stop,
     }
 
     asyncio.run(commands[args.command](args))
