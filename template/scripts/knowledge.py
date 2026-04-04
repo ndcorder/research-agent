@@ -72,6 +72,7 @@ import enum
 import json
 import re
 import signal
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
@@ -314,6 +315,162 @@ def classify_query(query: str) -> QueryPattern:
             if rx.search(query):
                 return pattern
     return QueryPattern.DEFAULT
+
+
+# ---------------------------------------------------------------------------
+# Entity pre-flight search helpers (Task 2)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EntityMatch:
+    """A knowledge-graph entity matched during pre-flight search."""
+    name: str
+    entity_type: str
+    score: float
+    source: str
+
+
+_QUOTED_RE = re.compile(r"""['""\u2018\u201c](.{3,}?)['""\u2019\u201d]""")
+_BIBTEX_KEY_RE = re.compile(r"\b([a-z]+\d{4}[a-z]?)\b")
+
+
+def extract_query_targets(query: str) -> list[str]:
+    """Extract likely entity names from *query*.
+
+    Returns quoted strings and bibtex-key patterns, deduplicated
+    (quoted version wins over bibtex duplicate).
+    """
+    quoted = _QUOTED_RE.findall(query)
+    bibtex = _BIBTEX_KEY_RE.findall(query)
+
+    seen: set[str] = set()
+    targets: list[str] = []
+
+    # Quoted strings take priority
+    for q in quoted:
+        low = q.lower()
+        if low not in seen:
+            seen.add(low)
+            targets.append(q)
+
+    # Add bibtex keys not already covered by a quoted string
+    for b in bibtex:
+        low = b.lower()
+        if low not in seen:
+            seen.add(low)
+            targets.append(b)
+
+    return targets
+
+
+def _search_entities_in_graph(
+    nodes: dict[str, dict], targets: list[str]
+) -> list[EntityMatch]:
+    """Substring-search *targets* against graph *nodes*.
+
+    Returns matches sorted by score descending, deduplicated by name.
+    """
+    if not nodes or not targets:
+        return []
+
+    seen_names: set[str] = set()
+    matches: list[EntityMatch] = []
+
+    for target in targets:
+        target_lower = target.lower()
+        for node_name, node_data in nodes.items():
+            name_lower = node_name.lower()
+            if target_lower not in name_lower:
+                continue
+            if name_lower in seen_names:
+                continue
+            seen_names.add(name_lower)
+            # Exact match -> 1.0, otherwise ratio of target length to node name length
+            if target_lower == name_lower:
+                score = 1.0
+            else:
+                score = round(len(target_lower) / len(name_lower), 4)
+            matches.append(
+                EntityMatch(
+                    name=node_name,
+                    entity_type=node_data.get("entity_type", "unknown"),
+                    score=score,
+                    source="graph",
+                )
+            )
+
+    matches.sort(key=lambda m: m.score, reverse=True)
+    return matches
+
+
+def _get_graph_nodes() -> dict[str, dict]:
+    """Load all graph nodes from the GraphML file.
+
+    Returns ``{name: {entity_type, ...}}`` or empty dict if unavailable.
+    """
+    try:
+        import networkx as nx
+    except ImportError:
+        return {}
+
+    graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
+    if not graph_path.exists():
+        return {}
+
+    G = nx.read_graphml(str(graph_path))
+    result: dict[str, dict] = {}
+    for node, data in G.nodes(data=True):
+        result[node] = dict(data)
+    return result
+
+
+def _get_entity_relationships(
+    nodes_dict: dict[str, dict], entity_names: list[str]
+) -> list[str]:
+    """Get direct relationships for *entity_names* from GraphML.
+
+    Returns formatted strings like ``"A → relates_to → B"``, deduplicated.
+    """
+    try:
+        import networkx as nx
+    except ImportError:
+        return []
+
+    graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
+    if not graph_path.exists():
+        return []
+
+    G = nx.read_graphml(str(graph_path))
+
+    # Build a case-insensitive lookup from graph names to canonical names
+    name_lookup: dict[str, str] = {n.lower(): n for n in G.nodes()}
+
+    seen: set[str] = set()
+    results: list[str] = []
+
+    for name in entity_names:
+        canonical = name_lookup.get(name.lower())
+        if canonical is None:
+            continue
+
+        # Outgoing edges
+        for _src, tgt, data in G.edges(canonical, data=True):
+            rel = data.get("relationship") or data.get("label", "related_to")
+            entry = f"{canonical} \u2192 {rel} \u2192 {tgt}"
+            if entry not in seen:
+                seen.add(entry)
+                results.append(entry)
+
+        # Incoming edges (DiGraph)
+        if hasattr(G, "in_edges"):
+            for src, _tgt, data in G.in_edges(canonical, data=True):
+                rel = data.get("relationship") or data.get("label", "related_to")
+                entry = f"{src} \u2192 {rel} \u2192 {canonical}"
+                if entry not in seen:
+                    seen.add(entry)
+                    results.append(entry)
+
+    return results
 
 
 async def _cached_query(rag, query: str, mode: str) -> str:

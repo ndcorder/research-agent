@@ -24,6 +24,11 @@ except Exception:
 
 QueryPattern = knowledge.QueryPattern
 classify_query = knowledge.classify_query
+EntityMatch = knowledge.EntityMatch
+extract_query_targets = knowledge.extract_query_targets
+_search_entities_in_graph = knowledge._search_entities_in_graph
+_get_graph_nodes = knowledge._get_graph_nodes
+_get_entity_relationships = knowledge._get_entity_relationships
 
 
 class TestClassifyQuery:
@@ -122,3 +127,111 @@ class TestClassifyQuery:
     def test_specific_paper_beats_all(self):
         """Quoted title should match SPECIFIC_PAPER even with other keywords."""
         assert classify_query("evidence from 'Attention Is All You Need'") == QueryPattern.SPECIFIC_PAPER
+
+
+# ===========================================================================
+# Task 2 — Entity pre-flight search
+# ===========================================================================
+
+
+class TestEntityMatch:
+    """EntityMatch dataclass field verification."""
+
+    def test_fields_exist(self):
+        em = EntityMatch(name="foo", entity_type="concept", score=0.9, source="graph")
+        assert em.name == "foo"
+        assert em.entity_type == "concept"
+        assert em.score == 0.9
+        assert em.source == "graph"
+
+    def test_is_dataclass(self):
+        import dataclasses
+        assert dataclasses.is_dataclass(EntityMatch)
+
+
+class TestExtractQueryTargets:
+    """Test extract_query_targets for quoted strings and bibtex keys."""
+
+    def test_double_quoted(self):
+        assert extract_query_targets('"Attention Is All You Need"') == [
+            "Attention Is All You Need"
+        ]
+
+    def test_single_quoted(self):
+        assert extract_query_targets("'Scaling Laws for LLMs'") == [
+            "Scaling Laws for LLMs"
+        ]
+
+    def test_smart_quotes(self):
+        assert extract_query_targets("\u201cSmart Quotes\u201d") == ["Smart Quotes"]
+
+    def test_bibtex_key(self):
+        assert extract_query_targets("vaswani2017") == ["vaswani2017"]
+
+    def test_bibtex_key_with_suffix(self):
+        assert extract_query_targets("brown2020a") == ["brown2020a"]
+
+    def test_no_targets(self):
+        assert extract_query_targets("what is attention") == []
+
+    def test_multiple_targets(self):
+        result = extract_query_targets('"Paper One" and vaswani2017')
+        assert "Paper One" in result
+        assert "vaswani2017" in result
+
+    def test_short_quoted_ignored(self):
+        """Quoted strings < 3 chars should be excluded."""
+        assert extract_query_targets('"ab"') == []
+
+    def test_dedup_quoted_over_bibtex(self):
+        """If a quoted string matches a bibtex pattern, keep quoted version only."""
+        result = extract_query_targets('"vaswani2017"')
+        assert result == ["vaswani2017"]
+        assert len(result) == 1
+
+
+class TestEntityPreflight:
+    """Test _search_entities_in_graph for substring matching."""
+
+    def test_exact_match(self):
+        nodes = {"attention mechanism": {"entity_type": "concept"}}
+        matches = _search_entities_in_graph(nodes, ["attention mechanism"])
+        assert len(matches) == 1
+        assert matches[0].name == "attention mechanism"
+        assert matches[0].score == 1.0
+
+    def test_substring_match(self):
+        nodes = {"multi-head attention mechanism": {"entity_type": "concept"}}
+        matches = _search_entities_in_graph(nodes, ["attention mechanism"])
+        assert len(matches) == 1
+        assert matches[0].name == "multi-head attention mechanism"
+        assert matches[0].score < 1.0
+
+    def test_bibtex_key_match(self):
+        nodes = {"vaswani2017": {"entity_type": "paper"}}
+        matches = _search_entities_in_graph(nodes, ["vaswani2017"])
+        assert len(matches) == 1
+        assert matches[0].entity_type == "paper"
+
+    def test_no_match(self):
+        nodes = {"transformer": {"entity_type": "concept"}}
+        matches = _search_entities_in_graph(nodes, ["quantum computing"])
+        assert len(matches) == 0
+
+    def test_case_insensitive(self):
+        nodes = {"Attention Mechanism": {"entity_type": "concept"}}
+        matches = _search_entities_in_graph(nodes, ["attention mechanism"])
+        assert len(matches) == 1
+
+    def test_sorted_by_score_descending(self):
+        nodes = {
+            "attention": {"entity_type": "concept"},
+            "multi-head attention mechanism": {"entity_type": "concept"},
+        }
+        matches = _search_entities_in_graph(nodes, ["attention"])
+        assert matches[0].score >= matches[-1].score
+
+    def test_dedup_by_name(self):
+        nodes = {"attention": {"entity_type": "concept"}}
+        matches = _search_entities_in_graph(nodes, ["attention", "attention"])
+        assert len(matches) == 1
