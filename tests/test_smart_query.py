@@ -29,6 +29,8 @@ extract_query_targets = knowledge.extract_query_targets
 _search_entities_in_graph = knowledge._search_entities_in_graph
 _get_graph_nodes = knowledge._get_graph_nodes
 _get_entity_relationships = knowledge._get_entity_relationships
+get_retrieval_modes = knowledge.get_retrieval_modes
+merge_retrieval_results = knowledge.merge_retrieval_results
 
 
 class TestClassifyQuery:
@@ -235,3 +237,84 @@ class TestEntityPreflight:
         nodes = {"attention": {"entity_type": "concept"}}
         matches = _search_entities_in_graph(nodes, ["attention", "attention"])
         assert len(matches) == 1
+
+
+# ---------------------------------------------------------------------------
+# Multi-strategy retrieval tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetRetrievalModes:
+    def test_specific_paper_modes(self):
+        assert get_retrieval_modes(QueryPattern.SPECIFIC_PAPER) == ["naive", "local"]
+
+    def test_concept_exploration_modes(self):
+        assert get_retrieval_modes(QueryPattern.CONCEPT_EXPLORATION) == ["hybrid", "naive"]
+
+    def test_evidence_modes(self):
+        assert get_retrieval_modes(QueryPattern.EVIDENCE) == ["hybrid", "naive"]
+
+    def test_contradiction_modes(self):
+        assert get_retrieval_modes(QueryPattern.CONTRADICTION) == ["global", "hybrid"]
+
+    def test_broad_survey_modes(self):
+        assert get_retrieval_modes(QueryPattern.BROAD_SURVEY) == ["hybrid", "naive"]
+
+    def test_default_modes(self):
+        assert get_retrieval_modes(QueryPattern.DEFAULT) == ["hybrid", "naive"]
+
+    def test_returns_list_of_strings(self):
+        for pattern in QueryPattern:
+            modes = get_retrieval_modes(pattern)
+            assert isinstance(modes, list)
+            assert all(isinstance(m, str) for m in modes)
+
+
+class TestMergeRetrievalResults:
+    def test_empty_input(self):
+        assert merge_retrieval_results([]) == {"entities": [], "relationships": [], "chunks": []}
+
+    def test_single_result_passthrough(self):
+        data = {
+            "entities": [{"entity_name": "A", "description": "desc"}],
+            "relationships": [{"src_id": "A", "tgt_id": "B", "description": "rel"}],
+            "chunks": [{"content": "text", "source_id": "s1"}],
+        }
+        result = merge_retrieval_results([data])
+        assert len(result["entities"]) == 1
+        assert len(result["relationships"]) == 1
+        assert len(result["chunks"]) == 1
+
+    def test_deduplicates_entities(self):
+        r1 = {"entities": [{"entity_name": "A", "description": "a"}], "relationships": [], "chunks": []}
+        r2 = {"entities": [{"entity_name": "A", "description": "a"}], "relationships": [], "chunks": []}
+        assert len(merge_retrieval_results([r1, r2])["entities"]) == 1
+
+    def test_merges_different_entities(self):
+        r1 = {"entities": [{"entity_name": "A", "description": "a"}], "relationships": [], "chunks": []}
+        r2 = {"entities": [{"entity_name": "B", "description": "b"}], "relationships": [], "chunks": []}
+        assert len(merge_retrieval_results([r1, r2])["entities"]) == 2
+
+    def test_deduplicates_relationships(self):
+        rel = {"src_id": "A", "tgt_id": "B", "description": "rel"}
+        r1 = {"entities": [], "relationships": [rel], "chunks": []}
+        r2 = {"entities": [], "relationships": [rel], "chunks": []}
+        assert len(merge_retrieval_results([r1, r2])["relationships"]) == 1
+
+    def test_deduplicates_chunks_by_content(self):
+        c = {"content": "same text", "source_id": "s1"}
+        r1 = {"entities": [], "relationships": [], "chunks": [c]}
+        r2 = {"entities": [], "relationships": [], "chunks": [c]}
+        assert len(merge_retrieval_results([r1, r2])["chunks"]) == 1
+
+    def test_preserves_order(self):
+        r1 = {"entities": [{"entity_name": "A"}, {"entity_name": "B"}], "relationships": [], "chunks": []}
+        r2 = {"entities": [{"entity_name": "C"}], "relationships": [], "chunks": []}
+        names = [e["entity_name"] for e in merge_retrieval_results([r1, r2])["entities"]]
+        assert names == ["A", "B", "C"]
+
+    def test_missing_keys_tolerated(self):
+        result = merge_retrieval_results([{"entities": [{"entity_name": "X"}]}])
+        assert len(result["entities"]) == 1
+        assert result["relationships"] == []
+        assert result["chunks"] == []

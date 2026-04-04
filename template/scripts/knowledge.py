@@ -473,6 +473,81 @@ def _get_entity_relationships(
     return results
 
 
+# --- Multi-strategy retrieval ---
+
+_PATTERN_MODES: dict[QueryPattern, list[str]] = {
+    QueryPattern.SPECIFIC_PAPER: ["naive", "local"],
+    QueryPattern.CONCEPT_EXPLORATION: ["hybrid", "naive"],
+    QueryPattern.EVIDENCE: ["hybrid", "naive"],
+    QueryPattern.CONTRADICTION: ["global", "hybrid"],
+    QueryPattern.BROAD_SURVEY: ["hybrid", "naive"],
+    QueryPattern.DEFAULT: ["hybrid", "naive"],
+}
+
+_DEFAULT_MODES: list[str] = ["hybrid", "naive"]
+
+
+def get_retrieval_modes(pattern: QueryPattern) -> list[str]:
+    """Return the LightRAG retrieval modes for a query pattern."""
+    return _PATTERN_MODES.get(pattern, _DEFAULT_MODES)
+
+
+def merge_retrieval_results(results: list[dict]) -> dict:
+    """Merge multiple raw retrieval data dicts, deduplicating entries.
+
+    Entities are deduplicated by ``entity_name``, relationships by
+    ``(src_id, tgt_id)`` tuple, and chunks by ``content`` string.
+    First occurrence wins in all cases.
+    """
+    entities: list[dict] = []
+    relationships: list[dict] = []
+    chunks: list[dict] = []
+    seen_entities: set[str] = set()
+    seen_rels: set[tuple[str, str]] = set()
+    seen_chunks: set[str] = set()
+
+    for data in results:
+        for ent in data.get("entities", []):
+            name = ent.get("entity_name", "")
+            if name not in seen_entities:
+                seen_entities.add(name)
+                entities.append(ent)
+
+        for rel in data.get("relationships", []):
+            key = (rel.get("src_id", ""), rel.get("tgt_id", ""))
+            if key not in seen_rels:
+                seen_rels.add(key)
+                relationships.append(rel)
+
+        for chunk in data.get("chunks", []):
+            content = chunk.get("content", "")
+            if content not in seen_chunks:
+                seen_chunks.add(content)
+                chunks.append(chunk)
+
+    return {"entities": entities, "relationships": relationships, "chunks": chunks}
+
+
+async def _multi_retrieve(rag, query: str, pattern: QueryPattern) -> dict:
+    """Run retrieval across multiple modes concurrently and merge results."""
+    from lightrag import QueryParam
+
+    modes = get_retrieval_modes(pattern)
+
+    async def _fetch(mode: str) -> dict | None:
+        try:
+            resp = await rag.aquery_data(query, QueryParam(mode=mode))
+            if isinstance(resp, dict) and resp.get("status") == "success":
+                return resp.get("data", {})
+        except Exception:
+            pass
+        return None
+
+    raw = await asyncio.gather(*[_fetch(m) for m in modes])
+    successful = [r for r in raw if r is not None]
+    return merge_retrieval_results(successful)
+
+
 async def _cached_query(rag, query: str, mode: str) -> str:
     """Query with file-based caching. Returns cached result if available."""
     from lightrag import QueryParam
