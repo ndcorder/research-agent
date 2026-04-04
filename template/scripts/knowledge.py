@@ -548,6 +548,149 @@ async def _multi_retrieve(rag, query: str, pattern: QueryPattern) -> dict:
     return merge_retrieval_results(successful)
 
 
+# ---------------------------------------------------------------------------
+# Synthesis & structured output
+# ---------------------------------------------------------------------------
+
+
+def compute_confidence(entity_matches: int, modes_contributed: int, total_chunks: int) -> str:
+    """Return HIGH / MEDIUM / LOW confidence label based on retrieval evidence."""
+    if entity_matches >= 2 and modes_contributed >= 2:
+        return "HIGH"
+    if entity_matches >= 1 or (modes_contributed >= 2 and total_chunks >= 5):
+        return "MEDIUM"
+    return "LOW"
+
+
+def format_smart_output(
+    confidence: str,
+    entity_matches: list,  # list[EntityMatch]
+    source_documents: list[str],
+    synthesis: str,
+    entity_context: list[str],
+) -> str:
+    """Return formatted markdown combining all smart-query outputs."""
+    n_entities = len(entity_matches)
+    n_sources = len(source_documents)
+    matched_names = ", ".join(e.name for e in entity_matches) if entity_matches else "none"
+    sources_str = ", ".join(source_documents) if source_documents else "none"
+
+    lines = [
+        "## Query Results",
+        "",
+        f"**Confidence:** {confidence} | {n_entities} entities matched, {n_sources} sources",
+        f"**Matched entities:** {matched_names}",
+        f"**Sources:** {sources_str}",
+        "",
+        "### Answer",
+        "",
+        synthesis,
+    ]
+
+    if entity_context:
+        lines.append("")
+        lines.append("### Entity Context")
+        lines.append("")
+        for ctx in entity_context:
+            lines.append(f"- {ctx}")
+
+    return "\n".join(lines)
+
+
+def _extract_source_documents(merged: dict) -> list[str]:
+    """Extract unique source document IDs from merged retrieval data."""
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for entity in merged.get("entities", []):
+        src = entity.get("source_id", "")
+        if src:
+            for part in src.split("\t"):
+                part = part.strip()
+                if part and part not in seen:
+                    seen.add(part)
+                    result.append(part)
+
+    for chunk in merged.get("chunks", []):
+        src = chunk.get("source_id", "")
+        if src:
+            src = src.strip()
+            if src and src not in seen:
+                seen.add(src)
+                result.append(src)
+
+    return result
+
+
+async def _synthesize(rag, query: str, merged: dict, preflight_context: str) -> str:
+    """Build context from merged retrieval data and call the query LLM for synthesis."""
+    # Build context string from merged data
+    context_parts = []
+
+    if preflight_context:
+        context_parts.append(f"## Pre-flight Context\n{preflight_context}")
+
+    entities = merged.get("entities", [])
+    if entities:
+        ent_lines = []
+        for e in entities:
+            name = e.get("entity_name", "unknown")
+            desc = e.get("description", "")
+            ent_lines.append(f"- {name}: {desc}" if desc else f"- {name}")
+        context_parts.append("## Entities\n" + "\n".join(ent_lines))
+
+    relationships = merged.get("relationships", [])
+    if relationships:
+        rel_lines = []
+        for r in relationships:
+            src = r.get("src_id", "?")
+            tgt = r.get("tgt_id", "?")
+            desc = r.get("description", "")
+            rel_lines.append(f"- {src} → {tgt}: {desc}" if desc else f"- {src} → {tgt}")
+        context_parts.append("## Relationships\n" + "\n".join(rel_lines))
+
+    chunks = merged.get("chunks", [])
+    if chunks:
+        chunk_lines = []
+        for c in chunks:
+            source = c.get("source_id", "unknown")
+            content = c.get("content", "")
+            chunk_lines.append(f"[{source}] {content}")
+        context_parts.append("## Source Chunks\n" + "\n".join(chunk_lines))
+
+    context_str = "\n\n".join(context_parts) if context_parts else "(no context available)"
+
+    system_prompt = (
+        "You are a research knowledge base assistant. "
+        "Answer the query using ONLY the provided context. "
+        "Cite sources by their document ID when possible. "
+        "Be specific and evidence-based. "
+        "If the context is insufficient, say so clearly."
+    )
+
+    user_prompt = f"Context:\n{context_str}\n\nQuery: {query}"
+
+    # Use the query model if configured, otherwise fall back to LLM_MODEL
+    query_model_func = _get_query_model_func()
+    if query_model_func is not None:
+        result = await query_model_func(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+    else:
+        from lightrag.llm.openai import openai_complete
+
+        result = await openai_complete(
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            model=LLM_MODEL,
+            base_url=OPENROUTER_BASE_URL,
+            api_key=get_api_key(),
+        )
+
+    return result if isinstance(result, str) else str(result)
+
+
 async def _cached_query(rag, query: str, mode: str) -> str:
     """Query with file-based caching. Returns cached result if available."""
     from lightrag import QueryParam

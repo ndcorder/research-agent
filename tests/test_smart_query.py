@@ -31,6 +31,9 @@ _get_graph_nodes = knowledge._get_graph_nodes
 _get_entity_relationships = knowledge._get_entity_relationships
 get_retrieval_modes = knowledge.get_retrieval_modes
 merge_retrieval_results = knowledge.merge_retrieval_results
+compute_confidence = knowledge.compute_confidence
+format_smart_output = knowledge.format_smart_output
+_extract_source_documents = knowledge._extract_source_documents
 
 
 class TestClassifyQuery:
@@ -318,3 +321,111 @@ class TestMergeRetrievalResults:
         assert len(result["entities"]) == 1
         assert result["relationships"] == []
         assert result["chunks"] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Synthesis and structured output
+# ---------------------------------------------------------------------------
+
+
+class TestComputeConfidence:
+    def test_high_multiple_entities_and_modes(self):
+        assert compute_confidence(entity_matches=2, modes_contributed=2, total_chunks=0) == "HIGH"
+
+    def test_high_many_entities_and_modes(self):
+        assert compute_confidence(entity_matches=5, modes_contributed=3, total_chunks=10) == "HIGH"
+
+    def test_medium_one_entity(self):
+        assert compute_confidence(entity_matches=1, modes_contributed=1, total_chunks=0) == "MEDIUM"
+
+    def test_medium_two_modes_many_chunks(self):
+        assert compute_confidence(entity_matches=0, modes_contributed=2, total_chunks=5) == "MEDIUM"
+
+    def test_low_no_entities_one_mode(self):
+        assert compute_confidence(entity_matches=0, modes_contributed=1, total_chunks=3) == "LOW"
+
+    def test_low_empty(self):
+        assert compute_confidence(entity_matches=0, modes_contributed=0, total_chunks=0) == "LOW"
+
+
+class TestFormatSmartOutput:
+    def test_contains_confidence(self):
+        out = format_smart_output(
+            confidence="HIGH",
+            entity_matches=[EntityMatch("A", "CONCEPT", 1.0, "graph")],
+            source_documents=["doc1.md"],
+            synthesis="Answer text.",
+            entity_context=[],
+        )
+        assert "**Confidence:** HIGH" in out
+        assert "1 entities matched" in out or "1 entity" in out
+
+    def test_contains_synthesis(self):
+        out = format_smart_output(
+            confidence="MEDIUM",
+            entity_matches=[],
+            source_documents=[],
+            synthesis="Some synthesis.",
+            entity_context=[],
+        )
+        assert "Some synthesis." in out
+        assert "### Answer" in out
+
+    def test_contains_entity_context(self):
+        out = format_smart_output(
+            confidence="HIGH",
+            entity_matches=[EntityMatch("A", "CONCEPT", 1.0, "graph"), EntityMatch("B", "PAPER", 0.9, "graph")],
+            source_documents=["doc1.md", "doc2.md"],
+            synthesis="Answer.",
+            entity_context=["A \u2192 RELATES \u2192 B"],
+        )
+        assert "### Entity Context" in out
+        assert "A \u2192 RELATES \u2192 B" in out
+
+    def test_no_entity_context_when_empty(self):
+        out = format_smart_output(
+            confidence="LOW",
+            entity_matches=[],
+            source_documents=[],
+            synthesis="Answer.",
+            entity_context=[],
+        )
+        assert "### Entity Context" not in out
+
+
+class TestExtractSourceDocuments:
+    def test_extracts_from_chunks(self):
+        merged = {
+            "entities": [],
+            "relationships": [],
+            "chunks": [
+                {"content": "text", "source_id": "doc1.md"},
+                {"content": "other", "source_id": "doc2.md"},
+            ],
+        }
+        result = _extract_source_documents(merged)
+        assert result == ["doc1.md", "doc2.md"]
+
+    def test_extracts_from_entity_source_ids(self):
+        merged = {
+            "entities": [{"entity_name": "A", "source_id": "src1.md\tsrc2.md"}],
+            "relationships": [],
+            "chunks": [],
+        }
+        result = _extract_source_documents(merged)
+        assert "src1.md" in result
+        assert "src2.md" in result
+
+    def test_deduplicates(self):
+        merged = {
+            "entities": [{"entity_name": "A", "source_id": "doc1.md"}],
+            "relationships": [],
+            "chunks": [{"content": "text", "source_id": "doc1.md"}],
+        }
+        result = _extract_source_documents(merged)
+        assert result == ["doc1.md"]
+
+    def test_handles_empty(self):
+        merged = {"entities": [], "relationships": [], "chunks": []}
+        result = _extract_source_documents(merged)
+        assert result == []
