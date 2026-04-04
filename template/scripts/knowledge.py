@@ -492,6 +492,38 @@ def _get_entity_relationships(
     return results
 
 
+def _search_chunks_by_text(targets: list[str], max_chunks: int = 10) -> list[dict]:
+    """Fallback: search chunk text store directly for target strings.
+
+    Used when entity graph search returns no matches — e.g., a paper title
+    that wasn't extracted as an entity during ingestion.  Returns matching
+    chunks sorted by relevance (number of target hits).
+    """
+    chunks_path = Path(WORKING_DIR) / "kv_store_text_chunks.json"
+    if not chunks_path.exists():
+        return []
+
+    try:
+        store = json.loads(chunks_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    scored: list[tuple[int, dict]] = []
+    for _chunk_id, chunk_data in store.items():
+        if not isinstance(chunk_data, dict):
+            continue
+        content = chunk_data.get("content", "").lower()
+        hits = sum(1 for t in targets if t.lower() in content)
+        if hits > 0:
+            scored.append((hits, {
+                "content": chunk_data.get("content", ""),
+                "source_id": chunk_data.get("full_doc_id", chunk_data.get("file_path", "")),
+            }))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [item[1] for item in scored[:max_chunks]]
+
+
 def _build_preflight_context(
     entity_matches: list[EntityMatch],
     entity_context: list[str],
@@ -631,27 +663,41 @@ def format_smart_output(
     return "\n".join(lines)
 
 
+def _is_chunk_hash(s: str) -> bool:
+    """Return True if s looks like a LightRAG internal chunk hash ID."""
+    return s.startswith("chunk-") or (len(s) >= 32 and all(c in "0123456789abcdef-" for c in s))
+
+
 def _extract_source_documents(merged: dict) -> list[str]:
-    """Extract unique source document IDs from merged retrieval data."""
+    """Extract unique human-readable source document IDs from merged data.
+
+    Prefers full_doc_id / file_path / reference_id over raw source_id,
+    and filters out internal chunk hash IDs.
+    """
     seen: set[str] = set()
     result: list[str] = []
 
+    def _add(src: str) -> None:
+        src = src.strip()
+        if src and src not in seen and not _is_chunk_hash(src):
+            seen.add(src)
+            result.append(src)
+
     for entity in merged.get("entities", []):
-        src = entity.get("source_id", "")
-        if src:
-            for part in src.split("\t"):
-                part = part.strip()
-                if part and part not in seen:
-                    seen.add(part)
-                    result.append(part)
+        # Entity source_id may be tab-separated — try reference_id first
+        for field in ("reference_id", "file_path", "source_id"):
+            val = entity.get(field, "")
+            if val:
+                for part in val.split("\t"):
+                    _add(part)
+                break  # use first non-empty field
 
     for chunk in merged.get("chunks", []):
-        src = chunk.get("source_id", "")
-        if src:
-            src = src.strip()
-            if src and src not in seen:
-                seen.add(src)
-                result.append(src)
+        for field in ("full_doc_id", "file_path", "reference_id", "source_id"):
+            val = chunk.get(field, "")
+            if val and not _is_chunk_hash(val):
+                _add(val)
+                break
 
     return result
 
@@ -1184,8 +1230,33 @@ async def cmd_query(args):
                 entity_context = _get_entity_relationships(nodes, matched_names)
                 preflight_context = _build_preflight_context(entity_matches, entity_context)
 
+    # Phase 2b: Text-match fallback — when entity graph has no matches for
+    # specific targets (e.g., paper titles not extracted as entities), search
+    # the raw chunk text store directly.
+    text_match_chunks = []
+    if targets and not entity_matches and LIGHTRAG_STORAGE != "opensearch":
+        text_match_chunks = _search_chunks_by_text(targets)
+        if text_match_chunks:
+            # Build preflight context from text matches
+            sources_found = list(dict.fromkeys(
+                c["source_id"] for c in text_match_chunks if c.get("source_id")
+            ))
+            preflight_context = (
+                f"Direct text matches found in {len(text_match_chunks)} chunks "
+                f"from sources: {', '.join(sources_found[:10])}"
+            )
+
     # Phase 3: Multi-strategy retrieval
     merged = await _multi_retrieve(rag, query, pattern)
+
+    # Inject text-match chunks into the merged pool
+    if text_match_chunks:
+        existing_content = {c.get("content", "") for c in merged.get("chunks", [])}
+        for tc in text_match_chunks:
+            if tc.get("content", "") not in existing_content:
+                merged["chunks"].append(tc)
+                existing_content.add(tc["content"])
+
     source_documents = _extract_source_documents(merged)
 
     # Count modes that contributed
