@@ -640,6 +640,74 @@ def parse_bib_entries(bib_text: str) -> dict:
     }
 
 
+# --- Source extract header parsing ---
+
+
+def parse_source_headers(filename: str, content: str) -> dict:
+    """Parse a source extract markdown header into a structured dict."""
+    import re as _re
+
+    title = None
+    key = None
+    access_level = None
+    source_type = None
+    deep_read = False
+    doi = None
+    citation = None
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if title is None and stripped.startswith("# ") and not stripped.startswith("## "):
+            title = stripped[2:].strip()
+            continue
+        m = _re.match(r"\*\*(.+?)\*\*:\s*(.*)", stripped)
+        if m:
+            field, value = m.group(1), m.group(2).strip()
+            fl = field.lower()
+            if fl == "bibtex key":
+                key = value
+            elif fl == "access level":
+                access_level = value
+            elif fl == "source type":
+                source_type = value
+            elif fl == "deep-read":
+                deep_read = value.lower() in ("true", "yes", "1")
+            elif fl == "doi/url":
+                doi = value
+            elif fl == "citation":
+                citation = value
+
+    if key is None:
+        stem = filename
+        if stem.endswith(".md"):
+            stem = stem[:-3]
+        key = stem
+
+    return {
+        "key": key,
+        "title": title,
+        "access_level": access_level,
+        "source_type": source_type,
+        "deep_read": deep_read,
+        "doi": doi,
+        "citation": citation,
+        "filename": filename,
+    }
+
+
+def parse_all_source_headers(sources_dir: str) -> list[dict]:
+    """Glob *.md in *sources_dir* and parse each source extract header."""
+    import glob as _glob
+
+    results = []
+    for path in sorted(_glob.glob(os.path.join(sources_dir, "*.md"))):
+        fname = os.path.basename(path)
+        with open(path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+        results.append(parse_source_headers(fname, content))
+    return results
+
+
 # --- Multi-strategy retrieval ---
 
 _PATTERN_MODES: dict[QueryPattern, list[str]] = {

@@ -25,6 +25,8 @@ except Exception:
 _normalize_author = knowledge._normalize_author
 _strip_braces = knowledge._strip_braces
 parse_bib_entries = knowledge.parse_bib_entries
+parse_source_headers = knowledge.parse_source_headers
+parse_all_source_headers = knowledge.parse_all_source_headers
 
 
 # ---------------------------------------------------------------------------
@@ -189,3 +191,83 @@ class TestParseBibEntries:
         assert len(paper["authors"]) == 2
         assert paper["authors"][0]["normalized"] == "gordon, l"
         assert paper["authors"][1]["normalized"] == "loeb, m"
+
+
+# ---------------------------------------------------------------------------
+# Source extract header parsing
+# ---------------------------------------------------------------------------
+
+_FULL_SOURCE = """\
+# The Economics of Information Security Investment
+
+**Citation**: Lawrence A. Gordon and Martin P. Loeb, "The Economics of Information Security Investment," *ACM TISS*, 2002.
+**DOI/URL**: https://doi.org/10.1145/581271.581274
+**BibTeX Key**: gordon2002
+**Access Level**: FULL-TEXT
+**Source Type**: journal_article
+**Deep-Read**: true
+**Deep-Read Date**: 2026-03-28
+
+## Content Snapshot
+This paper proposes a model...
+"""
+
+
+class TestParseSourceHeaders:
+    def test_full_header(self):
+        result = parse_source_headers("gordon2002.md", _FULL_SOURCE)
+        assert result["key"] == "gordon2002"
+        assert result["title"] == "The Economics of Information Security Investment"
+        assert result["access_level"] == "FULL-TEXT"
+        assert result["source_type"] == "journal_article"
+        assert result["deep_read"] is True
+        assert result["doi"] == "https://doi.org/10.1145/581271.581274"
+        assert "Gordon" in result["citation"]
+        assert result["filename"] == "gordon2002.md"
+
+    def test_missing_bibtex_key_falls_back_to_filename(self):
+        content = "# Some Title\n\n**Access Level**: ABSTRACT-ONLY\n"
+        result = parse_source_headers("smith2020.md", content)
+        assert result["key"] == "smith2020"
+        assert result["title"] == "Some Title"
+        assert result["access_level"] == "ABSTRACT-ONLY"
+
+    def test_no_header_fields(self):
+        content = "# Just a Title\n\nSome body text.\n"
+        result = parse_source_headers("orphan.md", content)
+        assert result["title"] == "Just a Title"
+        assert result["key"] == "orphan"
+        assert result["access_level"] is None
+        assert result["source_type"] is None
+        assert result["deep_read"] is False
+        assert result["doi"] is None
+        assert result["citation"] is None
+
+    def test_deep_read_false_string(self):
+        content = "# Title\n\n**Deep-Read**: false\n"
+        result = parse_source_headers("x.md", content)
+        assert result["deep_read"] is False
+
+    def test_deep_read_yes_string(self):
+        content = "# Title\n\n**Deep-Read**: yes\n"
+        result = parse_source_headers("x.md", content)
+        assert result["deep_read"] is True
+
+    def test_no_title_line(self):
+        content = "No heading here.\n**BibTeX Key**: abc\n"
+        result = parse_source_headers("abc.md", content)
+        assert result["title"] is None
+        assert result["key"] == "abc"
+
+    def test_parse_all_source_headers(self, tmp_path):
+        (tmp_path / "a.md").write_text(
+            "# Paper A\n\n**BibTeX Key**: a1\n**Access Level**: FULL-TEXT\n"
+        )
+        (tmp_path / "b.md").write_text(
+            "# Paper B\n\n**BibTeX Key**: b1\n**Access Level**: ABSTRACT-ONLY\n"
+        )
+        (tmp_path / "not_md.txt").write_text("ignored")
+        results = parse_all_source_headers(str(tmp_path))
+        assert len(results) == 2
+        keys = {r["key"] for r in results}
+        assert keys == {"a1", "b1"}
