@@ -4,9 +4,9 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────
 # write-paper — Launch the autonomous paper writing pipeline.
 #
-# This is a thin launcher that starts Claude Code with the
-# /write-paper slash command. The real orchestration happens
-# inside Claude Code using agents.
+# This is a thin launcher that reads the configured runtime
+# from .paper.json and dispatches the /write-paper equivalent
+# through Claude or Codex.
 #
 # Usage:
 #   write-paper                    # Use topic from .paper.json
@@ -17,6 +17,16 @@ bold='\033[1m'
 blue='\033[0;34m'
 red='\033[0;31m'
 reset='\033[0m'
+
+# Resolve symlinks to find the real script location
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+    DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+RUNNER="$SCRIPT_DIR/template/scripts/run-paper-command"
 
 # Resolve topic
 TOPIC="${1:-}"
@@ -42,21 +52,17 @@ config["topic"] = topic
 json.dump(config, open(".paper.json", "w"), indent=2)
 PYEOF
 
-# Check dependencies
-if ! command -v claude &>/dev/null; then
-    echo -e "${red}✗${reset} 'claude' not found. Install Claude Code first." >&2
-    exit 1
-fi
-
 if [[ ! -f main.tex ]]; then
     echo -e "${red}✗${reset} main.tex not found. Run create-paper first." >&2
     exit 1
 fi
 
 DEPTH=$(python3 -c "import json; print(json.load(open('.paper.json')).get('depth', 'standard'))" 2>/dev/null || echo "standard")
+RUNTIME=$(python3 -c "import json; print(json.load(open('.paper.json')).get('runtime', 'claude'))" 2>/dev/null || echo "claude")
 echo -e "${blue}→${reset} Launching autonomous paper writing pipeline"
 echo -e "  Topic: ${bold}$TOPIC${reset}"
 echo -e "  Depth: ${bold}$DEPTH${reset}"
+echo -e "  Runtime: ${bold}$RUNTIME${reset}"
 if [[ "$DEPTH" == "deep" ]]; then
     echo -e "  This will take 3-8 hours for a deeply researched paper."
 else
@@ -64,4 +70,9 @@ else
 fi
 echo ""
 
-exec claude --dangerously-skip-permissions "/write-paper ${TOPIC}"
+if [[ ! -x "$RUNNER" ]]; then
+    echo -e "${red}✗${reset} Runtime launcher not found: $RUNNER" >&2
+    exit 1
+fi
+
+exec "$RUNNER" write-paper "$TOPIC"

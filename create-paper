@@ -3,15 +3,16 @@ set -euo pipefail
 
 # ──────────────────────────────────────────────────────────────
 # create-paper — Stamp out a new research paper project and
-#                optionally launch Claude Code to write it.
+#                optionally launch the configured runtime to write it.
 #
 # Usage:
-#   create-paper <directory> [topic] [--venue <venue>]
+#   create-paper <directory> [topic] [--venue <venue>] [--runtime <runtime>]
 #
 # Examples:
 #   create-paper my-survey "A survey on LLM reasoning"
 #   create-paper my-paper "Protein folding" --venue nature
 #   create-paper ieee-paper --venue ieee
+#   create-paper codex-paper "Protein folding" --runtime codex
 #
 # Venues: generic, ieee, acm, neurips, nature, arxiv, apa
 # ──────────────────────────────────────────────────────────────
@@ -43,11 +44,12 @@ warn()  { echo -e "${yellow}!${reset} $*"; }
 
 # ── Parse arguments ──────────────────────────────────────────
 if [[ $# -lt 1 ]]; then
-    echo -e "${bold}Usage:${reset} create-paper <directory> [topic] [--venue <venue>] [--deep]"
+    echo -e "${bold}Usage:${reset} create-paper <directory> [topic] [--venue <venue>] [--runtime <runtime>] [--deep]"
     echo ""
     echo "  <directory>  Name/path for the new paper project"
     echo "  [topic]      Paper topic — starts the writing pipeline"
     echo "  --venue      Target venue format (default: generic)"
+    echo "  --runtime    Harness runtime: claude or codex (default: claude)"
     echo "  --deep       3× research effort: 12 agents, targeted passes, more QA"
     echo ""
     echo -e "${bold}Available venues:${reset}"
@@ -68,6 +70,7 @@ if [[ $# -lt 1 ]]; then
     echo "Examples:"
     echo "  create-paper my-survey \"A survey on LLM reasoning\""
     echo "  create-paper my-paper \"Protein folding\" --venue nature"
+    echo "  create-paper my-paper \"Protein folding\" --venue nature --runtime codex"
     echo "  create-paper my-paper \"Protein folding\" --venue nature --deep"
     exit 1
 fi
@@ -78,12 +81,17 @@ shift
 TOPIC=""
 VENUE="generic"
 DEPTH="standard"
+RUNTIME="claude"
 
 # Parse remaining args
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --venue|-v)
             VENUE="$2"
+            shift 2
+            ;;
+        --runtime|-r)
+            RUNTIME="$2"
             shift 2
             ;;
         --deep)
@@ -101,6 +109,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ "$RUNTIME" != "claude" && "$RUNTIME" != "codex" ]]; then
+    echo -e "${red}✗${reset} Unknown runtime '$RUNTIME'. Available: claude, codex" >&2
+    exit 1
+fi
+
 if [[ -e "$TARGET" ]]; then
     echo -e "${red}✗${reset} '$TARGET' already exists." >&2
     exit 1
@@ -113,7 +126,8 @@ if [[ ! -f "$VENUES_DIR/$VENUE.json" ]]; then
 fi
 
 # Check dependencies
-for cmd in git pdflatex claude; do
+RUNTIME_CMD="$RUNTIME"
+for cmd in git pdflatex latexmk "$RUNTIME_CMD"; do
     if ! command -v "$cmd" &>/dev/null; then
         echo -e "${red}✗${reset} '$cmd' is required but not found in PATH." >&2
         exit 1
@@ -129,6 +143,7 @@ VENUE_ABSTRACT_LIMIT=$(python3 -c "import json, sys; print(json.load(open(sys.ar
 VENUE_SECTIONS=$(python3 -c "import json, sys; v=json.load(open(sys.argv[1])); print('\n'.join(v['sections']))" "$VENUE_FILE")
 
 info "Creating ${bold}$VENUE_NAME${reset} paper in ${bold}$TARGET${reset}"
+info "Runtime: ${bold}$RUNTIME${reset}"
 
 # ── Create project ────────────────────────────────────────────
 mkdir -p "$TARGET"
@@ -210,14 +225,24 @@ ok "main.tex generated ($VENUE_NAME format)"
 # Copy per-project files
 cp "$TEMPLATE_DIR/references.bib" .
 cp "$TEMPLATE_DIR/gitignore" .gitignore
-mkdir -p .claude figures attachments research/sources provenance/cuts
-cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
+mkdir -p figures attachments research/sources provenance/cuts
+
+if [[ "$RUNTIME" == "claude" ]]; then
+    mkdir -p .claude
+    cp "$TEMPLATE_DIR/claude/settings.local.json" .claude/
+    ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/CLAUDE.md
+    ln -s "$TEMPLATE_DIR/claude/commands" .claude/commands
+    ln -s "$TEMPLATE_DIR/claude/pipeline" .claude/pipeline
+else
+    mkdir -p .codex
+    ln -s "$TEMPLATE_DIR/codex/AGENTS.md" .codex/AGENTS.md
+    ln -s "$TEMPLATE_DIR/codex/commands" .codex/commands
+    ln -s "$TEMPLATE_DIR/codex/pipeline" .codex/pipeline
+    ln -s ".codex/AGENTS.md" AGENTS.md
+fi
 
 # Symlink shared files back to the research-agent template.
 # When the template is updated, every project sees the change instantly.
-ln -s "$TEMPLATE_DIR/claude/CLAUDE.md" .claude/CLAUDE.md
-ln -s "$TEMPLATE_DIR/claude/commands" .claude/commands
-ln -s "$TEMPLATE_DIR/claude/pipeline" .claude/pipeline
 ln -s "$TEMPLATE_DIR/scripts" scripts
 
 # Copy venue config for reference
@@ -225,10 +250,10 @@ cp "$VENUES_DIR/$VENUE.json" .venue.json
 ok "Template files linked"
 
 # Generate .paper.json config
-python3 - "$TOPIC" "$VENUE" "$DEPTH" <<'PYEOF'
+python3 - "$TOPIC" "$VENUE" "$DEPTH" "$RUNTIME" <<'PYEOF'
 import json, sys, secrets, re
 from pathlib import Path
-topic, venue, depth = sys.argv[1], sys.argv[2], sys.argv[3]
+topic, venue, depth, runtime = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 # Derive namespace from directory name + random suffix for OpenSearch isolation
 dir_name = Path(".").resolve().name
 safe_name = re.sub(r"[^a-z0-9-]", "-", dir_name.lower()).strip("-")[:40]
@@ -237,8 +262,9 @@ config = {
     "topic": topic,
     "venue": venue,
     "depth": depth,
+    "runtime": runtime,
     "knowledge_namespace": namespace,
-    "model": "claude-opus-4-6",
+    "model": "claude-opus-4-6" if runtime == "claude" else "codex",
     "max_revisions": 3,
     "authors": [
         {
@@ -267,9 +293,14 @@ info "Cloning 177 scientific skills (shallow)..."
 git submodule add --depth 1 "$SKILLS_REPO" vendor/claude-scientific-skills 2>&1 | grep -v "^$"
 ok "Skills submodule added"
 
-# Symlink skills into .claude/skills
-ln -s "$(pwd)/vendor/claude-scientific-skills/scientific-skills" .claude/skills
-ok "Skills linked to .claude/skills"
+# Symlink skills into the active runtime directory
+if [[ "$RUNTIME" == "claude" ]]; then
+    ln -s "$(pwd)/vendor/claude-scientific-skills/scientific-skills" .claude/skills
+    ok "Skills linked to .claude/skills"
+else
+    ln -s "$(pwd)/vendor/claude-scientific-skills/scientific-skills" .codex/skills
+    ok "Skills linked to .codex/skills"
+fi
 
 # Set up codex-bridge if available (optional sister project)
 if command -v codex-bridge &>/dev/null; then
@@ -285,7 +316,11 @@ info "Setting up Praxis scientific analysis toolkit..."
 git submodule add --depth 1 "$PRAXIS_REPO" vendor/praxis 2>&1 | grep -v "^$"
 if [[ -d vendor/praxis ]]; then
     # Symlink Praxis as a skill
-    ln -s "$(pwd)/vendor/praxis" .claude/skills/praxis
+    if [[ "$RUNTIME" == "claude" ]]; then
+        ln -s "$(pwd)/vendor/praxis" .claude/skills/praxis
+    else
+        ln -s "$(pwd)/vendor/praxis" .codex/skills/praxis
+    fi
     # Install Praxis Python dependencies
     if python3 -m pip install -q numpy scipy pandas matplotlib lmfit peakutils openpyxl uncertainties 2>/dev/null; then
         ok "Praxis installed (50+ characterisation techniques, 9 journal styles)"
@@ -334,9 +369,17 @@ fi
 echo ""
 
 echo -e "${bold}Commands:${reset}"
-echo "  /write-paper <topic>   Autonomous pipeline (1-4 hrs, journal quality)"
-echo "  /preview-pipeline      Show what the pipeline will do (dry run)"
-echo "  /init <topic>          Quick single-pass generation"
+if [[ "$RUNTIME" == "claude" ]]; then
+    echo "  /write-paper <topic>   Autonomous pipeline (1-4 hrs, journal quality)"
+    echo "  /preview-pipeline      Show what the pipeline will do (dry run)"
+    echo "  /targeted-research     Resolve specific claims from the evidence matrix"
+    echo "  /init <topic>          Quick single-pass generation"
+else
+    echo "  scripts/run-paper-command write-paper [topic]"
+    echo "  scripts/run-paper-command preview-pipeline"
+    echo "  scripts/run-paper-command targeted-research --claims C1,C2"
+    echo "  scripts/run-paper-command health"
+fi
 echo ""
 echo "  /search-literature     Find relevant papers"
 echo "  /add-citation          Add a BibTeX reference"
@@ -377,7 +420,11 @@ if [[ -n "$TOPIC" ]]; then
     echo "    cd $(pwd) && write-paper"
     echo ""
     echo "  ${bold}Interactive${reset} (you guide each step manually):"
-    echo "    cd $(pwd) && claude"
+    if [[ "$RUNTIME" == "claude" ]]; then
+        echo "    cd $(pwd) && claude"
+    else
+        echo "    cd $(pwd) && codex"
+    fi
     echo ""
     read -p "Launch autonomous pipeline now? [Y/n] " -n 1 -r
     echo ""
@@ -388,5 +435,9 @@ else
     info "Launch when ready:"
     echo ""
     echo "  ${bold}Autonomous:${reset}  cd $(pwd) && write-paper \"your topic\""
-    echo "  ${bold}Interactive:${reset} cd $(pwd) && claude"
+    if [[ "$RUNTIME" == "claude" ]]; then
+        echo "  ${bold}Interactive:${reset} cd $(pwd) && claude"
+    else
+        echo "  ${bold}Interactive:${reset} cd $(pwd) && codex"
+    fi
 fi
