@@ -20,6 +20,7 @@
   let topic = $state("");
   let venue = $state("generic");
   let deep = $state(false);
+  let runtime = $state("claude");
   let venues = $state<VenueInfo[]>([]);
   let error = $state("");
   let submitting = $state(false);
@@ -76,6 +77,7 @@
     topic = "";
     venue = "generic";
     deep = false;
+    runtime = "claude";
     error = "";
     submitting = false;
   }
@@ -114,7 +116,8 @@
         directory.trim(),
         topic.trim(),
         venue,
-        deep
+        deep,
+        runtime
       );
       resetForm();
       oncreated(path);
@@ -184,7 +187,7 @@
           ></textarea>
         </div>
 
-        <!-- Venue + Depth row -->
+        <!-- Venue + Runtime + Depth row -->
         <div class="flex gap-3">
           <div class="flex-1">
             <label for="paper-venue" class="mb-1 block text-xs font-medium text-[#565f89]"
@@ -199,6 +202,32 @@
                 <option value={v.id}>{v.name}</option>
               {/each}
             </select>
+          </div>
+
+          <div class="w-36">
+            <span class="mb-1 block text-xs font-medium text-[#565f89]">Runtime</span>
+            <div class="flex rounded border border-[#3b3f5c] bg-[#24283b]">
+              <button
+                type="button"
+                class="flex-1 rounded-l px-2.5 py-1.5 text-xs font-medium transition-colors {runtime ===
+                'claude'
+                  ? 'bg-[#7aa2f7] text-[#1a1b26]'
+                  : 'text-[#565f89] hover:text-[#c0caf5]'}"
+                onclick={() => (runtime = "claude")}
+              >
+                Claude
+              </button>
+              <button
+                type="button"
+                class="flex-1 rounded-r px-2.5 py-1.5 text-xs font-medium transition-colors {runtime ===
+                'codex'
+                  ? 'bg-[#7aa2f7] text-[#1a1b26]'
+                  : 'text-[#565f89] hover:text-[#c0caf5]'}"
+                onclick={() => (runtime = "codex")}
+              >
+                Codex
+              </button>
+            </div>
           </div>
 
           <div class="w-36">

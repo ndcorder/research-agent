@@ -72,6 +72,7 @@
         topic: info.config.topic ?? "",
         venue: info.config.venue ?? "",
         depth: info.config.depth ?? "standard",
+        runtime: info.config.runtime ?? "claude",
       });
 
       const [srcList, claimList, state] = await Promise.all([
@@ -191,6 +192,13 @@
                       class="rounded bg-bg-tertiary px-1.5 py-0.5 text-text-muted"
                     >
                       {project.config.venue}
+                    </span>
+                  {/if}
+                  {#if project.config.runtime}
+                    <span
+                      class="rounded bg-bg-tertiary px-1.5 py-0.5 text-accent"
+                    >
+                      {project.config.runtime}
                     </span>
                   {/if}
                   <span>{project.source_count} sources</span>

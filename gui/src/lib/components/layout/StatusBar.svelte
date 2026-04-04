@@ -24,6 +24,7 @@
   );
   const venue = $derived($paperConfig?.venue ?? null);
   const depth = $derived($paperConfig?.depth ?? null);
+  const runtime = $derived($paperConfig?.runtime ?? null);
   const sourceCount = $derived($sources.length);
   const stages = $derived($stageList);
   const totalStages = $derived(Math.max(stages.length, 15));
@@ -102,6 +103,9 @@
     {/if}
     {#if venue}
       <span class="rounded bg-bg-tertiary px-1.5 py-px text-xs text-accent">{venue}</span>
+    {/if}
+    {#if runtime}
+      <span class="rounded bg-bg-tertiary px-1.5 py-px text-xs text-accent">{runtime}</span>
     {/if}
     {#if depth}
       <span class="rounded bg-bg-tertiary px-1.5 py-px text-xs text-text-muted">{depth}</span>

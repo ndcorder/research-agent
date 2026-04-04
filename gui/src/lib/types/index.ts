@@ -69,6 +69,7 @@ export interface PaperConfig {
   topic: string;
   venue: string;
   depth: string;
+  runtime: string;
 }
 
 export interface CompileResult {

@@ -122,7 +122,12 @@ export async function stopEvidenceWatcher(): Promise<void> {
 
 export interface ProjectInfo {
   path: string;
-  config: { topic: string | null; venue: string | null; depth: string | null };
+  config: {
+    topic: string | null;
+    venue: string | null;
+    depth: string | null;
+    runtime: string | null;
+  };
   has_state: boolean;
   source_count: number;
   has_tex: boolean;
@@ -136,7 +141,12 @@ export async function validatePaperProject(
 
 export async function readPaperConfig(
   projectDir: string
-): Promise<{ topic: string | null; venue: string | null; depth: string | null }> {
+): Promise<{
+  topic: string | null;
+  venue: string | null;
+  depth: string | null;
+  runtime: string | null;
+}> {
   return _invoke("read_paper_config", { projectDir });
 }
 
@@ -199,7 +209,8 @@ export async function createPaper(
   directory: string,
   topic: string,
   venue: string,
-  deep: boolean
+  deep: boolean,
+  runtime: string
 ): Promise<string> {
   return _invoke("create_paper", {
     researchAgentDir,
@@ -207,6 +218,7 @@ export async function createPaper(
     topic,
     venue,
     deep,
+    runtime,
   });
 }
 

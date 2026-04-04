@@ -8,6 +8,7 @@ pub struct PaperConfig {
     pub topic: Option<String>,
     pub venue: Option<String>,
     pub depth: Option<String>,
+    pub runtime: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -172,6 +173,7 @@ pub fn create_paper(
     topic: String,
     venue: String,
     deep: bool,
+    runtime: String,
 ) -> Result<String, String> {
     let script_path = Path::new(&research_agent_dir).join("create-paper");
 
@@ -190,6 +192,7 @@ pub fn create_paper(
     }
 
     cmd.arg("--venue").arg(&venue);
+    cmd.arg("--runtime").arg(&runtime);
 
     if deep {
         cmd.arg("--deep");

@@ -1,5 +1,6 @@
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -51,8 +52,47 @@ impl Default for EvidenceWatcherState {
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn build_slash_command(action: &PipelineAction, args: &PipelineActionArgs) -> String {
+fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+fn project_runtime(project_dir: &str) -> String {
+    let config_path = Path::new(project_dir).join(".paper.json");
+    let Ok(content) = fs::read_to_string(config_path) else {
+        return "claude".to_string();
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return "claude".to_string();
+    };
+    json.get("runtime")
+        .and_then(|value| value.as_str())
+        .unwrap_or("claude")
+        .to_string()
+}
+
+fn build_runtime_command(
+    project_dir: &str,
+    action: &PipelineAction,
+    args: &PipelineActionArgs,
+) -> String {
     let ids = args.claim_ids.join(",");
+    let runtime = project_runtime(project_dir);
+
+    if runtime == "codex" {
+        let mut cmd = format!(
+            "scripts/run-paper-command targeted-research --claims {}",
+            shell_single_quote(&ids)
+        );
+        if let Some(ctx) = &args.context {
+            cmd.push_str(&format!(" --context {}", shell_single_quote(ctx)));
+        }
+        if matches!(action, PipelineAction::BatchResolve) {
+            cmd.push_str(" --batch");
+        }
+        cmd.push('\n');
+        return cmd;
+    }
+
     match action {
         PipelineAction::TargetedResearch => {
             let mut cmd = format!(
@@ -114,13 +154,105 @@ pub fn run_pipeline_action(
     let id = spawn_terminal_inner(&app, &terminal_state, &project_dir)?;
 
     // 2. Build and send the slash command
-    let cmd = build_slash_command(&action, &args);
+    let cmd = build_runtime_command(&project_dir, &action, &args);
     write_terminal_inner(&terminal_state, id, &cmd)?;
 
     // 3. Set up debounced evidence file watcher
     start_evidence_watcher(&app, &evidence_state, &project_dir)?;
 
     Ok(id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_runtime_command, PipelineAction, PipelineActionArgs};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_project_dir(runtime: &str) -> PathBuf {
+        let mut dir = std::env::temp_dir();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        dir.push(format!("research-agent-runtime-test-{stamp}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join(".paper.json"),
+            format!(r#"{{"runtime":"{runtime}"}}"#),
+        )
+        .unwrap();
+        dir
+    }
+
+    #[test]
+    fn builds_claude_targeted_research_command() {
+        let dir = temp_project_dir("claude");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::TargetedResearch,
+            &PipelineActionArgs {
+                claim_ids: vec!["C1".into(), "C2".into()],
+                context: Some("extra context".into()),
+            },
+        );
+        assert!(cmd.contains("claude --dangerously-skip-permissions"));
+        assert!(cmd.contains("/targeted-research --claims 'C1,C2'"));
+        assert!(cmd.contains("--context 'extra context'"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_claude_batch_resolve_command() {
+        let dir = temp_project_dir("claude");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::BatchResolve,
+            &PipelineActionArgs {
+                claim_ids: vec!["C9".into()],
+                context: None,
+            },
+        );
+        assert!(cmd.contains("claude --dangerously-skip-permissions"));
+        assert!(cmd.contains("/targeted-research --claims 'C9' --batch"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_codex_targeted_research_command() {
+        let dir = temp_project_dir("codex");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::BatchResolve,
+            &PipelineActionArgs {
+                claim_ids: vec!["C7".into()],
+                context: Some("review unresolved claim".into()),
+            },
+        );
+        assert!(cmd.contains("scripts/run-paper-command targeted-research"));
+        assert!(cmd.contains("--claims 'C7'"));
+        assert!(cmd.contains("--context 'review unresolved claim'"));
+        assert!(cmd.contains("--batch"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_codex_targeted_research_non_batch_command() {
+        let dir = temp_project_dir("codex");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::TargetedResearch,
+            &PipelineActionArgs {
+                claim_ids: vec!["C3".into(), "C4".into()],
+                context: None,
+            },
+        );
+        assert!(cmd.contains("scripts/run-paper-command targeted-research"));
+        assert!(cmd.contains("--claims 'C3,C4'"));
+        assert!(!cmd.contains("--batch"));
+        fs::remove_dir_all(dir).unwrap();
+    }
 }
 
 fn start_evidence_watcher(

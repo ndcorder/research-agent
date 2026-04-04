@@ -131,6 +131,7 @@ const commands: Record<string, Handler> = {
         topic: config.topic ?? null,
         venue: config.venue ?? null,
         depth: config.depth ?? null,
+        runtime: config.runtime ?? "claude",
       },
       has_state: hasState,
       source_count: sourceCount,
@@ -145,7 +146,42 @@ const commands: Record<string, Handler> = {
       topic: config.topic ?? null,
       venue: config.venue ?? null,
       depth: config.depth ?? null,
+      runtime: config.runtime ?? "claude",
     };
+  },
+
+  get_research_agent_dir() {
+    return path.resolve(process.cwd(), "..");
+  },
+
+  list_venues({ researchAgentDir }) {
+    const venuesDir = path.join(researchAgentDir as string, "template", "venues");
+    return fs
+      .readdirSync(venuesDir)
+      .filter((f) => f.endsWith(".json"))
+      .sort()
+      .map((f) => ({
+        id: path.basename(f, ".json"),
+        name: path.basename(f, ".json").replace(/^./, (c) => c.toUpperCase()),
+      }));
+  },
+
+  create_paper({ researchAgentDir, directory, topic, venue, deep, runtime }) {
+    const scriptPath = path.join(researchAgentDir as string, "create-paper");
+    const args = [directory as string];
+    if ((topic as string).trim()) args.push(topic as string);
+    args.push("--venue", venue as string, "--runtime", runtime as string);
+    if (deep) args.push("--deep");
+
+    child_process.execFileSync(scriptPath, args, {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const absPath = path.isAbsolute(directory as string)
+      ? (directory as string)
+      : path.join(process.cwd(), directory as string);
+    return fs.realpathSync.native(absPath);
   },
 
   read_paper_state({ projectDir }) {
