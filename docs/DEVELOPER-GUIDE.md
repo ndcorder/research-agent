@@ -2,7 +2,7 @@
 
 Guide for contributors extending the Research Agent pipeline, adding venue formats, creating commands, and understanding the codebase internals.
 
-**Key concept**: This repo is the _template_, not a paper project. Paper projects are created elsewhere via `create-paper` and symlink `.claude/` back to `template/claude/`. Changes to `template/` propagate instantly to all paper projects.
+**Key concept**: This repo is the _template_, not a paper project. Paper projects are created elsewhere via `create-paper` and symlink the selected runtime scaffold back to `template/`. Changes to `template/` propagate instantly to all paper projects.
 
 **Related docs**: [CONTRIBUTING.md](../CONTRIBUTING.md) for PR guidelines | [ARCHITECTURE.md](ARCHITECTURE.md) for system design | [SCRIPTS-REFERENCE.md](SCRIPTS-REFERENCE.md) for script CLI reference
 
@@ -11,14 +11,20 @@ Guide for contributors extending the Research Agent pipeline, adding venue forma
 ```
 research-agent/
 ├── create-paper              # Bash: stamps out new paper projects
-├── write-paper               # Bash: launches /write-paper in Claude Code
+├── write-paper               # Bash: launches the configured runtime
 ├── sync-papers               # Bash: migrates old projects to symlinks
 ├── template/
 │   ├── claude/
 │   │   ├── CLAUDE.md         # Workspace instructions (symlinked into projects)
-│   │   ├── commands/         # 46 slash commands (symlinked)
-│   │   ├── pipeline/         # Stage instructions (symlinked)
+│   │   ├── commands/         # Claude command wrappers
 │   │   └── settings.local.json
+│   ├── codex/
+│   │   ├── AGENTS.md         # Codex runtime instructions
+│   │   ├── commands/         # Codex command wrappers
+│   │   └── pipeline/         # Symlink to shared pipeline
+│   ├── shared/
+│   │   ├── pipeline/         # Shared stage instructions
+│   │   └── runtime-contract.md
 │   ├── scripts/
 │   │   ├── knowledge.py         # LightRAG knowledge graph builder
 │   │   ├── quality.py           # Multi-dimensional paper quality scorer
@@ -62,7 +68,7 @@ research-agent/
 
 ### Orchestration Pattern
 
-The `/write-paper` command is a compact orchestrator. It does not contain stage logic inline. Instead, it reads each stage's instructions from `pipeline/*.md` files on-demand:
+The runtime-specific `/write-paper` wrappers are compact orchestrators. They do not contain stage logic inline. Instead, they read each stage's instructions from the shared `pipeline/*.md` files on-demand:
 
 ```
 Orchestrator reads pipeline/shared-protocols.md once at start

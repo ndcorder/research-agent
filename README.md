@@ -68,7 +68,7 @@ Everything produced is traced. Every paragraph in the final paper links back to 
 ### Prerequisites
 
 **Required:**
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (the `claude` CLI)
+- One runtime CLI: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`) or Codex (`codex`)
 - A LaTeX distribution with `pdflatex` and `latexmk`
 - Python 3.10+
 - Git
@@ -94,7 +94,7 @@ ln -s $(pwd)/sync-papers ~/.local/bin/sync-papers
 
 ### How updates work
 
-Paper projects symlink their `.claude/commands/`, `.claude/CLAUDE.md`, and `scripts/` back to this repository's template. When you update the template (add a command, fix a prompt, change a writing rule), every paper project sees the change instantly.
+Paper projects symlink their runtime scaffold and `scripts/` back to this repository's template. Claude projects use `.claude/`; Codex projects use `.codex/` plus a root `AGENTS.md` symlink. When you update the template, every paper project sees the change instantly.
 
 If you have existing projects created before the symlink migration, run `sync-papers` once to convert them:
 
@@ -107,7 +107,7 @@ Safe to run multiple times. Projects already using symlinks are skipped.
 ### Creating a new paper project
 
 ```bash
-create-paper <directory> [topic] [--venue <venue>] [--deep]
+create-paper <directory> [topic] [--venue <venue>] [--runtime <claude|codex>] [--deep]
 ```
 
 **Examples:**
@@ -119,6 +119,9 @@ create-paper my-survey "A survey on LLM reasoning" --venue arxiv
 # Create the project structure without starting (add topic later)
 create-paper my-paper --venue neurips
 
+# Codex-native project
+create-paper my-paper "Protein structure prediction" --venue nature --runtime codex
+
 # Deep mode: 12 agents, 60-80 refs, targeted second pass
 create-paper my-paper "Protein structure prediction" --venue nature --deep
 ```
@@ -126,7 +129,7 @@ create-paper my-paper "Protein structure prediction" --venue nature --deep
 `create-paper` does the following in one command:
 1. Creates the project directory
 2. Generates a `main.tex` formatted for the target venue
-3. Copies all 39 slash commands into `.claude/commands/`
+3. Scaffolds the selected runtime (`.claude/` or `.codex/`)
 4. Writes `.paper.json` and `.venue.json`
 5. Clones 177 scientific skills as a git submodule (`vendor/claude-scientific-skills`)
 6. Clones Praxis as a git submodule (`vendor/praxis`) and installs Python dependencies
@@ -143,12 +146,12 @@ From inside the paper project:
 write-paper                      # uses topic from .paper.json
 write-paper "new topic"          # overrides topic
 
-# Method 2: through Claude Code interactively
-claude
-# then type: /write-paper A survey on LLM reasoning
+# Method 2: runtime-neutral command launcher
+scripts/run-paper-command preview-pipeline
+scripts/run-paper-command health
 ```
 
-The `write-paper` launcher calls `claude "/write-paper $TOPIC"`. The pipeline operates without per-tool confirmations because `.claude/settings.local.json` contains a scoped allowlist that pre-approves every tool the pipeline uses. Tools not on the allowlist (e.g., `git push`, arbitrary shell commands) still prompt for confirmation.
+`write-paper` reads `.paper.json` and dispatches to the configured runtime. Claude projects use the Claude slash-command flow. Codex projects use `codex exec` with the project-local `.codex/` instructions. See [docs/CODEX.md](docs/CODEX.md) for the Codex-specific workflow.
 
 ### Monitoring a running pipeline
 
@@ -178,7 +181,7 @@ Each venue JSON also includes a `writing_guide` field with venue-specific tone, 
 
 ## 3. The Full Pipeline: `/write-paper`
 
-Run with `/write-paper <topic>` inside a Claude Code session, or via the `write-paper` launcher. The pipeline reads `.paper.json` for topic, venue, and depth, then executes the following stages sequentially.
+Run with the active runtime, or via the `write-paper` launcher. The pipeline reads `.paper.json` for topic, venue, depth, and runtime, then executes the shared stages sequentially.
 
 ### Checkpoint and resume
 
@@ -922,12 +925,17 @@ my-paper/
 ├── vendor/
 │   ├── claude-scientific-skills/ 177 scientific skills (git submodule)
 │   └── praxis/               Scientific data analysis toolkit (git submodule)
-└── .claude/
-    ├── CLAUDE.md              Project instructions (copied from template)
-    ├── settings.local.json    Tool permissions
-    ├── commands/              All 35 slash commands
-    ├── pipeline/             Stage and phase instructions (symlinked from template)
-    └── skills/ -> vendor/    Symlink to scientific skills
+├── .claude/                   Claude runtime scaffold (Claude projects)
+│   ├── CLAUDE.md
+│   ├── settings.local.json
+│   ├── commands/
+│   ├── pipeline/
+│   └── skills/ -> vendor/
+└── .codex/                    Codex runtime scaffold (Codex projects)
+    ├── AGENTS.md
+    ├── commands/
+    ├── pipeline/
+    └── skills/ -> vendor/
 ```
 
 ---
@@ -943,6 +951,7 @@ Created by `create-paper`, read by the pipeline and most commands.
   "topic": "A survey on large language model reasoning",
   "venue": "arxiv",
   "depth": "standard",
+  "runtime": "claude",
   "model": "claude-opus-4-6",
   "max_revisions": 3,
   "email": "user@example.com",
@@ -976,6 +985,7 @@ Created by `create-paper`, read by the pipeline and most commands.
 | `topic` | Paper topic, used to seed the research pipeline and all agent prompts |
 | `venue` | Target venue: `generic`, `ieee`, `acm`, `neurips`, `nature`, `arxiv`, `apa` |
 | `depth` | `"standard"` (5 agents, 30-50 refs, 1-4 hrs) or `"deep"` (12 agents, 60-80 refs, 3-8 hrs) |
+| `runtime` | Active harness: `claude` or `codex` |
 | `model` | Base model (1M context variants are added automatically per tier) |
 | `max_revisions` | Maximum QA iterations (overridden by depth: 5 for standard, 8 for deep) |
 | `email` | Email for Unpaywall API auth and OpenAlex rate-limit boost. Also read from `UNPAYWALL_EMAIL` env var. |

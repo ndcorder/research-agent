@@ -80,44 +80,47 @@ echo "=== Check: No duplicate blocks between shared-protocols.md and stage files
 
 SHARED="$PIPELINE/shared-protocols.md"
 if [ -f "$SHARED" ]; then
-    SHARED_LINES=$(wc -l < "$SHARED")
-    WINDOW=5
-
-    for f in "$PIPELINE"/*.md; do
-        [ "$f" = "$SHARED" ] && continue
-        bname=$(basename "$f")
-        found_dup=0
-
-        # Read stage file into a variable for substring matching
-        stage_content=$(cat "$f")
-
-        line_num=0
-        while IFS= read -r _; do
-            line_num=$((line_num + 1))
-            [ "$line_num" -gt $((SHARED_LINES - WINDOW + 1)) ] && break
-
-            # Build a 5-line block starting at line_num
-            block=$(sed -n "${line_num},$((line_num + WINDOW - 1))p" "$SHARED")
-
-            # Skip blocks that are mostly blank or markdown separators
-            non_empty=$(echo "$block" | grep -cve '^\s*$' -e '^---' -e '^```' -e '^#' || true)
-            [ "$non_empty" -lt 4 ] && continue
-
-            # Check if the exact consecutive block appears in the stage file
-            # Use python for reliable multi-line substring matching
-            if python3 -c "
+    duplicate_output_file="$(mktemp)"
+    python3 - "$PIPELINE" "$SHARED" > "$duplicate_output_file" <<'PYEOF'
 import sys
-block = open('$SHARED').readlines()[$((line_num - 1)):$((line_num - 1 + WINDOW))]
-block_str = ''.join(block)
-stage = open(sys.argv[1]).read()
-sys.exit(0 if block_str in stage else 1)
-" "$f" 2>/dev/null; then
-                issue "$bname — duplicates 5+ consecutive lines from shared-protocols.md (near shared line $line_num)"
-                found_dup=1
-                break
-            fi
-        done < "$SHARED"
-    done
+from pathlib import Path
+
+pipeline = Path(sys.argv[1])
+shared = Path(sys.argv[2])
+window = 5
+
+shared_lines = shared.read_text(encoding="utf-8").splitlines(keepends=True)
+
+for stage in sorted(pipeline.glob("*.md")):
+    if stage == shared:
+        continue
+
+    stage_text = stage.read_text(encoding="utf-8")
+
+    for start in range(0, max(len(shared_lines) - window + 1, 0)):
+        block = shared_lines[start:start + window]
+        non_empty = [
+            line for line in block
+            if line.strip() and line.strip() not in {"---", "```"} and not line.startswith("#")
+        ]
+        if len(non_empty) < 4:
+            continue
+
+        block_text = "".join(block)
+        if block_text in stage_text:
+            print(
+                f"{stage.name} — duplicates 5+ consecutive lines from "
+                f"shared-protocols.md (near shared line {start + 1})"
+            )
+            break
+PYEOF
+
+    while IFS= read -r duplicate; do
+        [ -z "$duplicate" ] && continue
+        issue "$duplicate"
+    done < "$duplicate_output_file"
+
+    rm -f "$duplicate_output_file"
 fi
 
 if [ "$ISSUE_COUNT" -eq "$PREV_COUNT" ]; then echo "  OK — no duplicate blocks found"; fi
@@ -155,7 +158,7 @@ for f in "$PIPELINE"/*.md; do
         # Check if this agent line includes a model specification
         # Accept both model: "claude-..." and model: claude-... (with or without quotes)
         # Also accept (model: ...) in backticks
-        if ! echo "$content" | grep -qE 'model:\s*["`'"'"']?claude-'; then
+        if ! echo "$content" | grep -q 'model:' || ! echo "$content" | grep -q 'claude-'; then
             issue "$bname:$lineno — agent prompt without model spec:$(echo "$content" | head -c 80)"
         fi
     done < <(grep -nE '(Spawn (a |an |the )\*\*.*\*\* agent|\*\*Agent [0-9]+)' "$f" 2>/dev/null || true)

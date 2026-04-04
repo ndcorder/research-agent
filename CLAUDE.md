@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Research Agent is an autonomous paper-writing harness for Claude Code. It scaffolds paper projects, symlinks shared templates/commands/pipeline instructions into them, and orchestrates a 19-stage pipeline that produces journal-quality LaTeX papers from a topic prompt.
+Research Agent is an autonomous paper-writing harness for Claude Code and Codex. It scaffolds paper projects, symlinks shared templates/commands/pipeline instructions into them, and orchestrates a 19-stage pipeline that produces journal-quality LaTeX papers from a topic prompt.
 
 **This repo is the template/toolkit itself, not a paper project.** Paper projects are created elsewhere via `create-paper` and symlink back here. Edits to `template/` propagate instantly to all paper projects.
 
@@ -38,15 +38,15 @@ No build step, no linter beyond the test suite. CI runs `bash tests/run_all.sh` 
 ### Two-layer design
 
 1. **This repo** (`research-agent/`): contains the template, commands, pipeline stages, venues, scripts, and entry-point scripts (`create-paper`, `write-paper`, `sync-papers`).
-2. **Paper projects** (created elsewhere): symlink `.claude/` back to `template/claude/`, so they inherit all commands and pipeline instructions.
+2. **Paper projects** (created elsewhere): symlink the selected runtime scaffold (`.claude/` or `.codex/`) back to `template/`, so they inherit commands and pipeline instructions.
 
 ### Entry points
 
-- **`create-paper <name> <topic> [--venue V] [--depth D]`** (Bash): scaffolds a paper directory with `main.tex`, `.paper.json`, symlinked `.claude/`, cloned submodules (`vendor/claude-scientific-skills`, `vendor/praxis`), initial git commit.
-- **`write-paper`** (Bash): thin launcher that runs `claude --dangerously-skip-permissions "/write-paper <TOPIC>"` inside a paper project.
+- **`create-paper <name> <topic> [--venue V] [--runtime R] [--depth D]`** (Bash): scaffolds a paper directory with `main.tex`, `.paper.json`, a runtime scaffold, cloned submodules (`vendor/claude-scientific-skills`, `vendor/praxis`), initial git commit.
+- **`write-paper`** (Bash): thin launcher that reads `.paper.json` and dispatches to Claude or Codex.
 - **`sync-papers <dir>`**: migrates old copy-based projects to symlinks.
 
-### Pipeline orchestration (`template/claude/commands/write-paper.md`)
+### Pipeline orchestration (`template/claude/commands/write-paper.md`, `template/codex/commands/write-paper.md`)
 
 The `/write-paper` slash command (~200 lines) is the orchestrator. It does NOT contain stage logic inline. Instead it:
 
@@ -66,8 +66,9 @@ Post-pipeline iterative improvement. Each iteration reads 4 phase files fresh fr
 
 | Path | Purpose |
 |-|-|
-| `claude/commands/` | 46 slash commands (`.md` files). Symlinked into paper projects. |
-| `claude/pipeline/` | 24 stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, codex telemetry, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
+| `claude/commands/` | Claude command wrappers (`.md` files). |
+| `codex/commands/` | Codex command wrappers (`.md` files). |
+| `shared/pipeline/` | Shared stage/phase instruction files read on-demand by orchestrators. `shared-protocols.md` has cross-cutting protocols (provenance logging, codex telemetry, tool fallback chain, Codex deliberation, domain detection, Semantic Scholar rate limiting). |
 | `venues/` | 7 venue configs (JSON). Each specifies documentclass, packages, citation style, page limit, section order, and a 500+ word writing guide. |
 | `template/scripts/knowledge.py` | LightRAG (>=1.4.12) knowledge graph builder (requires `OPENROUTER_API_KEY`). Supports optional OpenSearch backend (`LIGHTRAG_STORAGE=opensearch`). Builds from source extracts + PDFs, supports semantic queries, contradiction detection, evidence search. Venv auto-bootstraps on first run (`.venv/` at repo root). Supports streaming ingestion via `serve`/`enqueue` for non-blocking pipeline use. |
 | `template/scripts/parse-pdf.py` | Docling-based PDF parser. Converts PDFs to markdown with extracted figures. Used by Stage 1d, 1e, and `/ingest-papers`. Requires `pip install docling`. |
@@ -77,7 +78,7 @@ Post-pipeline iterative improvement. Each iteration reads 4 phase files fresh fr
 
 ### Submodules
 
-- **`vendor/claude-scientific-skills`** (tracked in `.gitmodules`): 177 domain-specific skills (literature databases, analysis tools). Symlinked to `.claude/skills/` in paper projects. Contains executable Python.
+- **`vendor/claude-scientific-skills`** (tracked in `.gitmodules`): 177 domain-specific skills (literature databases, analysis tools). Symlinked to the active runtime skills directory in paper projects. Contains executable Python.
 - **`vendor/praxis`** (cloned by `create-paper` into paper projects, not tracked in this repo's `.gitmodules`): Scientific data analysis toolkit. Optional.
 
 ### State files in paper projects (not in this repo)
