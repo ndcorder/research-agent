@@ -783,6 +783,11 @@ def parse_source_body(
 # ---------------------------------------------------------------------------
 
 
+def _sanitize_xml(s: str) -> str:
+    """Remove characters that are invalid in XML 1.0."""
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s)
+
+
 def merge_enrichment_into_graph(
     G, entities: list[dict], relationships: list[dict]
 ) -> dict:
@@ -796,24 +801,24 @@ def merge_enrichment_into_graph(
     rels_created = 0
 
     for ent in entities:
-        name = ent["name"].upper()
+        name = _sanitize_xml(ent["name"].upper())
+        desc = _sanitize_xml(ent.get("description", ""))
         if name in G.nodes:
             node = G.nodes[name]
             existing_desc = node.get("description", "")
-            new_desc = ent.get("description", "")
-            if new_desc and new_desc not in existing_desc:
-                node["description"] = existing_desc + " | " + new_desc if existing_desc else new_desc
+            if desc and desc not in existing_desc:
+                node["description"] = _sanitize_xml(existing_desc + " | " + desc) if existing_desc else desc
             node["enriched"] = "true"
             merged += 1
         else:
             G.add_node(name, entity_type=ent.get("type", "unknown"),
-                       description=ent.get("description", ""),
+                       description=desc,
                        enrichment_source="enrichment", enriched="true")
             created += 1
 
     for rel in relationships:
-        src = rel["src"].upper()
-        tgt = rel["tgt"].upper()
+        src = _sanitize_xml(rel["src"].upper())
+        tgt = _sanitize_xml(rel["tgt"].upper())
         for endpoint in (src, tgt):
             if endpoint not in G.nodes:
                 G.add_node(endpoint, entity_type="unknown",
@@ -822,7 +827,7 @@ def merge_enrichment_into_graph(
         if G.has_edge(src, tgt):
             continue
         G.add_edge(src, tgt, relationship=rel.get("type", "RELATED_TO"),
-                   description=rel.get("description", ""),
+                   description=_sanitize_xml(rel.get("description", "")),
                    enrichment_source="enrichment")
         rels_created += 1
 
