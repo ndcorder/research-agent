@@ -69,6 +69,7 @@ if __name__ == "__main__":
 import argparse
 import asyncio
 import enum
+import hashlib
 import json
 import re
 import signal
@@ -1126,6 +1127,18 @@ async def cmd_query(args):
     query = args.question
     mode = getattr(args, "mode", None) or DEFAULT_QUERY_MODE
 
+    # Check cache first
+    cache_key = hashlib.sha256(f"smart_v1|{query}".encode()).hexdigest()[:32]
+    cache_path = Path(CACHE_DIR) / f"{cache_key}.txt"
+    if cache_path.exists():
+        print(cache_path.read_text(encoding="utf-8"))
+        log_operation("Query", {
+            "Tool": "scripts/knowledge.py query",
+            "Query": query,
+            "Result": "CACHED",
+        })
+        return
+
     # Phase 1: Classify query and extract targets
     pattern = classify_query(query)
     targets = extract_query_targets(query)
@@ -1185,6 +1198,10 @@ async def cmd_query(args):
         entity_context=entity_context,
     )
     print(output)
+
+    # Cache the result
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_path.write_text(output, encoding="utf-8")
 
     log_operation("Query", {
         "Tool": "scripts/knowledge.py query",
