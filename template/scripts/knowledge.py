@@ -830,6 +830,112 @@ def merge_enrichment_into_graph(
             "relationships_created": rels_created}
 
 
+# --- Enrichment coordinator ---
+
+
+def _collect_enrichment_entities(
+    bib_path: str, sources_dir: str, parsed_dir: str
+) -> tuple[list[dict], list[dict]]:
+    """Collect all enrichment entities and relationships from bib, sources, and parsed PDFs.
+
+    Returns ``(entities, relationships)`` ready for :func:`merge_enrichment_into_graph`.
+    """
+    entities: list[dict] = []
+    relationships: list[dict] = []
+
+    # --- 1. Parse bib file ---
+    known_bib_keys: set[str] = set()
+    bib_p = Path(bib_path)
+    if bib_p.exists():
+        bib_data = parse_bib_entries(bib_p.read_text(encoding="utf-8"))
+
+        # Paper entities
+        for paper in bib_data["papers"]:
+            known_bib_keys.add(paper["key"])
+            author_str = ", ".join(
+                a.get("normalized", a.get("last", ""))
+                for a in paper.get("authors", [])
+            )
+            desc_parts = []
+            if author_str:
+                desc_parts.append(author_str)
+            if paper.get("year"):
+                desc_parts.append(f"({paper['year']})")
+            if paper.get("title"):
+                desc_parts.append(f'"{paper["title"]}"')
+            if paper.get("venue"):
+                desc_parts.append(paper["venue"])
+            entities.append({
+                "name": paper["key"],
+                "type": "paper",
+                "description": " ".join(desc_parts) if desc_parts else paper["key"],
+            })
+
+        # Author entities
+        for author in bib_data["authors"]:
+            entities.append({
+                "name": author["normalized"],
+                "type": "author",
+                "description": f"Author: {author.get('first', '')} {author.get('last', '')}".strip(),
+            })
+
+        # Venue entities
+        for venue in bib_data["venues"]:
+            entities.append({
+                "name": venue["normalized"],
+                "type": "venue",
+                "description": f"Venue: {venue['name']}",
+            })
+
+        relationships.extend(bib_data["relationships"])
+
+    # --- 2. Parse source headers → enrich paper entities ---
+    src_p = Path(sources_dir)
+    source_bodies: dict[str, str] = {}  # key -> body text
+    if src_p.is_dir():
+        for path in sorted(src_p.glob("*.md")):
+            fname = path.name
+            content = path.read_text(encoding="utf-8")
+            header = parse_source_headers(fname, content)
+
+            # Store body for step 3
+            parts = content.split("---", 1)
+            if len(parts) > 1:
+                source_bodies[header["key"]] = parts[1]
+
+            # Enrich existing paper entity with access metadata
+            for ent in entities:
+                if ent["name"] == header["key"] and ent["type"] == "paper":
+                    extra = []
+                    if header.get("access_level"):
+                        extra.append(f"access={header['access_level']}")
+                    if header.get("source_type"):
+                        extra.append(f"type={header['source_type']}")
+                    if header.get("deep_read"):
+                        extra.append("deep-read=yes")
+                    if extra:
+                        ent["description"] += " [" + ", ".join(extra) + "]"
+                    break
+
+    # --- 3. Parse source bodies → citation cross-refs, theories, methods ---
+    for source_key, body in source_bodies.items():
+        body_result = parse_source_body(source_key, body, known_bib_keys)
+        entities.extend(body_result["entities"])
+        relationships.extend(body_result["relationships"])
+
+    # --- 4. Parse parsed PDFs → same extraction as source bodies ---
+    parsed_p = Path(parsed_dir)
+    if parsed_p.is_dir():
+        for path in sorted(parsed_p.glob("*.md")):
+            stem = path.stem
+            md_text = path.read_text(encoding="utf-8")
+            body_result = parse_source_body(stem, md_text, known_bib_keys)
+            entities.extend(body_result["entities"])
+            relationships.extend(body_result["relationships"])
+
+    return entities, relationships
+
+
 # --- Multi-strategy retrieval ---
 
 _PATTERN_MODES: dict[QueryPattern, list[str]] = {
@@ -1464,6 +1570,44 @@ async def cmd_update(_args):
         "New parsed": str(new_parsed),
         "New PDFs": str(new_pdfs),
         "Total new documents": str(len(documents)),
+    })
+
+
+async def cmd_enrich(_args):
+    """Enrich knowledge graph with structured bib/source/parsed entities and relationships."""
+    graph_path = Path(WORKING_DIR) / "graph_chunk_entity_relation.graphml"
+    if not graph_path.exists():
+        print(f"Error: graph not found at {graph_path}. Run 'build' first.")
+        return
+
+    import networkx as nx
+    G = nx.read_graphml(str(graph_path))
+
+    bib_path = "references.bib"
+    entities, relationships = _collect_enrichment_entities(
+        bib_path, SOURCES_DIR, PARSED_DIR
+    )
+
+    stats = merge_enrichment_into_graph(G, entities, relationships)
+
+    nx.write_graphml(G, str(graph_path))
+    _invalidate_cache()
+
+    summary = (
+        f"Enrichment complete: "
+        f"{stats['entities_created']} entities created, "
+        f"{stats['entities_merged']} entities merged, "
+        f"{stats['relationships_created']} relationships created"
+    )
+    print(summary)
+
+    log_operation("Enrich", {
+        "Tool": "scripts/knowledge.py enrich",
+        "Input entities": str(len(entities)),
+        "Input relationships": str(len(relationships)),
+        "Entities created": str(stats["entities_created"]),
+        "Entities merged": str(stats["entities_merged"]),
+        "Relationships created": str(stats["relationships_created"]),
     })
 
 
@@ -2342,6 +2486,7 @@ def main():
 
     subparsers.add_parser("build", help="Build/update graph from research/sources/")
     subparsers.add_parser("update", help="Incremental update (new/changed files only)")
+    subparsers.add_parser("enrich", help="Enrich graph with bib/source/parsed entities")
 
     p_query = subparsers.add_parser("query", help="Freeform semantic search")
     p_query.add_argument("question", help="Question to search for")
@@ -2385,6 +2530,7 @@ def main():
     commands = {
         "build": cmd_build,
         "update": cmd_update,
+        "enrich": cmd_enrich,
         "query": cmd_query,
         "contradictions": cmd_contradictions,
         "evidence-for": cmd_evidence_for,

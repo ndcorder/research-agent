@@ -375,3 +375,150 @@ class TestMergeEnrichmentIntoGraph:
         stats = merge_enrichment_into_graph(G, entities, [])
         assert G.number_of_nodes() == n1
         assert stats["entities_created"] == 0
+
+
+# ---------------------------------------------------------------------------
+# _collect_enrichment_entities
+# ---------------------------------------------------------------------------
+
+_collect_enrichment_entities = knowledge._collect_enrichment_entities
+
+
+class TestCollectEnrichmentEntities:
+    """Tests for _collect_enrichment_entities coordinator."""
+
+    _BIB = r"""
+@article{alpha2020,
+  author = {Adams, Alice and Baker, Bob},
+  title = {Alpha Study},
+  journal = {Nature},
+  year = {2020},
+}
+
+@inproceedings{beta2021,
+  author = {Charlie Delta},
+  title = {Beta Work},
+  booktitle = {Proceedings of ICML},
+  year = {2021},
+}
+"""
+
+    _SOURCE_ALPHA = """\
+# Alpha Study
+
+**Citation**: Adams, A. and Baker, B. "Alpha Study", Nature, 2020.
+**BibTeX Key**: alpha2020
+**Access Level**: FULL-TEXT
+**Source Type**: journal_article
+**Deep-Read**: yes
+
+---
+
+## Content Snapshot
+
+This study uses \\citep{beta2021} for comparison.
+
+## Agency Theory
+
+Discussion of agency theory concepts.
+
+The methodology employs meta-analysis of prior results.
+"""
+
+    def test_basic_collection(self, tmp_path):
+        """Bib + source -> combined entities and relationships."""
+        bib_path = tmp_path / "references.bib"
+        bib_path.write_text(self._BIB)
+
+        sources_dir = tmp_path / "sources"
+        sources_dir.mkdir()
+        (sources_dir / "alpha2020.md").write_text(self._SOURCE_ALPHA)
+
+        entities, rels = _collect_enrichment_entities(
+            str(bib_path), str(sources_dir), str(tmp_path / "parsed")
+        )
+
+        # Should have paper entities from bib
+        entity_names = {e["name"].lower() for e in entities}
+        assert "alpha2020" in entity_names
+        assert "beta2021" in entity_names
+
+        # Should have author entities
+        entity_types = {e["type"] for e in entities}
+        assert "author" in entity_types
+        assert "venue" in entity_types
+
+        # Should have relationships from bib (AUTHORED_BY, PUBLISHED_IN)
+        rel_types = {r["type"] for r in rels}
+        assert "AUTHORED_BY" in rel_types
+        assert "PUBLISHED_IN" in rel_types
+
+        # Should have source body relationships (CITES, DISCUSSES, USES_METHOD)
+        assert "CITES" in rel_types
+        assert "DISCUSSES" in rel_types
+        assert "USES_METHOD" in rel_types
+
+    def test_no_bib_file(self, tmp_path):
+        """Missing bib file produces empty bib entities but still parses sources."""
+        sources_dir = tmp_path / "sources"
+        sources_dir.mkdir()
+        (sources_dir / "test2020.md").write_text(
+            "# Test\n\n**BibTeX Key**: test2020\n**Access Level**: ABSTRACT\n"
+            "**Source Type**: preprint\n**Deep-Read**: no\n\n---\n\nSome body text.\n"
+        )
+
+        entities, rels = _collect_enrichment_entities(
+            str(tmp_path / "no-such.bib"), str(sources_dir), str(tmp_path / "parsed")
+        )
+
+        # Should still have source header info but no bib-derived entities
+        # (no papers/authors/venues from bib, but source body parsing may produce some)
+        assert isinstance(entities, list)
+        assert isinstance(rels, list)
+
+    def test_parsed_dir_enrichment(self, tmp_path):
+        """Parsed markdown files also contribute entities and relationships."""
+        bib_path = tmp_path / "references.bib"
+        bib_path.write_text(self._BIB)
+
+        sources_dir = tmp_path / "sources"
+        sources_dir.mkdir()
+
+        parsed_dir = tmp_path / "parsed"
+        parsed_dir.mkdir()
+        (parsed_dir / "gamma2022.md").write_text(
+            "## Regression Analysis\n\nThis paper uses regression analysis "
+            "and \\cite{alpha2020} extensively.\n\n## Network Effects\n\nDiscussion.\n"
+        )
+
+        entities, rels = _collect_enrichment_entities(
+            str(bib_path), str(sources_dir), str(parsed_dir)
+        )
+
+        # Parsed dir should contribute DISCUSSES / USES_METHOD / CITES
+        rel_types = {r["type"] for r in rels}
+        # alpha2020 is a known bib key, so CITES should appear
+        assert "CITES" in rel_types
+
+        entity_names_lower = {e["name"].lower() for e in entities}
+        # Regression analysis method should be detected
+        assert "Regression Analysis".lower() in entity_names_lower
+
+    def test_source_headers_enrich_paper_entities(self, tmp_path):
+        """Source headers add access_level / source_type / deep_read to paper entities."""
+        bib_path = tmp_path / "references.bib"
+        bib_path.write_text(self._BIB)
+
+        sources_dir = tmp_path / "sources"
+        sources_dir.mkdir()
+        (sources_dir / "alpha2020.md").write_text(self._SOURCE_ALPHA)
+
+        entities, rels = _collect_enrichment_entities(
+            str(bib_path), str(sources_dir), str(tmp_path / "parsed")
+        )
+
+        # Find the alpha2020 paper entity
+        alpha_ents = [e for e in entities if e["name"] == "alpha2020" and e["type"] == "paper"]
+        assert len(alpha_ents) == 1
+        desc = alpha_ents[0]["description"]
+        assert "FULL-TEXT" in desc
