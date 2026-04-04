@@ -245,8 +245,6 @@ def _invalidate_cache():
 
 def _get_cache_path(query: str, mode: str) -> Path:
     """Get cache file path for a query."""
-    import hashlib
-
     key = hashlib.sha256(f"{query}|{mode}".encode()).hexdigest()[:32]
     return Path(CACHE_DIR) / f"{key}.txt"
 
@@ -738,7 +736,6 @@ def _get_namespace():
         if ns:
             return ns
     # Fallback: hash of cwd for projects without the field
-    import hashlib
     return hashlib.sha256(os.getcwd().encode()).hexdigest()[:16]
 
 
