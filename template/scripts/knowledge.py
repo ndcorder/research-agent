@@ -539,6 +539,107 @@ def _build_preflight_context(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Knowledge graph enrichment — deterministic entity extraction
+# ---------------------------------------------------------------------------
+
+_BIB_ENTRY_RE = re.compile(r"@(\w+)\{([^,]+),\s*\n(.*?)\n\}", re.DOTALL)
+_BIB_FIELD_RE = re.compile(r"(\w+)\s*=\s*\{(.*?)\}", re.DOTALL)
+
+
+def _strip_braces(s: str) -> str:
+    """Remove LaTeX ``{}`` braces from *s*."""
+    return s.replace("{", "").replace("}", "")
+
+
+def _normalize_author(name: str) -> dict:
+    """Parse an author name into ``{last, first, normalized}``.
+
+    Handles ``Last, First`` and ``First Last`` formats.
+    Normalized form: ``"last, f"`` (lowercase last, first initial).
+    """
+    name = name.strip()
+    if "," in name:
+        parts = [p.strip() for p in name.split(",", 1)]
+        last, first = parts[0], parts[1] if len(parts) > 1 else ""
+    elif " " in name:
+        tokens = name.rsplit(None, 1)
+        first, last = tokens[0], tokens[1]
+    else:
+        last, first = name, ""
+    initial = first[0].lower() if first else ""
+    normalized = f"{last.lower()}, {initial}" if initial else f"{last.lower()},"
+    return {
+        "last": last,
+        "first": first,
+        "normalized": normalized,
+    }
+
+
+def parse_bib_entries(bib_text: str) -> dict:
+    """Parse bibtex *bib_text* and return papers, authors, venues, relationships."""
+    papers: list[dict] = []
+    author_map: dict[str, dict] = {}   # normalized -> author dict
+    venue_map: dict[str, dict] = {}    # lowercase name -> venue dict
+    relationships: list[dict] = []
+
+    for m in _BIB_ENTRY_RE.finditer(bib_text):
+        entry_type, key = m.group(1).lower(), m.group(2).strip()
+        body = m.group(3)
+        fields: dict[str, str] = {}
+        for fm in _BIB_FIELD_RE.finditer(body):
+            fields[fm.group(1).lower()] = fm.group(2).strip()
+
+        # --- authors ---
+        entry_authors: list[dict] = []
+        raw_authors = fields.get("author", "")
+        if raw_authors:
+            for raw in re.split(r"\s+and\s+", raw_authors):
+                author = _normalize_author(_strip_braces(raw))
+                entry_authors.append(author)
+                if author["normalized"] not in author_map:
+                    author_map[author["normalized"]] = author
+                relationships.append({
+                    "src": key,
+                    "tgt": author["normalized"],
+                    "type": "AUTHORED_BY",
+                    "description": f"{key} authored by {author['last']}",
+                })
+
+        # --- venue ---
+        venue_name = _strip_braces(
+            fields.get("journal", "") or fields.get("booktitle", "")
+        )
+        venue_norm = ""
+        if venue_name:
+            venue_norm = venue_name.lower()
+            if venue_norm not in venue_map:
+                venue_map[venue_norm] = {"name": venue_name, "normalized": venue_norm}
+            relationships.append({
+                "src": key,
+                "tgt": venue_norm,
+                "type": "PUBLISHED_IN",
+                "description": f"{key} published in {venue_name}",
+            })
+
+        papers.append({
+            "key": key,
+            "title": _strip_braces(fields.get("title", "")),
+            "year": fields.get("year", ""),
+            "doi": fields.get("doi", ""),
+            "entry_type": entry_type,
+            "authors": entry_authors,
+            "venue": venue_norm,
+        })
+
+    return {
+        "papers": papers,
+        "authors": list(author_map.values()),
+        "venues": list(venue_map.values()),
+        "relationships": relationships,
+    }
+
+
 # --- Multi-strategy retrieval ---
 
 _PATTERN_MODES: dict[QueryPattern, list[str]] = {
