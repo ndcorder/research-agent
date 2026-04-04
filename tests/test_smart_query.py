@@ -34,6 +34,7 @@ merge_retrieval_results = knowledge.merge_retrieval_results
 compute_confidence = knowledge.compute_confidence
 format_smart_output = knowledge.format_smart_output
 _extract_source_documents = knowledge._extract_source_documents
+_build_preflight_context = knowledge._build_preflight_context
 
 
 class TestClassifyQuery:
@@ -429,3 +430,30 @@ class TestExtractSourceDocuments:
         merged = {"entities": [], "relationships": [], "chunks": []}
         result = _extract_source_documents(merged)
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Task 6: Build preflight context
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPreflightContext:
+    def test_builds_context_string(self):
+        matches = [EntityMatch("Agency Theory", "Concept", 1.0, "exact")]
+        rels = ["Agency Theory → CONTRASTS_WITH → Stewardship Theory"]
+        ctx = _build_preflight_context(matches, rels)
+        assert "Agency Theory" in ctx
+        assert "CONTRASTS_WITH" in ctx
+
+    def test_empty_when_no_matches(self):
+        ctx = _build_preflight_context([], [])
+        assert ctx == ""
+
+    def test_multiple_entities(self):
+        matches = [
+            EntityMatch("A", "Concept", 1.0, "exact"),
+            EntityMatch("B", "Method", 0.8, "graph"),
+        ]
+        ctx = _build_preflight_context(matches, ["A → uses → B"])
+        assert "A" in ctx and "B" in ctx
+        assert "uses" in ctx

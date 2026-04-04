@@ -1203,6 +1203,25 @@ async def cmd_contradictions(_args):
         _graceful_exit_no_api_key("contradictions")
     rag = await _init_rag()
 
+    # Entity pre-flight using paper topic
+    preflight = ""
+    if LIGHTRAG_STORAGE != "opensearch":
+        topic_text = ""
+        paper_json = Path(".paper.json")
+        if paper_json.exists():
+            try:
+                topic_text = json.loads(paper_json.read_text(encoding="utf-8")).get("topic", "")
+            except (json.JSONDecodeError, OSError):
+                pass
+        if topic_text:
+            targets = extract_query_targets(topic_text)
+            if targets:
+                nodes = _get_graph_nodes()
+                matches = _search_entities_in_graph(nodes, targets)
+                if matches:
+                    rels = _get_entity_relationships(nodes, [m.name for m in matches])
+                    preflight = _build_preflight_context(matches, rels)
+
     prompt = (
         "Identify contradictions, tensions, and conflicting claims across the source documents "
         "in this knowledge graph. For each contradiction found, report:\n"
@@ -1212,6 +1231,9 @@ async def cmd_contradictions(_args):
         "Focus on substantive intellectual disagreements, not minor differences in framing. "
         "Format each contradiction as a numbered item."
     )
+
+    if preflight:
+        prompt = f"## Pre-verified entities from the knowledge graph:\n\n{preflight}\n\n{prompt}"
 
     result = await _cached_query(rag, prompt, "global")
 
@@ -1238,6 +1260,15 @@ async def cmd_evidence_for(args):
         _graceful_exit_no_api_key("evidence-for")
     rag = await _init_rag()
 
+    targets = extract_query_targets(args.claim)
+    preflight = ""
+    if targets and LIGHTRAG_STORAGE != "opensearch":
+        nodes = _get_graph_nodes()
+        matches = _search_entities_in_graph(nodes, targets)
+        if matches:
+            rels = _get_entity_relationships(nodes, [m.name for m in matches])
+            preflight = _build_preflight_context(matches, rels)
+
     prompt = (
         f"Find all evidence in the source documents that SUPPORTS the following claim:\n\n"
         f"\"{args.claim}\"\n\n"
@@ -1248,6 +1279,9 @@ async def cmd_evidence_for(args):
         f"Only include evidence that genuinely supports the claim. "
         f"Do not stretch or misrepresent findings."
     )
+
+    if preflight:
+        prompt = f"## Pre-verified entities from the knowledge graph:\n\n{preflight}\n\n{prompt}"
 
     result = await _cached_query(rag, prompt, "hybrid")
     print(f"## Evidence Supporting: \"{args.claim}\"\n\n{result}")
@@ -1266,6 +1300,15 @@ async def cmd_evidence_against(args):
         _graceful_exit_no_api_key("evidence-against")
     rag = await _init_rag()
 
+    targets = extract_query_targets(args.claim)
+    preflight = ""
+    if targets and LIGHTRAG_STORAGE != "opensearch":
+        nodes = _get_graph_nodes()
+        matches = _search_entities_in_graph(nodes, targets)
+        if matches:
+            rels = _get_entity_relationships(nodes, [m.name for m in matches])
+            preflight = _build_preflight_context(matches, rels)
+
     prompt = (
         f"Find all evidence in the source documents that CONTRADICTS or CHALLENGES "
         f"the following claim:\n\n"
@@ -1277,6 +1320,9 @@ async def cmd_evidence_against(args):
         f"Include alternative explanations, methodological critiques, and null findings. "
         f"Be thorough — a reviewer would use this to attack the claim."
     )
+
+    if preflight:
+        prompt = f"## Pre-verified entities from the knowledge graph:\n\n{preflight}\n\n{prompt}"
 
     result = await _cached_query(rag, prompt, "hybrid")
     print(f"## Evidence Against: \"{args.claim}\"\n\n{result}")
