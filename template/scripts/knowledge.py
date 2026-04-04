@@ -1341,7 +1341,7 @@ def extract_pdf_text(pdf_path: Path) -> str:
         return ""
 
 
-async def cmd_build(_args):
+async def cmd_build(args):
     """Build or update the knowledge graph from source extracts and PDFs."""
     if not check_api_key_available():
         _graceful_exit_no_api_key("build")
@@ -1476,15 +1476,18 @@ async def cmd_build(_args):
     _save_build_timestamp()
     _invalidate_cache()
 
+    if not getattr(args, "skip_enrich", False):
+        await cmd_enrich(args)
 
-async def cmd_update(_args):
+
+async def cmd_update(args):
     """Incremental update: only ingest files newer than last build."""
     if not check_api_key_available():
         _graceful_exit_no_api_key("update")
     last_build_path = Path(LAST_BUILD_FILE)
     if not last_build_path.exists():
         print("No previous build found. Running full build instead.")
-        await cmd_build(_args)
+        await cmd_build(args)
         return
 
     last_build_time = datetime.fromisoformat(
@@ -1571,6 +1574,9 @@ async def cmd_update(_args):
         "New PDFs": str(new_pdfs),
         "Total new documents": str(len(documents)),
     })
+
+    if not getattr(args, "skip_enrich", False):
+        await cmd_enrich(args)
 
 
 async def cmd_enrich(_args):
@@ -2484,8 +2490,10 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("build", help="Build/update graph from research/sources/")
-    subparsers.add_parser("update", help="Incremental update (new/changed files only)")
+    p_build = subparsers.add_parser("build", help="Build/update graph from research/sources/")
+    p_build.add_argument("--skip-enrich", action="store_true", help="Skip post-build enrichment pass")
+    p_update = subparsers.add_parser("update", help="Incremental update (new/changed files only)")
+    p_update.add_argument("--skip-enrich", action="store_true", help="Skip post-update enrichment pass")
     subparsers.add_parser("enrich", help="Enrich graph with bib/source/parsed entities")
 
     p_query = subparsers.add_parser("query", help="Freeform semantic search")
