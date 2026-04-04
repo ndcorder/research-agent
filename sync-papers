@@ -110,9 +110,15 @@ for project in "$TARGET_BASE"/*/; do
         changed=true
     fi
 
-    # 4. Create scripts/ symlink
+    # 4. Create scripts/ symlink (migrate copy → symlink if needed)
     if [[ -L "$project/scripts" ]]; then
         : # Already a symlink
+    elif [[ -d "$project/scripts" ]]; then
+        # Copy exists — replace with symlink
+        rm -r "$project/scripts"
+        ln -s "$TEMPLATE_DIR/scripts" "$project/scripts"
+        echo "  Migrated scripts/ from copy to symlink"
+        changed=true
     elif [[ ! -e "$project/scripts" ]]; then
         ln -s "$TEMPLATE_DIR/scripts" "$project/scripts"
         changed=true
