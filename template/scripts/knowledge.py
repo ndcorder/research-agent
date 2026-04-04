@@ -473,6 +473,21 @@ def _get_entity_relationships(
     return results
 
 
+def _build_preflight_context(
+    entity_matches: list[EntityMatch],
+    entity_context: list[str],
+) -> str:
+    """Build a pre-flight context string from entity matches and relationships."""
+    if not entity_matches:
+        return ""
+    lines = []
+    for m in entity_matches:
+        lines.append(f"Entity: {m.name} (type: {m.entity_type}, match: {m.source})")
+    for rel in entity_context[:30]:
+        lines.append(f"Relationship: {rel}")
+    return "\n".join(lines)
+
+
 # --- Multi-strategy retrieval ---
 
 _PATTERN_MODES: dict[QueryPattern, list[str]] = {
@@ -1103,21 +1118,82 @@ async def cmd_update(_args):
 
 
 async def cmd_query(args):
-    """Freeform semantic search across the knowledge graph."""
+    """Smart query: entity pre-flight, multi-strategy retrieval, merged synthesis."""
     if not check_api_key_available():
         _graceful_exit_no_api_key("query")
     rag = await _init_rag()
 
+    query = args.question
     mode = getattr(args, "mode", None) or DEFAULT_QUERY_MODE
-    result = await _cached_query(rag, args.question, mode)
 
-    print(f"## Results ({mode} mode)\n\n{result}")
+    # Phase 1: Classify query and extract targets
+    pattern = classify_query(query)
+    targets = extract_query_targets(query)
+
+    # Phase 2: Entity pre-flight
+    entity_matches = []
+    entity_context = []
+    preflight_context = ""
+
+    if targets:
+        if LIGHTRAG_STORAGE == "opensearch":
+            # OpenSearch: use aquery_data in local mode for entity search
+            from lightrag import QueryParam
+            preflight_data = await rag.aquery_data(
+                " ".join(targets), QueryParam(mode="local")
+            )
+            if preflight_data.get("status") == "success":
+                for e in preflight_data.get("data", {}).get("entities", []):
+                    entity_matches.append(EntityMatch(
+                        name=e.get("entity_name", ""),
+                        entity_type=e.get("entity_type", ""),
+                        score=1.0,
+                        source="opensearch",
+                    ))
+        else:
+            # File-based: direct graph search
+            nodes = _get_graph_nodes()
+            entity_matches = _search_entities_in_graph(nodes, targets)
+            if entity_matches:
+                matched_names = [m.name for m in entity_matches]
+                entity_context = _get_entity_relationships(nodes, matched_names)
+                preflight_context = _build_preflight_context(entity_matches, entity_context)
+
+    # Phase 3: Multi-strategy retrieval
+    merged = await _multi_retrieve(rag, query, pattern)
+    source_documents = _extract_source_documents(merged)
+
+    # Count modes that contributed
+    modes = get_retrieval_modes(pattern)
+    modes_contributed = len(modes)
+
+    # Phase 4: Synthesis
+    synthesis = await _synthesize(rag, query, merged, preflight_context)
+
+    # Phase 5: Structured output
+    confidence = compute_confidence(
+        entity_matches=len(entity_matches),
+        modes_contributed=modes_contributed,
+        total_chunks=len(merged.get("chunks", [])),
+    )
+
+    output = format_smart_output(
+        confidence=confidence,
+        entity_matches=entity_matches,
+        source_documents=source_documents,
+        synthesis=synthesis,
+        entity_context=entity_context,
+    )
+    print(output)
 
     log_operation("Query", {
         "Tool": "scripts/knowledge.py query",
-        "Query": args.question,
-        "Mode": mode,
-        "Result": "SUCCESS" if result else "EMPTY",
+        "Query": query,
+        "Pattern": pattern.value,
+        "Modes": ",".join(modes),
+        "Entities matched": len(entity_matches),
+        "Confidence": confidence,
+        "Result": "SUCCESS" if synthesis else "EMPTY",
     })
 
 
