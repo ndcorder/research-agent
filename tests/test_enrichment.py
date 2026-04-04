@@ -27,6 +27,8 @@ _strip_braces = knowledge._strip_braces
 parse_bib_entries = knowledge.parse_bib_entries
 parse_source_headers = knowledge.parse_source_headers
 parse_all_source_headers = knowledge.parse_all_source_headers
+parse_source_body = knowledge.parse_source_body
+merge_enrichment_into_graph = knowledge.merge_enrichment_into_graph
 
 
 # ---------------------------------------------------------------------------
@@ -271,3 +273,105 @@ class TestParseSourceHeaders:
         assert len(results) == 2
         keys = {r["key"] for r in results}
         assert keys == {"a1", "b1"}
+
+
+# ---------------------------------------------------------------------------
+# Source body parser
+# ---------------------------------------------------------------------------
+
+
+class TestParseSourceBody:
+    def test_cite_extraction(self):
+        body = r"As shown by \cite{gordon2002} and \citet{dimaggio1983}."
+        result = parse_source_body("smith2020", body, {"gordon2002", "dimaggio1983"})
+        cites = [r for r in result["relationships"] if r["type"] == "CITES"]
+        assert len(cites) == 2
+
+    def test_multi_cite(self):
+        body = r"Prior work \cite{a,b,c} established this."
+        result = parse_source_body("x", body, {"a", "b", "c"})
+        cites = [r for r in result["relationships"] if r["type"] == "CITES"]
+        assert len(cites) == 3
+
+    def test_unknown_keys_filtered(self):
+        body = r"\cite{unknown_key}"
+        result = parse_source_body("x", body, {"known_key"})
+        assert len(result["relationships"]) == 0
+
+    def test_theory_from_headings(self):
+        body = "## Agency Theory\n\nText.\n\n## Institutional Isomorphism\n\nMore."
+        result = parse_source_body("x", body, set())
+        theories = [e for e in result["entities"] if e["type"] == "theory"]
+        names = {t["name"] for t in theories}
+        assert "Agency Theory" in names
+        assert "Institutional Isomorphism" in names
+
+    def test_generic_headings_skipped(self):
+        body = "## Introduction\n\n## Methodology\n\n## Conclusion\n"
+        result = parse_source_body("x", body, set())
+        assert len(result["entities"]) == 0
+
+    def test_method_extraction(self):
+        body = "We used systematic review and meta-analysis."
+        result = parse_source_body("x", body, set())
+        methods = [e for e in result["entities"] if e["type"] == "method"]
+        names = {m["name"].lower() for m in methods}
+        assert "systematic review" in names
+        assert "meta-analysis" in names
+
+    def test_empty_body(self):
+        result = parse_source_body("x", "", set())
+        assert result == {"entities": [], "relationships": []}
+
+
+# ---------------------------------------------------------------------------
+# Graph merge and deduplication
+# ---------------------------------------------------------------------------
+
+
+class TestMergeEnrichmentIntoGraph:
+    def test_adds_new_entity(self):
+        import networkx as nx
+        G = nx.Graph()
+        entities = [{"name": "New Paper", "type": "paper", "description": "desc"}]
+        stats = merge_enrichment_into_graph(G, entities, [])
+        assert stats["entities_created"] == 1
+        assert "NEW PAPER" in G.nodes
+
+    def test_merges_existing(self):
+        import networkx as nx
+        G = nx.Graph()
+        G.add_node("AGENCY THEORY", entity_type="concept", description="original")
+        entities = [{"name": "Agency Theory", "type": "theory", "description": "enriched"}]
+        stats = merge_enrichment_into_graph(G, entities, [])
+        assert stats["entities_merged"] == 1
+        assert "enriched" in G.nodes["AGENCY THEORY"]["description"]
+        assert "original" in G.nodes["AGENCY THEORY"]["description"]
+
+    def test_adds_relationship(self):
+        import networkx as nx
+        G = nx.Graph()
+        G.add_node("A", entity_type="paper")
+        G.add_node("B", entity_type="author")
+        rels = [{"src": "a", "tgt": "b", "type": "AUTHORED_BY", "description": "by"}]
+        stats = merge_enrichment_into_graph(G, [], rels)
+        assert stats["relationships_created"] == 1
+        assert G.has_edge("A", "B")
+
+    def test_creates_missing_endpoints(self):
+        import networkx as nx
+        G = nx.Graph()
+        rels = [{"src": "x", "tgt": "y", "type": "CITES", "description": "cites"}]
+        stats = merge_enrichment_into_graph(G, [], rels)
+        assert "X" in G.nodes
+        assert "Y" in G.nodes
+
+    def test_idempotent(self):
+        import networkx as nx
+        G = nx.Graph()
+        entities = [{"name": "X", "type": "paper", "description": "desc"}]
+        merge_enrichment_into_graph(G, entities, [])
+        n1 = G.number_of_nodes()
+        stats = merge_enrichment_into_graph(G, entities, [])
+        assert G.number_of_nodes() == n1
+        assert stats["entities_created"] == 0

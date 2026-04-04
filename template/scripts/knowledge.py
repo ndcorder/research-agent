@@ -708,6 +708,128 @@ def parse_all_source_headers(sources_dir: str) -> list[dict]:
     return results
 
 
+# ---------------------------------------------------------------------------
+# Source body enrichment
+# ---------------------------------------------------------------------------
+
+_CITE_RE = re.compile(r"\\(?:cite[tp]?|citealp)\{([^}]+)\}")
+_HEADING_RE = re.compile(r"^#{2,3}\s+(.+)", re.MULTILINE)
+_GENERIC_HEADINGS = frozenset({
+    "content snapshot", "summary", "key findings", "methodology", "abstract",
+    "introduction", "conclusion", "references", "results", "discussion",
+    "limitations", "future work", "background", "related work", "overview",
+    "appendix",
+})
+_KNOWN_METHODS = [
+    "systematic review", "meta-analysis", "regression analysis", "case study",
+    "content analysis", "grounded theory", "survey", "experiment",
+    "randomized controlled trial", "longitudinal study",
+    "cross-sectional study", "qualitative analysis", "thematic analysis",
+    "bibliometric analysis", "network analysis", "simulation",
+    "structural equation model", "factor analysis", "cluster analysis",
+]
+
+
+def parse_source_body(
+    source_key: str, body: str, known_bib_keys: set[str]
+) -> dict:
+    """Parse a source extract body for citations, theories, and methods."""
+    if not body:
+        return {"entities": [], "relationships": []}
+
+    entities: list[dict] = []
+    relationships: list[dict] = []
+
+    seen_cites: set[str] = set()
+    for m in _CITE_RE.finditer(body):
+        for key in m.group(1).split(","):
+            key = key.strip()
+            if key and key in known_bib_keys and key not in seen_cites:
+                seen_cites.add(key)
+                relationships.append({
+                    "src": source_key, "tgt": key,
+                    "type": "CITES", "description": f"{source_key} cites {key}",
+                })
+
+    seen_headings: set[str] = set()
+    for m in _HEADING_RE.finditer(body):
+        heading = m.group(1).strip()
+        if len(heading) < 4 or len(heading) > 80:
+            continue
+        if heading.lower() in _GENERIC_HEADINGS:
+            continue
+        lower = heading.lower()
+        if lower in seen_headings:
+            continue
+        seen_headings.add(lower)
+        entities.append({"name": heading, "type": "theory",
+                         "description": f"Theory/framework discussed in {source_key}"})
+        relationships.append({"src": source_key, "tgt": lower,
+                              "type": "DISCUSSES", "description": f"{source_key} discusses {heading}"})
+
+    body_lower = body.lower()
+    for method in _KNOWN_METHODS:
+        if method in body_lower:
+            entities.append({"name": method.title(), "type": "method",
+                             "description": f"Method used in {source_key}"})
+            relationships.append({"src": source_key, "tgt": method,
+                                  "type": "USES_METHOD", "description": f"{source_key} uses {method}"})
+
+    return {"entities": entities, "relationships": relationships}
+
+
+# ---------------------------------------------------------------------------
+# Graph merge and deduplication for enrichment
+# ---------------------------------------------------------------------------
+
+
+def merge_enrichment_into_graph(
+    G, entities: list[dict], relationships: list[dict]
+) -> dict:
+    """Merge enrichment entities and relationships into a networkx Graph.
+
+    Entity names are UPPERCASED to match LightRAG convention.
+    Idempotent: running twice with the same data produces no duplicates.
+    """
+    created = 0
+    merged = 0
+    rels_created = 0
+
+    for ent in entities:
+        name = ent["name"].upper()
+        if name in G.nodes:
+            node = G.nodes[name]
+            existing_desc = node.get("description", "")
+            new_desc = ent.get("description", "")
+            if new_desc and new_desc not in existing_desc:
+                node["description"] = existing_desc + " | " + new_desc if existing_desc else new_desc
+            node["enriched"] = "true"
+            merged += 1
+        else:
+            G.add_node(name, entity_type=ent.get("type", "unknown"),
+                       description=ent.get("description", ""),
+                       enrichment_source="enrichment", enriched="true")
+            created += 1
+
+    for rel in relationships:
+        src = rel["src"].upper()
+        tgt = rel["tgt"].upper()
+        for endpoint in (src, tgt):
+            if endpoint not in G.nodes:
+                G.add_node(endpoint, entity_type="unknown",
+                           enrichment_source="enrichment", enriched="true")
+                created += 1
+        if G.has_edge(src, tgt):
+            continue
+        G.add_edge(src, tgt, relationship=rel.get("type", "RELATED_TO"),
+                   description=rel.get("description", ""),
+                   enrichment_source="enrichment")
+        rels_created += 1
+
+    return {"entities_created": created, "entities_merged": merged,
+            "relationships_created": rels_created}
+
+
 # --- Multi-strategy retrieval ---
 
 _PATTERN_MODES: dict[QueryPattern, list[str]] = {
