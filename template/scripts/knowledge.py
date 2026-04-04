@@ -1599,6 +1599,37 @@ async def cmd_enrich(_args):
     nx.write_graphml(G, str(graph_path))
     _invalidate_cache()
 
+    # Embed new entities into the vector DB
+    if stats["entities_created"] > 0 and check_api_key_available():
+        print(f"  Computing embeddings for {stats['entities_created']} new entities...")
+        try:
+            rag = await _init_rag()
+            new_names = []
+            new_texts = []
+            for name in G.nodes:
+                if G.nodes[name].get("enrichment_source") == "enrichment":
+                    desc = G.nodes[name].get("description", "")
+                    new_names.append(name)
+                    new_texts.append(f"{name}: {desc}" if desc else name)
+
+            if new_texts:
+                embeddings = await rag.embedding_func(new_texts)
+                vdb_path = Path(WORKING_DIR) / "vdb_entities.json"
+                if vdb_path.exists():
+                    from nano_vectordb import NanoVectorDB
+                    vdb = NanoVectorDB(
+                        embedding_dim=len(embeddings[0]),
+                        storage_file=str(vdb_path),
+                    )
+                    for name, emb in zip(new_names, embeddings):
+                        vdb.upsert({"__id__": name, "__vector__": emb})
+                    vdb.save()
+                    print(f"  Embedded {len(new_texts)} entities into vector DB")
+                else:
+                    print("  Warning: vdb_entities.json not found, skipping embedding")
+        except Exception as e:
+            print(f"  Warning: embedding failed ({e}), entities added to graph only")
+
     summary = (
         f"Enrichment complete: "
         f"{stats['entities_created']} entities created, "
