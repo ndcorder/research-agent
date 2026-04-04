@@ -1,6 +1,20 @@
 # Scripts Reference
 
-CLI reference for all utility scripts in `template/scripts/`. These are symlinked into paper projects at `scripts/` and used by the pipeline, slash commands, and manual invocation.
+CLI reference for all 12 utility scripts in `template/scripts/`. These are symlinked into paper projects at `scripts/` and used by the pipeline, slash commands, and manual invocation.
+
+| Script | Purpose | Dependencies |
+|-|-|-|
+| `knowledge.py` | LightRAG knowledge graph builder and query engine | `OPENROUTER_API_KEY`, LightRAG (auto-installed) |
+| `quality.py` | Multi-dimensional paper quality scorer | Stdlib only |
+| `verify-references.py` | CrossRef/search citation verification | Stdlib only |
+| `format_sentences.py` | LaTeX one-sentence-per-line formatter | Stdlib only |
+| `parse-pdf.py` | PDF to markdown converter | `pip install docling` |
+| `update-manifest.py` | Rebuild source-manifest.json from project state | Stdlib only |
+| `reviewer-kb.py` | Reviewer defense knowledge base builder | Requires knowledge.py |
+| `research-story.py` | Provenance narrative generator | Stdlib only |
+| `openrouter-fallback.py` | LLM fallback routing via OpenRouter | `OPENROUTER_API_KEY` |
+| `pdf-cache.sh` | Shared PDF dedup cache management | Bash, sha256sum/shasum |
+| `ensure-venv.sh` | Python venv bootstrapper for knowledge.py | Bash |
 
 ## knowledge.py — Knowledge Graph
 
@@ -133,6 +147,47 @@ python3 scripts/update-manifest.py --key smith2024  # Update one entry only
 |-|-|
 | 0 | Success |
 | 1 | Error |
+
+---
+
+## quality.py — Paper Quality Scorer
+
+Multi-dimensional quality scoring engine. Evaluates papers across 5 dimensions (evidence, writing, structure, research depth, provenance coverage) and produces a JSON scorecard with letter grade. Stdlib-only (no external dependencies).
+
+```bash
+python3 scripts/quality.py score                          # Full scorecard (text)
+python3 scripts/quality.py score --format json            # JSON output
+python3 scripts/quality.py score --dimension evidence     # Single dimension
+python3 scripts/quality.py history                        # Score history for this paper
+python3 scripts/quality.py record-outcome accepted        # Log submission result
+python3 scripts/quality.py record-outcome rejected --notes "Reviewer 2 wanted more experiments"
+python3 scripts/quality.py insights                       # Cross-paper analytics
+```
+
+### Scoring Dimensions
+
+| Dimension | What it measures |
+|-|-|
+| Evidence | Citation density, source access levels, claims matrix coverage |
+| Writing | Paragraph structure, hedging appropriateness, AI-pattern absence |
+| Structure | Section completeness, cross-references, figure/table presence |
+| Research | Source count, snowballing coverage, methodology depth |
+| Provenance | Provenance log completeness, traceability of claims to sources |
+
+### Grade Scale
+
+A+ (95+), A (90+), A- (85+), B+ (80+), B (75+), B- (70+), C+ (65+), C (60+), C- (55+), D (50+), F (<50)
+
+### Pipeline Integration
+
+- **Stage 5 (QA)**: Runs a baseline score before the review loop starts
+- **Stage 6 (Finalization)**: Runs a final score, persists to analytics
+- **`/auto`**: Runs before and after each iteration to measure improvement delta
+- **`/score`**: Manual invocation from any paper project
+
+### Cross-Paper Analytics
+
+Scores persist to `~/.research-agent/analytics/scores.jsonl`. The `insights` subcommand analyzes trends across all papers: dimension breakdowns, improvement trajectories, venue-specific patterns.
 
 ---
 

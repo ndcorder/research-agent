@@ -2,6 +2,8 @@
 
 Visual guide to the Research Agent system architecture, pipeline flow, data model, and agent orchestration.
 
+**Related docs**: [PIPELINE-REFERENCE.md](PIPELINE-REFERENCE.md) for stage-by-stage quick reference | [DEVELOPER-GUIDE.md](DEVELOPER-GUIDE.md) for extending the system | [KNOWLEDGE-GRAPH.md](KNOWLEDGE-GRAPH.md) for the LightRAG subsystem
+
 ## System Overview
 
 ```mermaid
@@ -14,7 +16,7 @@ graph TB
     subgraph "Orchestration Layer"
         WP["/write-paper Orchestrator"]
         Auto["/auto Improvement Loop"]
-        Manual["42 Slash Commands"]
+        Manual["46 Slash Commands"]
     end
 
     subgraph "Pipeline Stages"
@@ -31,6 +33,8 @@ graph TB
         S2d["Stage 2d: Novelty Check"]
         S2e["Stage 2e: Assumptions"]
         S3["Stage 3: Writing"]
+        S3b["Stage 3b: Coherence"]
+        S3c["Stage 3c: Reference Integrity"]
         S4["Stage 4: Figures"]
         S5["Stage 5: QA Loop"]
         S5p["Stage 5+: Post-QA"]
@@ -64,9 +68,9 @@ graph TB
     CLI --> WP
     Claude --> Manual
     Claude --> Auto
-    WP --> S1 --> S1b --> S1b2 --> S1c --> S1d
-    S1d --> S2 --> S2b --> S2c --> S2d --> S2e
-    S2e --> S3 --> S4 --> S5 --> S5p --> S6
+    WP --> S1 --> S1b --> S1b2 --> S1c --> S1d --> S1e --> S1f
+    S1f --> S2 --> S2b --> S2c --> S2d --> S2e
+    S2e --> S3 --> S3b --> S3c --> S4 --> S5 --> S5p --> S6
     S6 --> PDF
     S6 --> Prov
     S6 --> Archive
@@ -392,7 +396,7 @@ paper-project/                     # Created by create-paper
 ├── archive/                       # Browsable bundle (end of pipeline)
 └── .claude/
     ├── CLAUDE.md                  # Workspace instructions (symlink)
-    ├── commands/                  # 35 slash commands (symlinks)
+    ├── commands/                  # 46 slash commands (symlinks)
     ├── pipeline/                  # Stage instructions (symlinks)
     │   ├── shared-protocols.md
     │   ├── stage-1-research.md

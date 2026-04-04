@@ -69,7 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Autonomous paper writing pipeline (`/write-paper`) producing journal-quality research papers in 1-8 hours with parallel multi-agent orchestration
-- 35 slash commands for research, writing, quality assurance, data analysis, and submission
+- 46 slash commands for research, writing, quality assurance, data analysis, and submission
 - Iterative improvement command (`/auto`) for autonomously assessing and improving finished papers, including content cuts as first-class improvements
 - Provenance ledger system tracing every word in the paper back to its origin via `research/provenance.jsonl`
 - Provenance query command (`/provenance`) with 7 modes: summary, section, trace, history, sources, gaps, timeline

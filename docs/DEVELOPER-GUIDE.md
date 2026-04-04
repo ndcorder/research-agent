@@ -2,6 +2,10 @@
 
 Guide for contributors extending the Research Agent pipeline, adding venue formats, creating commands, and understanding the codebase internals.
 
+**Key concept**: This repo is the _template_, not a paper project. Paper projects are created elsewhere via `create-paper` and symlink `.claude/` back to `template/claude/`. Changes to `template/` propagate instantly to all paper projects.
+
+**Related docs**: [CONTRIBUTING.md](../CONTRIBUTING.md) for PR guidelines | [ARCHITECTURE.md](ARCHITECTURE.md) for system design | [SCRIPTS-REFERENCE.md](SCRIPTS-REFERENCE.md) for script CLI reference
+
 ## Repository Structure
 
 ```
@@ -12,18 +16,22 @@ research-agent/
 ├── template/
 │   ├── claude/
 │   │   ├── CLAUDE.md         # Workspace instructions (symlinked into projects)
-│   │   ├── commands/         # 42 slash commands (symlinked)
+│   │   ├── commands/         # 46 slash commands (symlinked)
 │   │   ├── pipeline/         # Stage instructions (symlinked)
 │   │   └── settings.local.json
 │   ├── scripts/
-│   │   ├── knowledge.py      # LightRAG knowledge graph builder
-│   │   ├── parse-pdf.py      # Docling-based PDF → markdown converter
-│   │   ├── format_sentences.py  # LaTeX one-sentence-per-line formatter
-│   │   ├── update-manifest.py   # Rebuilds research/source-manifest.json
-│   │   ├── reviewer-kb.py    # Prepares structured docs for knowledge graph
+│   │   ├── knowledge.py         # LightRAG knowledge graph builder
+│   │   ├── quality.py           # Multi-dimensional paper quality scorer
+│   │   ├── reviewer-kb.py       # Reviewer defense knowledge base builder
+│   │   ├── research-story.py    # Provenance narrative generator
 │   │   ├── verify-references.py # LaTeX reference integrity checker
-│   │   ├── research-story.py # Research narrative generator
-│   │   └── openrouter-fallback.py # LLM fallback routing
+│   │   ├── format_sentences.py  # LaTeX one-sentence-per-line formatter
+│   │   ├── parse-pdf.py         # Docling-based PDF → markdown converter
+│   │   ├── update-manifest.py   # Rebuilds research/source-manifest.json
+│   │   ├── openrouter-fallback.py # LLM fallback routing
+│   │   ├── pdf-cache.sh         # Shared PDF dedup cache
+│   │   ├── ensure-venv.sh       # Python venv bootstrapper
+│   │   └── requirements-knowledge.txt # Pinned deps for knowledge.py
 │   ├── venues/               # 7 venue JSON configs
 │   ├── main.tex              # Minimal LaTeX template
 │   ├── references.bib        # Empty BibTeX template
@@ -32,7 +40,21 @@ research-agent/
 │   ├── claude-scientific-skills/  # Submodule: 177 domain skills
 │   └── praxis/                    # Submodule: scientific analysis toolkit
 ├── tests/
-│   └── test_schema.py        # .paper-state.json schema validator
+│   ├── run_all.sh               # Test runner (shell + pytest)
+│   ├── test_structure.sh        # Template file existence checks
+│   ├── test_prompts.sh          # Command/pipeline markdown linting
+│   ├── test_schema.py           # .paper-state.json schema validator
+│   ├── test_venues.py           # Venue JSON required fields
+│   ├── test_commands.py         # Command file existence, model specs
+│   ├── test_pipeline.py         # Pipeline stage headings, orchestrator coverage
+│   ├── test_quality.py          # quality.py scoring logic
+│   ├── test_knowledge.py        # Knowledge graph unit tests
+│   ├── test_knowledge_queue.py  # Knowledge graph queue/streaming
+│   ├── test_state_completeness.py  # State file completeness
+│   ├── test_format_sentences.py # LaTeX formatter tests
+│   ├── test_verify_references.py   # Reference verification tests
+│   ├── test_reviewer_kb.py      # Reviewer KB builder tests
+│   └── conftest.py              # Pytest fixtures
 └── docs/
 ```
 
@@ -200,17 +222,37 @@ To add a new protocol:
 
 ## Testing
 
-### Schema Validation
+### Full test suite
 
 ```bash
-# Self-test: validates the built-in example
-python tests/test_schema.py
+bash tests/run_all.sh
+```
 
-# Validate a specific paper's state
-python tests/test_schema.py path/to/.paper-state.json
+This runs all shell-based tests and then `pytest` on all Python test files. CI runs this on Python 3.12.
 
-# Generate a valid example
-python tests/test_schema.py --generate
+### Individual tests
+
+```bash
+# Structure: template file existence, symlink targets
+bash tests/test_structure.sh
+
+# Prompt linting: command/pipeline markdown syntax
+bash tests/test_prompts.sh
+
+# Schema: .paper-state.json and venue JSON validation
+python3 -m pytest tests/test_schema.py tests/test_venues.py
+
+# Commands: file existence, model specs, CLAUDE.md cross-references
+python3 -m pytest tests/test_commands.py
+
+# Pipeline: stage headings, prerequisites, orchestrator coverage
+python3 -m pytest tests/test_pipeline.py
+
+# Scripts: quality scorer, knowledge graph, formatter, references
+python3 -m pytest tests/test_quality.py tests/test_knowledge.py tests/test_format_sentences.py tests/test_verify_references.py tests/test_reviewer_kb.py
+
+# Validate a specific paper's state file
+python3 tests/test_schema.py path/to/.paper-state.json
 ```
 
 ### Health Check
@@ -221,9 +263,9 @@ From within a paper project:
 claude "/health"
 ```
 
-This checks: LaTeX installation, API keys, Codex bridge, Praxis, knowledge graph dependencies, Python packages.
+Checks: LaTeX installation, API keys, Codex bridge, Praxis, knowledge graph dependencies, Python packages.
 
-### Manual Pipeline Testing
+### Manual pipeline testing
 
 ```bash
 # Dry run — shows the plan without executing
