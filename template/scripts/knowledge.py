@@ -68,7 +68,9 @@ if __name__ == "__main__":
 
 import argparse
 import asyncio
+import enum
 import json
+import re
 import signal
 from datetime import datetime, timezone
 from functools import partial
@@ -258,6 +260,60 @@ def _get_query_model_func():
         base_url=OPENROUTER_BASE_URL,
         api_key=get_api_key(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Query pattern classification
+# ---------------------------------------------------------------------------
+
+class QueryPattern(enum.Enum):
+    """Classification of user query intent for strategy selection."""
+    SPECIFIC_PAPER = "specific_paper"
+    CONCEPT_EXPLORATION = "concept_exploration"
+    EVIDENCE = "evidence"
+    CONTRADICTION = "contradiction"
+    BROAD_SURVEY = "broad_survey"
+    DEFAULT = "default"
+
+
+_PATTERN_RULES: list[tuple[QueryPattern, list[re.Pattern]]] = [
+    (QueryPattern.SPECIFIC_PAPER, [
+        re.compile(r"""['"].+['"]"""),               # quoted titles
+        re.compile(r"\bpaper\s+by\s+", re.I),        # "paper by Author"
+        re.compile(r"\b[a-z]+\d{4}[a-z]*\b"),        # bibtex keys like vaswani2017
+    ]),
+    (QueryPattern.EVIDENCE, [
+        re.compile(r"\bevidence\s+(for|against|supporting|contradicting)\b", re.I),
+        re.compile(r"\bsupports?\s+(the\s+)?claim\b", re.I),
+    ]),
+    (QueryPattern.CONTRADICTION, [
+        re.compile(r"\bcontradiction", re.I),
+        re.compile(r"\bconflicts?\s+(with\b|claim)", re.I),
+        re.compile(r"\bdisagree\b", re.I),
+        re.compile(r"\btension\s+between\b", re.I),
+    ]),
+    (QueryPattern.CONCEPT_EXPLORATION, [
+        re.compile(r"\bwhat\s+(is|are)\b", re.I),
+        re.compile(r"\bapproaches\s+to\b", re.I),
+        re.compile(r"\bhow\s+does\b.+\bwork\b", re.I),
+        re.compile(r"\bdefinition\s+(of\b)?", re.I),
+    ]),
+    (QueryPattern.BROAD_SURVEY, [
+        re.compile(r"\bwhat\s+do\s+sources\s+say\b", re.I),
+        re.compile(r"\bstate\s+of\s+(the\s+)?(art|literature|research|field)\b", re.I),
+        re.compile(r"\boverview\s+of\b", re.I),
+        re.compile(r"\bsummarize\b", re.I),
+    ]),
+]
+
+
+def classify_query(query: str) -> QueryPattern:
+    """Classify *query* into a retrieval pattern. First match wins."""
+    for pattern, regexes in _PATTERN_RULES:
+        for rx in regexes:
+            if rx.search(query):
+                return pattern
+    return QueryPattern.DEFAULT
 
 
 async def _cached_query(rag, query: str, mode: str) -> str:
