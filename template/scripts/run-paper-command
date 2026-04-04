@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+    DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/runtime.sh"
+
+usage() {
+    echo "Usage: scripts/run-paper-command <command> [args...]"
+}
+
+if [[ $# -lt 1 ]]; then
+    usage >&2
+    exit 1
+fi
+
+COMMAND_NAME="$1"
+shift
+
+RUNTIME="$(paper_runtime)"
+
+if [[ "$RUNTIME" == "claude" ]]; then
+    if ! command -v claude &>/dev/null; then
+        echo "claude not found in PATH." >&2
+        exit 1
+    fi
+
+    PROMPT="/$COMMAND_NAME"
+    for arg in "$@"; do
+        PROMPT+=" $arg"
+    done
+
+    exec claude --dangerously-skip-permissions "$PROMPT"
+fi
+
+if [[ "$RUNTIME" != "codex" ]]; then
+    echo "Unsupported runtime '$RUNTIME' in .paper.json" >&2
+    exit 1
+fi
+
+if ! command -v codex &>/dev/null; then
+    echo "codex not found in PATH." >&2
+    exit 1
+fi
+
+COMMAND_FILE=".codex/commands/${COMMAND_NAME}.md"
+if [[ ! -f "$COMMAND_FILE" ]]; then
+    echo "Command file not found for codex runtime: $COMMAND_FILE" >&2
+    exit 1
+fi
+
+add_dir_args=()
+added_dirs=()
+
+add_resolved_dir() {
+    local path="$1"
+    local resolved dir
+
+    [[ -e "$path" ]] || return 0
+    resolved="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$path")"
+    if [[ -f "$resolved" ]]; then
+        dir="$(dirname "$resolved")"
+    else
+        dir="$resolved"
+    fi
+
+    for existing in "${added_dirs[@]:-}"; do
+        [[ "$existing" == "$dir" ]] && return 0
+    done
+
+    added_dirs+=("$dir")
+    add_dir_args+=(--add-dir "$dir")
+}
+
+add_resolved_dir ".codex"
+add_resolved_dir ".codex/AGENTS.md"
+add_resolved_dir ".codex/commands"
+add_resolved_dir ".codex/pipeline"
+add_resolved_dir ".codex/skills"
+add_resolved_dir ".codex/runtime-contract.md"
+add_resolved_dir "scripts"
+
+ARGUMENTS_TEXT="(none)"
+if [[ $# -gt 0 ]]; then
+    ARGUMENTS_TEXT="$(printf '%q ' "$@")"
+    ARGUMENTS_TEXT="${ARGUMENTS_TEXT% }"
+fi
+
+PROMPT=$(cat <<EOF
+You are executing the Research Agent command \`${COMMAND_NAME}\` inside a Codex paper project.
+
+Read these files first:
+- .codex/AGENTS.md
+- .codex/commands/${COMMAND_NAME}.md
+- .codex/runtime-contract.md
+
+Then execute the command exactly for the current project.
+
+Command arguments:
+${ARGUMENTS_TEXT}
+EOF
+)
+
+exec codex exec --full-auto --search -C "$PWD" "${add_dir_args[@]}" "$PROMPT"
