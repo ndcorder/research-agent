@@ -24,7 +24,7 @@ provenance/       # Provenance audit trail (cuts archive, auto-iteration artifac
 archive/          # Browsable research archive with index (created at end of /write-paper or via /archive)
 .paper.json       # Paper topic and configuration
 .claude/
-  commands/       # Slash commands (46 commands)
+  commands/       # Slash commands (47 commands)
   pipeline/       # Stage-specific instructions for /write-paper and /auto (read on-demand per stage/phase)
     shared-protocols.md   # Codex deliberation, codex telemetry, provenance logging, domain detection, tool fallback
     stage-1-research.md   # Deep literature research (agents 1-12)
@@ -152,6 +152,7 @@ For interactive, step-by-step work:
 
 ### Research & References
 - `/search-literature` — Find relevant papers for a topic
+- `/targeted-research` — Resolve specific claims from the evidence matrix
 - `/add-citation` — Add a properly formatted BibTeX entry
 - `/ingest-papers` — Import PDFs from `attachments/`, extract metadata and summaries
 - `/cite-network` — Analyze citation patterns, find coverage gaps
