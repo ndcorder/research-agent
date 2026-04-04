@@ -71,12 +71,32 @@ import asyncio
 import enum
 import hashlib
 import json
+import logging
 import re
 import signal
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Redirect verbose LightRAG / nano-vectordb logging to a file so pipeline
+# agents see only our structured output.  Logs preserved in
+# research/knowledge/lightrag.log.  Set LIGHTRAG_LOG_LEVEL=DEBUG to echo.
+# ---------------------------------------------------------------------------
+_log_level = getattr(logging, os.environ.get("LIGHTRAG_LOG_LEVEL", "ERROR").upper(), logging.ERROR)
+_log_dir = os.path.join("research", "knowledge")
+os.makedirs(_log_dir, exist_ok=True)
+_file_handler = logging.FileHandler(os.path.join(_log_dir, "lightrag.log"), encoding="utf-8")
+_file_handler.setLevel(logging.DEBUG)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+for _name in ("lightrag", "nano-vectordb", "httpx", "openai", ""):
+    _logger = logging.getLogger(_name) if _name else logging.getLogger()
+    _logger.addHandler(_file_handler)
+    _logger.setLevel(logging.DEBUG)
+for _h in logging.getLogger().handlers:
+    if _h is not _file_handler:
+        _h.setLevel(max(_log_level, logging.WARNING))
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -684,25 +704,20 @@ async def _synthesize(rag, query: str, merged: dict, preflight_context: str) -> 
 
     user_prompt = f"Context:\n{context_str}\n\nQuery: {query}"
 
-    # Use the query model if configured, otherwise fall back to LLM_MODEL
-    query_model_func = _get_query_model_func()
-    if query_model_func is not None:
-        result = await query_model_func(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-        )
-    else:
-        from lightrag.llm.openai import openai_complete
+    # Call the OpenAI-compatible API directly (not through LightRAG's wrapper,
+    # which expects internal kwargs like hashing_kv).
+    import openai
 
-        result = await openai_complete(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            model=LLM_MODEL,
-            base_url=OPENROUTER_BASE_URL,
-            api_key=get_api_key(),
-        )
-
-    return result if isinstance(result, str) else str(result)
+    model = QUERY_LLM_MODEL if QUERY_LLM_MODEL else LLM_MODEL
+    client = openai.AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=get_api_key())
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    return response.choices[0].message.content or ""
 
 
 async def _cached_query(rag, query: str, mode: str) -> str:
