@@ -1,0 +1,1 @@
+../../claude/commands/make-blog-post.md

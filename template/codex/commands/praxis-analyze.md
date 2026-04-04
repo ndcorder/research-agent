@@ -1,0 +1,1 @@
+../../claude/commands/praxis-analyze.md

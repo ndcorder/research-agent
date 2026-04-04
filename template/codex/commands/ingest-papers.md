@@ -1,0 +1,1 @@
+../../claude/commands/ingest-papers.md

@@ -1,0 +1,1 @@
+../../claude/commands/novelty-check.md
