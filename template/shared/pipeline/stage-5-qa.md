@@ -125,6 +125,25 @@ Write a detailed review to reviews/technical.md:
 - Evidence density heatmap: list all claims by strength (STRONG/MODERATE/WEAK/CRITICAL) with their scores
 - Warrant quality assessment: list each claim's warrant quality (Sound/Reasonable/Weak/Missing/Invalid) with issues
 - Entity coverage gaps: list important graph entities not discussed in the manuscript
+
+**Disagreement coverage** — Read `research/disagreements.json`. For each entry:
+1. Is the disagreement addressed in the manuscript? Check the sections listed in `addressed_in_sections`.
+2. Does the handling match the `resolution_strategy`?
+   - `comparative_analysis`: Both positions presented with evidence? Paper's position justified?
+   - `hedge`: Language appropriately qualified? No overclaims?
+   - `scope_limit`: Claim restricted to stated scope? No extrapolation?
+   - `defer`: Open question acknowledged? Referenced in future work?
+3. Any disagreement with `status: "identified"` (not resolved) is a **CRITICAL** issue — it means a known conflict was not addressed in writing.
+4. Any disagreement where the manuscript takes a stronger position than the resolution strategy allows is a **MAJOR** issue (e.g., strategy is `hedge` but text says "demonstrates").
+
+Add to your review output:
+
+## Disagreement Coverage
+| ID | Theme | Strategy | Status | Handled Correctly? | Issue |
+|-|-|-|-|-|-|
+| D1 | ... | comparative_analysis | resolved | Yes / No | [description if No] |
+
+Flag any unresolved disagreements as CRITICAL fix items.
 ```
 
 **Writing Quality Reviewer:**
