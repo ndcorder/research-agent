@@ -37,6 +37,13 @@ pub struct EvidenceUpdatedEvent {
     pub changed_paths: Vec<String>,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PipelineProgressEvent {
+    pub current_stage: String,
+    pub stages: serde_json::Value,
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -160,6 +167,18 @@ fn is_evidence_path(path: &Path) -> bool {
         return true;
     }
     if s.contains("claims_matrix") {
+        return true;
+    }
+    if s.ends_with(".paper-quality.json") {
+        return true;
+    }
+    if s.contains("evidence_heatmap") {
+        return true;
+    }
+    if s.contains("disagreements.json") {
+        return true;
+    }
+    if s.contains("/reviews/") || s.contains("\\reviews\\") {
         return true;
     }
     false
@@ -380,6 +399,29 @@ mod tests {
     }
 }
 
+fn emit_pipeline_progress_if_needed(app: &tauri::AppHandle, changed: &[String]) {
+    for p in changed {
+        if p.ends_with(".paper-state.json") {
+            if let Ok(content) = fs::read_to_string(p) {
+                if let Ok(state) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let _ = app.emit(
+                        "pipeline-progress",
+                        PipelineProgressEvent {
+                            current_stage: state
+                                .get("current_stage")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                                .to_string(),
+                            stages: state.get("stages").cloned().unwrap_or_default(),
+                        },
+                    );
+                }
+            }
+            break;
+        }
+    }
+}
+
 fn start_evidence_watcher(
     app: &AppHandle,
     state: &EvidenceWatcherState,
@@ -433,6 +475,7 @@ fn start_evidence_watcher(
                 let mut paths = pending_c.lock().unwrap();
                 if !paths.is_empty() {
                     let changed: Vec<String> = paths.drain(..).collect();
+                    emit_pipeline_progress_if_needed(&app_clone, &changed);
                     let _ = app_clone.emit(
                         "evidence-updated",
                         EvidenceUpdatedEvent {
@@ -456,6 +499,7 @@ fn start_evidence_watcher(
                         let mut paths = pending_trail.lock().unwrap();
                         if !paths.is_empty() {
                             let changed: Vec<String> = paths.drain(..).collect();
+                            emit_pipeline_progress_if_needed(&app_trail, &changed);
                             let _ = app_trail.emit(
                                 "evidence-updated",
                                 EvidenceUpdatedEvent {
