@@ -10,6 +10,44 @@ This stage audits what the research agents actually accessed vs. what they cited
 
 ---
 
+## PRISMA Metadata Tracking
+
+If the paper topic suggests a systematic review (contains "systematic review", "meta-analysis", "scoping review", or "literature review" in `.paper.json` topic), initialize PRISMA tracking:
+
+```bash
+python scripts/prisma-metadata.py --project . build
+```
+
+Throughout this stage, maintain `research/prisma_metadata.json` by logging exclusion decisions:
+
+**During resolver cascade** — for each source that fails to resolve (all resolvers exhausted):
+```bash
+python scripts/prisma-metadata.py --project . update --phase eligibility --key <bibtex_key> --reason "Full text not accessible after resolver cascade"
+```
+
+**During content validation** — for each source that resolves but content is inadequate:
+```bash
+python scripts/prisma-metadata.py --project . update --phase screening --key <bibtex_key> --reason "<specific reason>"
+```
+
+Standard exclusion reason taxonomy:
+- `Not empirical research` — opinion pieces, editorials, commentaries without data
+- `Outside scope` — topic mismatch despite keyword match
+- `Duplicate study` — same dataset/analysis published in multiple venues
+- `Insufficient methodological detail` — methods section too vague to assess
+- `Non-English full text` — only applies when English is the paper's language scope
+- `Retracted or corrected` — flagged by CrossRef or PubMed metadata
+- `Full text not accessible after resolver cascade` — all 14 resolvers failed
+- `Superseded by more recent replication` — newer study with same findings exists in bibliography
+- `Below quality threshold` — grey literature or preprints that don't meet minimum rigor
+
+After the resolver cascade completes, rebuild the metadata:
+```bash
+python scripts/prisma-metadata.py --project . build
+```
+
+---
+
 ## Phase 1: Audit
 
 1. **Read `references.bib`** — extract every BibTeX key

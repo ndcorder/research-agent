@@ -77,12 +77,28 @@ Write the response to `reviews/codex_figures_audit.md`. Fix any critical mismatc
 
 **Step 4d: PRISMA Flowchart (auto-detected)**
 
-Check if this paper is a systematic review by reading `.paper.json` and examining the `topic` field. If the topic contains any of these keywords (case-insensitive): "systematic review", "meta-analysis", "scoping review", "literature review", then generate a PRISMA flowchart:
+Check if this paper is a systematic review by reading `.paper.json` and examining the `topic` field. If the topic contains any of these keywords (case-insensitive): "systematic review", "meta-analysis", "scoping review", "literature review", then generate a PRISMA flowchart.
 
-1. Read `commands/prisma-flowchart.md` for the full procedure.
-2. Execute the instructions: extract search statistics from `research/log.md`, `references.bib`, and `research/sources/`, compute the PRISMA phase numbers, generate a TikZ flowchart, and insert it into the Methods section of `main.tex`.
-3. Log provenance as specified in the command file.
+Also trigger if `research/prisma_metadata.json` already exists (Stage 1d may have created it).
 
-If the topic does **not** match any of the above keywords, skip this step silently (no output, no log entry).
+If either condition is met:
+
+1. Ensure metadata is current:
+   ```bash
+   python scripts/prisma-metadata.py --project . build
+   ```
+
+2. Read `commands/prisma-flowchart.md` for the full procedure. Execute the instructions: load `research/prisma_metadata.json`, validate counts, generate a TikZ flowchart, and insert it into the Methods section of `main.tex`.
+
+3. Verify the generated figure compiles:
+   ```bash
+   latexmk -pdf -interaction=nonstopmode main.tex
+   ```
+
+4. Log provenance as specified in the command file.
+
+5. Update `.paper-state.json` — set `stages.figures.prisma_generated` to `true` and `stages.figures.prisma_metadata_path` to `"research/prisma_metadata.json"`.
+
+If neither condition is met, skip this step silently (no output, no log entry).
 
 ---

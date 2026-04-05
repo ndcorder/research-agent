@@ -59,6 +59,7 @@ SCHEMA = {
                 "full_text": int,
                 "abstract_only": int,
                 "metadata_only": int,
+                "prisma_tracking": bool,
             },
         },
         "codex_thesis": {
@@ -85,7 +86,11 @@ SCHEMA = {
         },
         "figures": {
             "required": {"done": bool},
-            "optional": {},
+            "optional": {
+                "completed_at": str,
+                "prisma_generated": bool,
+                "prisma_metadata_path": str,
+            },
         },
         "qa": {
             "required": {"done": bool},
@@ -100,6 +105,7 @@ SCHEMA = {
         "qa_iteration": int,
         "codex_risk_radar": dict,
         "auto_iterations": dict,
+        "prisma_metadata": dict,
         "targeted_research": dict,
         "deep_read": dict,
         "literature_synthesis": dict,
@@ -307,6 +313,71 @@ def validate(data: Any, schema: dict = SCHEMA) -> list[str]:
                     )
 
     return errors
+
+
+# ---------- PRISMA metadata schema ----------
+
+PRISMA_SCHEMA = {
+    "required_top": {"version": int, "search_strategy": dict, "deduplication": dict,
+                     "screening": dict, "eligibility": dict, "included": dict},
+    "optional_top": {"per_source_log": list},
+    "search_strategy_required": {"databases": list, "total_identified": int},
+    "search_strategy_optional": {"other_sources": list},
+    "database_required": {"name": str, "results": int},
+    "database_optional": {"queries": list, "date": str},
+    "deduplication_required": {"before": int, "duplicates_removed": int, "after": int},
+    "deduplication_optional": {"method": str},
+    "screening_required": {"screened": int, "excluded": int, "exclusion_reasons": list},
+    "screening_optional": {"method": str},
+    "eligibility_required": {"assessed": int, "excluded": int, "exclusion_reasons": list},
+    "eligibility_optional": {"method": str},
+    "included_required": {"qualitative_synthesis": int},
+    "included_optional": {"quantitative_synthesis": int, "new_studies_from_targeted_research": int},
+    "exclusion_reason_required": {"reason": str, "count": int},
+}
+
+
+def validate_prisma(data: dict) -> list[str]:
+    """Validate research/prisma_metadata.json."""
+    errors = []
+    for field, typ in PRISMA_SCHEMA["required_top"].items():
+        if field not in data:
+            errors.append(f"Missing required field: {field}")
+        elif not isinstance(data[field], typ):
+            errors.append(f"'{field}' should be {typ.__name__}")
+
+    ss = data.get("search_strategy", {})
+    for field, typ in PRISMA_SCHEMA["search_strategy_required"].items():
+        if field not in ss:
+            errors.append(f"search_strategy: missing '{field}'")
+    for db in ss.get("databases", []):
+        for field, typ in PRISMA_SCHEMA["database_required"].items():
+            if field not in db:
+                errors.append(f"database entry: missing '{field}'")
+
+    for section in ("deduplication", "screening", "eligibility"):
+        sec = data.get(section, {})
+        for field, typ in PRISMA_SCHEMA[f"{section}_required"].items():
+            if field not in sec:
+                errors.append(f"{section}: missing '{field}'")
+        for er in sec.get("exclusion_reasons", []):
+            for field, typ in PRISMA_SCHEMA["exclusion_reason_required"].items():
+                if field not in er:
+                    errors.append(f"{section}.exclusion_reasons: missing '{field}'")
+
+    inc = data.get("included", {})
+    for field, typ in PRISMA_SCHEMA["included_required"].items():
+        if field not in inc:
+            errors.append(f"included: missing '{field}'")
+
+    return errors
+
+
+def test_prisma_fixture():
+    fixture = Path(__file__).parent / "fixtures" / "prisma_metadata_sample.json"
+    data = json.loads(fixture.read_text())
+    errors = validate_prisma(data)
+    assert errors == [], f"PRISMA schema errors: {errors}"
 
 
 # ---------- Example generator ----------
