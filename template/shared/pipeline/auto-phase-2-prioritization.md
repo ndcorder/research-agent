@@ -35,4 +35,13 @@ After all assessment agents complete, read ALL assessment files for this iterati
    [List MEDIUM issues not selected — these feed into the next iteration's assessment]
    ```
 
+**Evidence-impact prioritization**: When ranking improvements:
+1. CRITICAL claims (score < 1) that survived to this point -> P0 (find evidence or remove)
+2. WEAK claims (score 1-2.9) backing central thesis claims -> P1 (targeted research)
+3. WEAK claims in non-central sections -> P2 (hedge language fix)
+4. Missing/Invalid warrants -> P1 (structural argument fix)
+5. Prose quality on STRONG claims -> P3 (polish only after evidence issues resolved)
+
+Run `python scripts/quality.py score --project .` before and after each /auto iteration. Log the delta in `.paper-state.json` under `auto_iterations.history[N].score_delta`.
+
 If 3 or fewer meaningful actions were identified across ALL reviewers, trigger **early stop**: skip execution, log the reason, and end the iteration loop.

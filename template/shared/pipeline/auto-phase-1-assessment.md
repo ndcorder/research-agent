@@ -14,6 +14,13 @@ Read `research/knowledge_contradictions.md` and pass any new contradictions to t
 
 **If the knowledge graph is NOT available**: Log `"⚠ Knowledge graph not available for /auto assessment."` Instruct Agent A (Depth & Evidence Reviewer) to perform a manual contradiction spot-check: read the 5 source extracts most relevant to the paper's weakest claims (WEAK/MODERATE in claims matrix) and flag any conflicting findings.
 
+## Phase 0a: Refresh Evidence Density Heatmap
+
+Run `python scripts/quality.py heatmap --project .` and read `research/evidence_heatmap.md`.
+- Identify claims that are still WEAK or CRITICAL after the main pipeline
+- These are the highest-impact improvement targets
+- A WEAK->MODERATE upgrade (finding one more full-text source) is typically more valuable than prose polish on a STRONG claim
+
 ## Phase 0b: Load Iteration Context (iterations 2+)
 
 If `CURRENT_ITERATION > 1`, read the context file from the previous iteration:
