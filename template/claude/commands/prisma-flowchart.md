@@ -1,43 +1,32 @@
 # PRISMA Flowchart Generator
 
-Generate a PRISMA 2020 flowchart from the research log and add it to the manuscript.
+Generate a PRISMA 2020 flowchart from structured metadata and add it to the manuscript.
 
 ---
 
-## Step 1: Extract search statistics
+## Step 1: Load PRISMA metadata
 
-Read the following files to gather screening/selection data:
+Read `research/prisma_metadata.json`. If it doesn't exist, build it:
 
-1. **`research/log.md`** — Extract:
-   - Number of database searches performed and results per database/source (e.g., Semantic Scholar: 45, OpenAlex: 32, web search: 18)
-   - Total records identified through database searching
-   - Any additional records identified through other methods (snowballing, co-citation, manual addition)
-   - Records removed as duplicates
-   - Records screened (title/abstract level)
-   - Records excluded at screening with reasons
-   - Full-text articles assessed for eligibility
-   - Full-text articles excluded with reasons (e.g., "not empirical", "wrong population", "duplicate study", "insufficient data")
-   - Studies included in final synthesis
+```bash
+python scripts/prisma-metadata.py --project . build
+```
 
-2. **`references.bib`** — Count the total number of BibTeX entries (this is the final included count).
+Then read the JSON file and extract:
+- **Identification**: `search_strategy.total_identified` for database results, sum of `other_sources[].results` for other methods
+- **Deduplication**: `deduplication.duplicates_removed`, `deduplication.after`
+- **Screening**: `screening.screened`, `screening.excluded`, `screening.exclusion_reasons[]`
+- **Eligibility**: `eligibility.assessed`, `eligibility.excluded`, `eligibility.exclusion_reasons[]`
+- **Included**: `included.qualitative_synthesis`, `included.quantitative_synthesis`
 
-3. **`research/sources/`** — List all source extract files. Check the `Access Level` field in each:
-   - `FULL-TEXT` sources were assessed at full-text level
-   - `ABSTRACT-ONLY` sources were screened at abstract level
-   - `METADATA-ONLY` sources may have been excluded or only briefly considered
-   - Use these access levels as a proxy for the screening funnel if log.md lacks exact numbers.
+## Step 2: Validate counts
 
-## Step 2: Compute flowchart numbers
+Verify the PRISMA flow is internally consistent:
+1. `deduplication.after` should equal `screening.screened`
+2. `screening.screened - screening.excluded` should approximately equal `eligibility.assessed`
+3. `eligibility.assessed - eligibility.excluded` should approximately equal `included.qualitative_synthesis`
 
-Map the extracted data to the PRISMA 2020 four-phase model:
-
-- **Identification**: Total records from databases + total from other methods (snowballing, co-citation)
-- **Duplicates removed**: Difference between raw results and unique records (estimate if not logged)
-- **Screening**: Records after deduplication that were screened by title/abstract. Excluded count = screened minus those advancing to eligibility.
-- **Eligibility**: Full-text articles assessed. Excluded count with categorized reasons.
-- **Included**: Final count of studies in the review (should match references.bib count or the subset used for synthesis).
-
-If exact numbers are unavailable for any phase, estimate from the available data. Add a note in the figure caption: "Counts marked with $\approx$ are estimates derived from the research log."
+If counts don't add up, log warnings but proceed — some sources may have been added via targeted research after initial screening.
 
 ## Step 3: Generate TikZ PRISMA flowchart
 
@@ -95,15 +84,33 @@ Use this TikZ structure:
 \end{figure}
 ```
 
-Replace every `XXXX` with the actual numbers computed in Step 2. If any number is estimated, prefix it with `$\approx$\,` (e.g., `$\approx$\,120`).
+Replace every `XXXX` with the actual numbers from `prisma_metadata.json`. If any number is estimated, prefix it with `$\approx$\,` (e.g., `$\approx$\,120`).
 
-If full-text exclusion reasons are available, itemize them inside the exclusion box or add a sub-list below it:
+For exclusion reason nodes, populate from the structured data. Format each reason from the JSON arrays:
+
+**Screening exclusions** — use `screening.exclusion_reasons[]`:
+```latex
+\node[smallbox, text width=5.5cm] (screen-excl) at (5.5, -4.8) {
+  Records excluded (n = SCREENING_EXCLUDED):\\
+  % One line per screening.exclusion_reasons entry:
+  REASON_1 (n = COUNT_1)\\
+  REASON_2 (n = COUNT_2)\\
+  ...
+};
 ```
-Full-text articles excluded (n = XX):\\
-Not empirical (n = X)\\
-Wrong scope (n = X)\\
-Duplicate (n = X)
+
+**Eligibility exclusions** — use `eligibility.exclusion_reasons[]`:
+```latex
+\node[smallbox, text width=5.5cm] (ft-excl) at (5.5, -7) {
+  Full-text articles excluded (n = ELIGIBILITY_EXCLUDED):\\
+  % One line per eligibility.exclusion_reasons entry:
+  REASON_1 (n = COUNT_1)\\
+  REASON_2 (n = COUNT_2)\\
+  ...
+};
 ```
+
+Generate the full exclusion breakdown from `screening.exclusion_reasons` and `eligibility.exclusion_reasons` — do NOT summarize or group reasons. Each reason from the JSON gets its own line in the flowchart.
 
 ## Step 4: Insert into main.tex
 
