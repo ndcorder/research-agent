@@ -67,6 +67,18 @@ SOURCE EXTRACTS:
 
 Your task: Identify what the field agrees on, where it is split, and what remains genuinely contested. Produce a structured conflict map.
 
+If knowledge graph contradictions are available, cross-reference them with your conflict analysis:
+- Each contradiction from `knowledge_contradictions.md` should map to an entry in `disagreements.json`
+- If the knowledge graph finds a contradiction you missed, add it
+- If you found a conflict the knowledge graph missed, keep it — the knowledge graph is not exhaustive
+
+After writing both files, run:
+```bash
+python scripts/knowledge.py evidence-against "[Position A claim]"
+python scripts/knowledge.py evidence-against "[Position B claim]"
+```
+for each active debate. Append any new counter-evidence to the relevant position in `disagreements.json`.
+
 ## Analysis Strategy
 
 1. **Extract major claims** — from all source extracts, identify every major empirical finding, theoretical claim, or methodological assertion. Group claims by theme or research question.
