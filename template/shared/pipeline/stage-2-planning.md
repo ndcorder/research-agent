@@ -167,4 +167,44 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
 
 Update `.paper-state.json`: mark `outline` as done.
 
+## Evidence Density Scoring Gate
+
+After completing the claims-evidence matrix with warrants, qualifiers, and rebuttals, run the evidence density scorer:
+
+```bash
+python scripts/quality.py heatmap --project .
+```
+
+This produces `research/evidence_heatmap.md` — a per-claim breakdown that Stage 3 writing agents will consume.
+
+**Review the heatmap before proceeding to writing:**
+
+1. If ANY claim has `CRITICAL` strength (score < 1):
+   - STOP. Either run `/targeted-research` to find supporting evidence, hedge the claim to hypothesis-level, or remove it from the outline.
+   - Do NOT proceed to Stage 3 with CRITICAL claims unless they are explicitly framed as hypotheses.
+
+2. If more than 30% of claims are `WEAK`:
+   - Consider running Stage 2c (targeted research in deep mode) to strengthen evidence before writing.
+   - Log the decision in `.paper-state.json` under `stages.planning.evidence_gate`.
+
+3. Update `.paper-state.json`:
+   ```json
+   {
+     "stages": {
+       "planning": {
+         "evidence_gate": {
+           "total_claims": N,
+           "strong": N,
+           "moderate": N,
+           "weak": N,
+           "critical": N,
+           "gate_passed": true
+         }
+       }
+     }
+   }
+   ```
+
+Checkpoint: `stages.planning.evidence_gate` must exist before Stage 3 starts.
+
 > **Next**: After novelty verification (Stage 2d), proceed to **Stage 2e: Assumptions Analysis** (`pipeline/stage-2e-assumptions.md`) which systematically enumerates and categorizes methodological assumptions before writing begins.
