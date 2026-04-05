@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { sources, claims, paperState } from "$lib/stores/project";
+import { pipelineState } from "$lib/stores/pipeline";
 import { listSources, listClaims, readPaperState, startWatching, stopWatching } from "$lib/utils/ipc";
 import type { FileChangeEvent } from "$lib/types";
 
@@ -85,8 +86,20 @@ export async function setupWatcher(projectDir: string): Promise<() => void> {
       }
     );
 
+    const unlistenPipeline = await listen<{ currentStage: string; stages: Record<string, any> }>(
+      "pipeline-progress",
+      (event) => {
+        pipelineState.update((s) => ({
+          ...s,
+          currentStage: event.payload.currentStage,
+          stages: event.payload.stages,
+        }));
+      }
+    );
+
     return async function cleanup() {
       unlisten();
+      unlistenPipeline();
       await stopWatching();
     } as unknown as () => void;
   } else {
