@@ -51,7 +51,7 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
    - Flag any claims that lack evidence — these must be either supported or removed before writing begins
    - Format as a markdown table:
      ```
-     | # | Claim | Evidence Type | Evidence Sources | Warrant | Qualifier | Rebuttal | Score | Strength | Section | Status |
+     | # | Claim | Evidence Type | Evidence Sources | Warrant | Qualifier | Rebuttal | Counter-Evidence | Score | Strength | Section | Status |
      |-|-|-|-|-|-|-|-|-|-|-|
      | 1 | Our method improves X by Y% | Experiment | Own experiments (N/A, direct) = 3 | Standard benchmark, exceeds typical gains | English data, default params | May not generalize to low-resource (Sec 6.2) | 3.0 | WEAK | Results | Planned |
      | 2 | Prior approaches fail because... | Citation | smith2024 (FULL-TEXT, direct) = 4, jones2025 (ABSTRACT-ONLY, tangential) = 1 | [MISSING] | | | 5.0 | MODERATE | Related Work | ⚠ Weak warrant |
@@ -80,6 +80,19 @@ Read ALL files in `research/`, especially `research/gaps.md`. Then:
       ```bash
       python scripts/knowledge.py evidence-against "[claim text]"
       ```
+
+   4. **Counter-Evidence**: For each claim, check `research/disagreements.json`. If the claim maps to a registered disagreement:
+      - Reference the disagreement ID (e.g., "See D1")
+      - Record the opposing position and its source keys
+      - Copy the `resolution_strategy` from the registry
+      - If no disagreement applies, leave blank
+
+      A claim with Counter-Evidence and resolution_strategy `comparative_analysis` MUST have its Warrant explain why the paper favors its position over the counter-evidence. A claim with `hedge` strategy MUST have a Qualifier that reflects the uncertainty. A claim with `scope_limit` MUST have a Qualifier restricting scope to uncontested territory.
+
+   5. **Update disagreement registry**: After building the claims matrix, update `research/disagreements.json`:
+      - Set `addressed_in_sections` based on which sections the disputed claims appear in
+      - If a disagreement led to `remove_claim`, set its status to `"resolved"` and note the removal
+      - If a disagreement is addressed via `comparative_analysis` or `hedge`, keep status as `"identified"` — it becomes `"resolved"` only after Stage 3 writing confirms the text handles it
 
    **Warrant quality categories** — assess each warrant:
    | Quality | Description | Action |

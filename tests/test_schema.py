@@ -3,6 +3,7 @@
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 # ---------- Schema definition ----------
@@ -116,6 +117,61 @@ SCHEMA = {
         "optional": {"words": int, "current_substep": (str, type(None))},
     },
 }
+
+
+# ---------- Disagreement Registry Schema ----------
+
+DISAGREEMENT_SCHEMA = {
+    "required_top": {"version": int, "disagreements": list},
+    "entry_required": {
+        "id": str,
+        "theme": str,
+        "type": str,  # empirical | interpretive | methodological | scope
+        "position_a": dict,
+        "position_b": dict,
+        "resolution_strategy": str,  # comparative_analysis | hedge | scope_limit | defer | remove_claim
+        "status": str,  # identified | resolved | deferred
+    },
+    "entry_optional": {
+        "resolution_notes": str,
+        "addressed_in_sections": list,
+    },
+    "position_required": {
+        "claim": str,
+        "sources": list,
+        "evidence_quality": str,  # strong | moderate | weak
+    },
+}
+
+
+def validate_disagreements(data: dict) -> list[str]:
+    """Validate research/disagreements.json."""
+    errors = []
+    for field, typ in DISAGREEMENT_SCHEMA["required_top"].items():
+        if field not in data:
+            errors.append(f"Missing required field: {field}")
+        elif not isinstance(data[field], typ):
+            errors.append(f"Field '{field}' should be {typ.__name__}")
+    for i, entry in enumerate(data.get("disagreements", [])):
+        prefix = f"disagreements[{i}]"
+        for field, typ in DISAGREEMENT_SCHEMA["entry_required"].items():
+            if field not in entry:
+                errors.append(f"{prefix}: missing '{field}'")
+            elif not isinstance(entry[field], typ):
+                errors.append(f"{prefix}.{field}: expected {typ.__name__}")
+        for side in ("position_a", "position_b"):
+            pos = entry.get(side, {})
+            for field, typ in DISAGREEMENT_SCHEMA["position_required"].items():
+                if field not in pos:
+                    errors.append(f"{prefix}.{side}: missing '{field}'")
+    return errors
+
+
+def test_disagreements_fixture():
+    fixture = Path(__file__).parent / "fixtures" / "disagreements_sample.json"
+    data = json.loads(fixture.read_text())
+    errors = validate_disagreements(data)
+    assert errors == [], f"Disagreement schema errors: {errors}"
 
 
 # ---------- Validation ----------

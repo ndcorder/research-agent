@@ -134,6 +134,19 @@ The writing agent for that section should then ALSO read `research/section_lit_[
   3. Use more conservative language for claims flagged as "KG-unverified" in the claims matrix
   4. If you discover a contradiction between sources while writing, flag it explicitly in the text rather than silently choosing one side
   ```
+- **DISAGREEMENT HANDLING** — Read `research/disagreements.json`. For claims in your section that have Counter-Evidence in the claims matrix:
+
+  1. **`comparative_analysis`**: Dedicate a paragraph (or substantial portion of one) to presenting both positions. Structure: state Position A with evidence → state Position B with evidence → explain which the paper favors and WHY (the Warrant from claims_matrix.md). Do NOT dismiss the opposing view — engage with it substantively.
+
+  2. **`hedge`**: Use qualified language throughout. Replace "demonstrates" with "suggests", "proves" with "provides evidence for", "X causes Y" with "X is associated with Y". The Qualifier from claims_matrix.md tells you the exact scope.
+
+  3. **`scope_limit`**: State the claim ONLY within its qualified scope. Add an explicit scope statement: "Within the context of [qualifier], ..." Do not extrapolate beyond what the uncontested evidence supports.
+
+  4. **`defer`**: Acknowledge the open question briefly (1-2 sentences) and reference it as a direction for future work. Do not take a position.
+
+  5. **`remove_claim`**: Do NOT include this claim. If other text references it, revise to remove the dependency.
+
+  After writing your section, update `research/disagreements.json`: for each disagreement you handled, set `status` to `"resolved"` and confirm `addressed_in_sections` includes your section name.
 - Provenance logging instructions: after writing each paragraph, append a provenance entry to `research/provenance.jsonl` recording: the paragraph target (`[section]/p[N]`), which source extracts informed it (`sources`), which claims it supports (`claims`), and a `reasoning` field explaining the writing choices (why this argument structure, why these citations, why this depth). Use action `write` and `iteration: 0`.
 - **LaTeX Conventions** (see shared-protocols.md § LaTeX Conventions Protocol):
   - Float placement: `[htbp]` always. Place float environment *before* its first text reference. Caption below figures, above tables.

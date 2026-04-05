@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "disagreements": [
+    {
+      "id": "D1",
+      "theme": "Effect of X on Y",
+      "type": "empirical",
+      "position_a": {
+        "claim": "X increases Y by 15%",
+        "sources": ["smith2024", "jones2023"],
+        "evidence_quality": "strong"
+      },
+      "position_b": {
+        "claim": "X has no significant effect on Y",
+        "sources": ["davis2022"],
+        "evidence_quality": "moderate"
+      },
+      "resolution_strategy": "comparative_analysis",
+      "resolution_notes": "Weight toward Position A due to larger sample sizes and replication",
+      "addressed_in_sections": ["Results", "Discussion"],
+      "status": "resolved"
+    }
+  ]
+}

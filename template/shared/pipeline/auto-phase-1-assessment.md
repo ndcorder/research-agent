@@ -72,6 +72,13 @@ IMPORTANT: Strengthening a WEAK claim from 2.0 to 6.0 is higher priority than po
    d. Are rebuttals from the claims matrix actually addressed in the manuscript text?
    Weak warrants are higher priority than missing citations — a well-cited claim with bad reasoning is worse than a lightly-cited claim with sound logic. For each warrant issue, specify: claim number, current warrant quality (Sound/Reasonable/Weak/Missing/Invalid), and suggested fix.
 
+7. **Disagreement handling quality** — Read `research/disagreements.json`. For each resolved disagreement:
+   a. Is the comparative analysis persuasive, or does it read as a token acknowledgment?
+   b. Are hedged claims appropriately hedged (not over-hedged or under-hedged)?
+   c. Could a reviewer who holds Position B feel their view was fairly represented?
+
+   Weak disagreement handling is higher priority than missing citations — a paper that ignores known conflicts will be rejected by any reviewer familiar with the debate.
+
 Write assessment to reviews/auto_iter[N]_depth.md.
 ```
 
