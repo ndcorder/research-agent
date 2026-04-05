@@ -318,12 +318,13 @@ Record metrics in `.paper-state.json` under `stages.qa.iterations`:
 
 Update `stages.qa.max_iterations` in `.paper-state.json` and log: `"Adaptive QA: iteration 1 severity [X] → max iterations adjusted to [Y]"`
 
-**Quality snapshot (iteration 1 only):** On the first QA iteration, run the quality scorer to establish a pre-QA baseline:
+**Pre-QA scoring baseline:** On the first QA iteration, run the quality scorer and heatmap to establish a baseline:
 ```bash
 python scripts/quality.py score --format json --project . > .paper-quality-pre-qa.json
 python scripts/quality.py save --project . --checkpoint pre_qa
+python scripts/quality.py heatmap --project .
 ```
-Store the JSON output in `.paper-state.json` under `stages.quality_scores.pre_qa`. This enables measuring the quality improvement from the QA loop.
+Store the JSON output in `.paper-state.json` under `stages.quality_scores.pre_qa`. The heatmap (`research/evidence_heatmap.md`) gives QA reviewers the current evidence state. After QA fixes, re-run to measure improvement.
 
 #### Step 5c: Revision Agent
 
@@ -351,6 +352,17 @@ PROVENANCE — After EACH revision, append a JSON entry to research/provenance.j
 {"ts":"[timestamp]","stage":"5","agent":"qa-revision","action":"revise|cut|add","target":"[section/pN]","reasoning":"[why — reference the specific review issue]","feedback_ref":"[reviews/file.md#issue-number]","diff_summary":"[what changed]","sources":["keys"],"qa_iteration":[QA_ITERATION]}
 For cuts: save removed text to provenance/cuts/[section]-[pN]-qa[QA_ITERATION].tex and set archived_to.
 ```
+
+**Score regression check**: After applying QA fixes, re-run:
+
+```bash
+python scripts/quality.py score --format json --project .
+python scripts/quality.py heatmap --project .
+```
+
+Compare with the baseline (`.paper-quality-pre-qa.json`). If the overall evidence score DECREASED:
+- A QA fix may have removed well-supported content or weakened language below evidence level
+- Flag as a regression and investigate before declaring convergence
 
 #### Step 5c-ii: Generate QA Iteration Context
 
