@@ -59,6 +59,7 @@ SCHEMA = {
                 "full_text": int,
                 "abstract_only": int,
                 "metadata_only": int,
+                "prisma_tracking": bool,
             },
         },
         "codex_thesis": {
@@ -85,7 +86,11 @@ SCHEMA = {
         },
         "figures": {
             "required": {"done": bool},
-            "optional": {},
+            "optional": {
+                "completed_at": str,
+                "prisma_generated": bool,
+                "prisma_metadata_path": str,
+            },
         },
         "qa": {
             "required": {"done": bool},
@@ -100,6 +105,7 @@ SCHEMA = {
         "qa_iteration": int,
         "codex_risk_radar": dict,
         "auto_iterations": dict,
+        "prisma_metadata": dict,
         "targeted_research": dict,
         "deep_read": dict,
         "literature_synthesis": dict,
