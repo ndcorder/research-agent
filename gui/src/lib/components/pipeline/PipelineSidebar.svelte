@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { paperState, stageList, isProjectLoaded } from "$lib/stores/project";
+  import { paperState, stageList, isProjectLoaded, rightPanel } from "$lib/stores/project";
+  import PipelineProgress from "./PipelineProgress.svelte";
 
   let now = $state(Date.now());
 
@@ -149,5 +150,21 @@
       </ul>
     </div>
   {/if}
+
+  <!-- Pipeline actions -->
+  <div class="mt-4 flex-shrink-0 border-t border-border pt-3">
+    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Actions</h3>
+    <PipelineProgress />
+  </div>
+
+  <!-- Quality panel toggle -->
+  <div class="mt-2 flex-shrink-0">
+    <button
+      class="w-full rounded px-2 py-1.5 text-left text-xs font-medium text-text hover:bg-surface-hover {$rightPanel === 'quality' ? 'bg-accent/10 text-accent' : ''}"
+      onclick={() => rightPanel.set($rightPanel === "quality" ? "graph" : "quality")}
+    >
+      Quality Dashboard
+    </button>
+  </div>
 </div>
 {/if}

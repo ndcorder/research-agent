@@ -189,7 +189,7 @@ export function setupShortcuts(): () => void {
     // Cmd+[ → Previous right panel tab
     if (key === "[" && !e.shiftKey) {
       e.preventDefault();
-      const panels = ["graph", "source", "pdf", "claim", "timeline", "figures", "dashboard", "bib"] as const;
+      const panels = ["graph", "source", "pdf", "claim", "timeline", "figures", "dashboard", "bib", "quality"] as const;
       const current = get(rightPanel);
       const idx = panels.indexOf(current);
       rightPanel.set(panels[(idx - 1 + panels.length) % panels.length]);
@@ -199,7 +199,7 @@ export function setupShortcuts(): () => void {
     // Cmd+] → Next right panel tab
     if (key === "]" && !e.shiftKey) {
       e.preventDefault();
-      const panels = ["graph", "source", "pdf", "claim", "timeline", "figures", "dashboard", "bib"] as const;
+      const panels = ["graph", "source", "pdf", "claim", "timeline", "figures", "dashboard", "bib", "quality"] as const;
       const current = get(rightPanel);
       const idx = panels.indexOf(current);
       rightPanel.set(panels[(idx + 1) % panels.length]);

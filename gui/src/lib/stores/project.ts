@@ -38,7 +38,7 @@ export const showCommandPalette = writable<boolean>(false);
 export const showSettings = writable<boolean>(false);
 export const showSnippetMenu = writable<boolean>(false);
 export const rightPanel = writable<
-  "graph" | "source" | "pdf" | "claim" | "timeline" | "figures" | "dashboard" | "bib"
+  "graph" | "source" | "pdf" | "claim" | "timeline" | "figures" | "dashboard" | "bib" | "quality"
 >("graph");
 
 export const isProjectLoaded = derived(projectDir, ($dir) => $dir !== null);

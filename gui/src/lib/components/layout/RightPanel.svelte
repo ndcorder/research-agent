@@ -8,6 +8,7 @@
   import FigureManager from "../sources/FigureManager.svelte";
   import BibManager from "../sources/BibManager.svelte";
   import ResearchDashboard from "../sources/ResearchDashboard.svelte";
+  import QualityDashboard from "../pipeline/QualityDashboard.svelte";
 
   const panels = [
     { id: "dashboard" as const, label: "Dashboard" },
@@ -18,6 +19,7 @@
     { id: "figures" as const, label: "Figs" },
     { id: "bib" as const, label: "Refs" },
     { id: "timeline" as const, label: "Timeline" },
+    { id: "quality" as const, label: "Quality" },
   ];
 </script>
 
@@ -54,6 +56,8 @@
       <BibManager />
     {:else if $rightPanel === "timeline"}
       <ProvenanceTimeline />
+    {:else if $rightPanel === "quality"}
+      <QualityDashboard />
     {:else}
       <div class="flex h-full items-center justify-center text-xs text-text-muted">
         Select a view

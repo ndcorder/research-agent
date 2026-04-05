@@ -64,11 +64,7 @@
     {#each pipelineStageList as stage}
       {@const status = stageStatus(stage.key)}
       <div
-        class="flex items-center gap-2 rounded px-2 py-1 text-sm"
-        class:opacity-40={status === "pending"}
-        class:text-success={status === "done"}
-        class:font-semibold={status === "active"}
-        class:bg-accent/10={status === "active"}
+        class="flex items-center gap-2 rounded px-2 py-1 text-sm {status === 'pending' ? 'opacity-40' : ''} {status === 'done' ? 'text-success' : ''} {status === 'active' ? 'font-semibold bg-accent/10' : ''}"
       >
         <span class="w-8 font-mono text-xs">{stage.number}</span>
         <span class="flex-1">{stage.label}</span>
