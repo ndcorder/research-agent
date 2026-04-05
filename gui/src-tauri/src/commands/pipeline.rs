@@ -18,12 +18,17 @@ use super::terminal::{spawn_terminal_inner, write_terminal_inner, TerminalState}
 pub enum PipelineAction {
     TargetedResearch,
     BatchResolve,
+    WritePaper,
+    Auto,
+    Score,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PipelineActionArgs {
     pub claim_ids: Vec<String>,
     pub context: Option<String>,
+    pub auto_iterations: Option<u32>,
+    pub topic: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -79,18 +84,32 @@ fn build_runtime_command(
     let runtime = project_runtime(project_dir);
 
     if runtime == "codex" {
-        let mut cmd = format!(
-            "scripts/run-paper-command targeted-research --claims {}",
-            shell_single_quote(&ids)
-        );
-        if let Some(ctx) = &args.context {
-            cmd.push_str(&format!(" --context {}", shell_single_quote(ctx)));
-        }
-        if matches!(action, PipelineAction::BatchResolve) {
-            cmd.push_str(" --batch");
-        }
-        cmd.push('\n');
-        return cmd;
+        return match action {
+            PipelineAction::TargetedResearch | PipelineAction::BatchResolve => {
+                let mut cmd = format!(
+                    "scripts/run-paper-command targeted-research --claims {}",
+                    shell_single_quote(&ids)
+                );
+                if let Some(ctx) = &args.context {
+                    cmd.push_str(&format!(" --context {}", shell_single_quote(ctx)));
+                }
+                if matches!(action, PipelineAction::BatchResolve) {
+                    cmd.push_str(" --batch");
+                }
+                cmd.push('\n');
+                cmd
+            }
+            PipelineAction::WritePaper => {
+                "scripts/run-paper-command write-paper\n".to_string()
+            }
+            PipelineAction::Auto => {
+                let n = args.auto_iterations.unwrap_or(3);
+                format!("scripts/run-paper-command auto {n}\n")
+            }
+            PipelineAction::Score => {
+                "python scripts/quality.py score --format json --project .\n".to_string()
+            }
+        };
     }
 
     match action {
@@ -117,6 +136,16 @@ fn build_runtime_command(
             }
             cmd.push_str("\"\n");
             cmd
+        }
+        PipelineAction::WritePaper => {
+            "claude --dangerously-skip-permissions \"/write-paper\"\n".to_string()
+        }
+        PipelineAction::Auto => {
+            let n = args.auto_iterations.unwrap_or(3);
+            format!("claude --dangerously-skip-permissions \"/auto {n}\"\n")
+        }
+        PipelineAction::Score => {
+            "python scripts/quality.py score --format json --project .\n".to_string()
         }
     }
 }
@@ -195,6 +224,8 @@ mod tests {
             &PipelineActionArgs {
                 claim_ids: vec!["C1".into(), "C2".into()],
                 context: Some("extra context".into()),
+                auto_iterations: None,
+                topic: None,
             },
         );
         assert!(cmd.contains("claude --dangerously-skip-permissions"));
@@ -212,6 +243,8 @@ mod tests {
             &PipelineActionArgs {
                 claim_ids: vec!["C9".into()],
                 context: None,
+                auto_iterations: None,
+                topic: None,
             },
         );
         assert!(cmd.contains("claude --dangerously-skip-permissions"));
@@ -228,6 +261,8 @@ mod tests {
             &PipelineActionArgs {
                 claim_ids: vec!["C7".into()],
                 context: Some("review unresolved claim".into()),
+                auto_iterations: None,
+                topic: None,
             },
         );
         assert!(cmd.contains("scripts/run-paper-command targeted-research"));
@@ -246,11 +281,101 @@ mod tests {
             &PipelineActionArgs {
                 claim_ids: vec!["C3".into(), "C4".into()],
                 context: None,
+                auto_iterations: None,
+                topic: None,
             },
         );
         assert!(cmd.contains("scripts/run-paper-command targeted-research"));
         assert!(cmd.contains("--claims 'C3,C4'"));
         assert!(!cmd.contains("--batch"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_claude_write_paper_command() {
+        let dir = temp_project_dir("claude");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::WritePaper,
+            &PipelineActionArgs {
+                claim_ids: vec![],
+                context: None,
+                auto_iterations: None,
+                topic: None,
+            },
+        );
+        assert!(cmd.contains("claude --dangerously-skip-permissions"));
+        assert!(cmd.contains("/write-paper"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_claude_auto_command() {
+        let dir = temp_project_dir("claude");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::Auto,
+            &PipelineActionArgs {
+                claim_ids: vec![],
+                context: None,
+                auto_iterations: Some(5),
+                topic: None,
+            },
+        );
+        assert!(cmd.contains("claude --dangerously-skip-permissions"));
+        assert!(cmd.contains("/auto 5"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_codex_write_paper_command() {
+        let dir = temp_project_dir("codex");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::WritePaper,
+            &PipelineActionArgs {
+                claim_ids: vec![],
+                context: None,
+                auto_iterations: None,
+                topic: None,
+            },
+        );
+        assert!(cmd.contains("scripts/run-paper-command write-paper"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_codex_auto_command() {
+        let dir = temp_project_dir("codex");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::Auto,
+            &PipelineActionArgs {
+                claim_ids: vec![],
+                context: None,
+                auto_iterations: Some(3),
+                topic: None,
+            },
+        );
+        assert!(cmd.contains("scripts/run-paper-command auto 3"));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn builds_score_command() {
+        let dir = temp_project_dir("claude");
+        let cmd = build_runtime_command(
+            dir.to_str().unwrap(),
+            &PipelineAction::Score,
+            &PipelineActionArgs {
+                claim_ids: vec![],
+                context: None,
+                auto_iterations: None,
+                topic: None,
+            },
+        );
+        assert!(cmd.contains("python scripts/quality.py score"));
+        assert!(cmd.contains("--format json"));
         fs::remove_dir_all(dir).unwrap();
     }
 }

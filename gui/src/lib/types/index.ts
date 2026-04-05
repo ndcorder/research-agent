@@ -83,11 +83,18 @@ export interface FileChangeEvent {
   kind: "created" | "modified" | "removed" | "other";
 }
 
-export type PipelineAction = "targetedResearch" | "batchResolve";
+export type PipelineAction =
+  | "targetedResearch"
+  | "batchResolve"
+  | "writePaper"
+  | "auto"
+  | "score";
 
 export interface PipelineActionArgs {
   claim_ids: string[];
   context?: string;
+  auto_iterations?: number;
+  topic?: string;
 }
 
 export interface EvidenceUpdatedEvent {
