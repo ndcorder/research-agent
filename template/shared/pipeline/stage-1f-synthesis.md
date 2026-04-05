@@ -114,10 +114,62 @@ Write the complete analysis to `research/synthesis_conflicts.md` with this struc
 ## Gaps in Coverage
 [Areas where the bibliography represents only one perspective, or where key positions may be missing]
 
+## Structured Disagreement Registry
+
+After writing `synthesis_conflicts.md`, produce a machine-readable `research/disagreements.json` from the Active Debates and Emerging Tensions you identified.
+
+For each active debate or emerging tension, create an entry:
+
+```json
+{
+  "version": 1,
+  "disagreements": [
+    {
+      "id": "D1",
+      "theme": "Descriptive title of the debate",
+      "type": "<empirical | interpretive | methodological | scope>",
+      "position_a": {
+        "claim": "What Position A asserts",
+        "sources": ["bibtex_key1", "bibtex_key2"],
+        "evidence_quality": "<strong | moderate | weak>"
+      },
+      "position_b": {
+        "claim": "What Position B asserts",
+        "sources": ["bibtex_key3"],
+        "evidence_quality": "<strong | moderate | weak>"
+      },
+      "resolution_strategy": "<comparative_analysis | hedge | scope_limit | defer | remove_claim>",
+      "resolution_notes": "Why this strategy is appropriate given the evidence balance",
+      "addressed_in_sections": [],
+      "status": "identified"
+    }
+  ]
+}
+```
+
+**Type taxonomy:**
+- `empirical`: Sources report conflicting findings or measurements
+- `interpretive`: Sources agree on data but disagree on meaning
+- `methodological`: Disagreement stems from different methods producing different results
+- `scope`: Sources agree within their respective scopes but those scopes conflict
+
+**Resolution strategies:**
+- `comparative_analysis`: Present both positions with evidence assessment, explain which the paper favors and why
+- `hedge`: Acknowledge the disagreement, use qualified language ("evidence suggests" rather than "demonstrates")
+- `scope_limit`: Restrict the paper's claim to the scope where evidence is uncontested
+- `defer`: Note the disagreement as an open question for future work
+- `remove_claim`: Drop the contested claim entirely (when evidence is genuinely balanced and the claim is not central)
+
+**Evidence quality assignment:**
+- Cross-reference with `research/synthesis_methods.md` (Agent 2 output) — if the Methodological Critique rates a source as `weak`, its side of a debate cannot be `strong`
+- `strong`: Multiple full-text sources with sound methodology
+- `moderate`: At least one full-text source, or multiple abstract-only sources
+- `weak`: Single abstract-only source, or sources with methodological concerns
+
 ## Provenance Logging
 
 Append one entry to research/provenance.jsonl:
-{"ts":"[ISO-8601]","stage":"1f","agent":"synthesis-conflicts","action":"research","target":"synthesis_conflicts","reasoning":"Cross-source conflict analysis across [N] sources for [TOPIC]","sources":["[all bibtex keys]"],"diff_summary":"Produced consensus/conflict map identifying [X] consensus areas, [Y] active debates, [Z] emerging tensions"}
+{"ts":"[ISO-8601]","stage":"1f","agent":"synthesis-conflicts","action":"research","target":"synthesis_conflicts, disagreements.json","reasoning":"Cross-source conflict analysis across [N] sources for [TOPIC]","sources":["[all bibtex keys]"],"diff_summary":"Produced consensus/conflict map identifying [X] consensus areas, [Y] active debates, [Z] emerging tensions"}
 ```
 
 ---
