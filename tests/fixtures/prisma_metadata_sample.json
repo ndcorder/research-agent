@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "search_strategy": {
+    "databases": [
+      {
+        "name": "Semantic Scholar",
+        "queries": ["machine learning drug discovery", "ML molecular docking"],
+        "results": 347,
+        "date": "2026-04-05"
+      },
+      {
+        "name": "OpenAlex",
+        "queries": ["machine learning drug discovery"],
+        "results": 218,
+        "date": "2026-04-05"
+      }
+    ],
+    "other_sources": [
+      {
+        "name": "Citation snowballing",
+        "results": 23
+      },
+      {
+        "name": "Co-citation analysis",
+        "results": 8
+      }
+    ],
+    "total_identified": 596
+  },
+  "deduplication": {
+    "before": 596,
+    "duplicates_removed": 142,
+    "after": 454,
+    "method": "DOI exact match, then normalized title (first 80 chars)"
+  },
+  "screening": {
+    "screened": 454,
+    "excluded": 389,
+    "exclusion_reasons": [
+      { "reason": "Not empirical research", "count": 156 },
+      { "reason": "Outside scope (not drug discovery)", "count": 98 },
+      { "reason": "Duplicate study (same dataset, different venue)", "count": 45 },
+      { "reason": "Insufficient methodological detail", "count": 52 },
+      { "reason": "Non-English full text", "count": 12 },
+      { "reason": "Retracted or corrected", "count": 3 },
+      { "reason": "Grey literature below quality threshold", "count": 23 }
+    ],
+    "method": "Title and abstract review against inclusion criteria"
+  },
+  "eligibility": {
+    "assessed": 65,
+    "excluded": 18,
+    "exclusion_reasons": [
+      { "reason": "Full text not accessible (METADATA-ONLY after resolver cascade)", "count": 8 },
+      { "reason": "Methods not reproducible on inspection", "count": 4 },
+      { "reason": "Findings superseded by more recent replication", "count": 3 },
+      { "reason": "Sample size below minimum threshold", "count": 3 }
+    ],
+    "method": "Full-text assessment against methodological quality criteria"
+  },
+  "included": {
+    "qualitative_synthesis": 47,
+    "quantitative_synthesis": 31,
+    "new_studies_from_targeted_research": 5
+  },
+  "per_source_log": [
+    {
+      "bibtex_key": "smith2024",
+      "database": "Semantic Scholar",
+      "phase": "included",
+      "access_level": "FULL-TEXT",
+      "exclusion_reason": null
+    },
+    {
+      "bibtex_key": "jones2023",
+      "database": "OpenAlex",
+      "phase": "screening",
+      "access_level": "ABSTRACT-ONLY",
+      "exclusion_reason": "Outside scope (not drug discovery)"
+    }
+  ]
+}
