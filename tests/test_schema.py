@@ -47,7 +47,7 @@ SCHEMA = {
         },
         "outline": {
             "required": {"done": bool},
-            "optional": {"completed_at": str},
+            "optional": {"completed_at": str, "evidence_gate": dict},
         },
         "codex_cross_check": {
             "required": {"done": bool},
@@ -118,6 +118,18 @@ SCHEMA = {
     },
 }
 
+EVIDENCE_GATE_SCHEMA = {
+    "required": {
+        "total_claims": int,
+        "strong": int,
+        "moderate": int,
+        "weak": int,
+        "critical": int,
+        "gate_passed": bool,
+    },
+    "optional": {},
+}
+
 
 # ---------- Disagreement Registry Schema ----------
 
@@ -175,6 +187,23 @@ def test_disagreements_fixture():
 
 
 # ---------- Validation ----------
+
+def validate_evidence_gate(gate: dict) -> list[str]:
+    """Validate evidence_gate dict structure. Returns list of error strings."""
+    errors: list[str] = []
+    for key, expected_type in EVIDENCE_GATE_SCHEMA["required"].items():
+        if key not in gate:
+            errors.append(f"evidence_gate missing required key '{key}'")
+        elif not isinstance(gate[key], expected_type):
+            errors.append(
+                f"evidence_gate['{key}'] should be {expected_type.__name__}, "
+                f"got {type(gate[key]).__name__}"
+            )
+    for key in gate:
+        if key not in EVIDENCE_GATE_SCHEMA["required"] and key not in EVIDENCE_GATE_SCHEMA["optional"]:
+            errors.append(f"evidence_gate has unexpected key '{key}'")
+    return errors
+
 
 def validate(data: Any, schema: dict = SCHEMA) -> list[str]:
     """Validate data against the schema. Returns list of error strings (empty = valid)."""
@@ -236,6 +265,13 @@ def validate(data: Any, schema: dict = SCHEMA) -> list[str]:
                         f"stages.{stage_name}.{field} should be "
                         f"{expected_type.__name__}, got {type(stage_data[field]).__name__}"
                     )
+
+    # Check evidence_gate structure if present in outline
+    outline_data = stages.get("outline", {})
+    if isinstance(outline_data, dict) and "evidence_gate" in outline_data:
+        gate = outline_data["evidence_gate"]
+        if isinstance(gate, dict):
+            errors.extend(validate_evidence_gate(gate))
 
     # Check auto_iterations shape if present
     auto_iter = stages.get("auto_iterations")
@@ -304,7 +340,18 @@ def generate_example() -> dict:
                 "medium_confidence_found": 8,
                 "auto_added": 3,
             },
-            "outline": {"done": True, "completed_at": "2026-03-21T16:00:00Z"},
+            "outline": {
+                "done": True,
+                "completed_at": "2026-03-21T16:00:00Z",
+                "evidence_gate": {
+                    "total_claims": 15,
+                    "strong": 8,
+                    "moderate": 4,
+                    "weak": 2,
+                    "critical": 1,
+                    "gate_passed": True,
+                },
+            },
             "codex_cross_check": {
                 "done": True,
                 "completed_at": "2026-03-21T15:30:00Z",
@@ -387,6 +434,29 @@ def main():
             print(f"  - {e}")
         sys.exit(1)
     print("PASS: Built-in example validates correctly")
+
+    # Self-test: evidence_gate validation
+    good_gate = {
+        "total_claims": 15, "strong": 8, "moderate": 4,
+        "weak": 2, "critical": 1, "gate_passed": True,
+    }
+    gate_errors = validate_evidence_gate(good_gate)
+    if gate_errors:
+        print("FAIL: Valid evidence_gate rejected:")
+        for e in gate_errors:
+            print(f"  - {e}")
+        sys.exit(1)
+    print("PASS: evidence_gate schema validates correctly")
+
+    bad_gate = {"total_claims": "not_int", "gate_passed": True}
+    gate_errors = validate_evidence_gate(bad_gate)
+    expected_bad = 5  # missing: strong, moderate, weak, critical; wrong type: total_claims
+    if len(gate_errors) != expected_bad:
+        print(f"FAIL: Bad evidence_gate should have {expected_bad} errors, got {len(gate_errors)}")
+        for e in gate_errors:
+            print(f"  - {e}")
+        sys.exit(1)
+    print("PASS: evidence_gate rejects invalid data correctly")
 
     # If a file argument is provided, validate that file
     if len(sys.argv) > 1:
