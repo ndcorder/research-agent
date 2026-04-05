@@ -78,7 +78,25 @@ The writing agent for that section should then ALSO read `research/section_lit_[
 - Instruction to invoke the `scientific-writing` skill for prose quality
 - The specific word count target as a MINIMUM
 - `model: "claude-opus-4-6[1m]"` for highest quality prose
-- Instruction to read `research/claims_matrix.md` for the scored claims-evidence matrix. **Adjust writing confidence based on claim strength**: STRONG claims (score >= 6) use confident language ("demonstrates", "establishes"). MODERATE claims (3-5.9) use standard academic language ("shows", "indicates"). WEAK claims (1-2.9) MUST use hedged language ("suggests", "preliminary evidence indicates") and note the limitation. CRITICAL claims (< 1) should not appear in the final text without explicit qualification.
+- Instruction to read `research/claims_matrix.md` for the scored claims-evidence matrix AND `research/evidence_heatmap.md` for per-claim writing guidance.
+
+  **EVIDENCE DENSITY GUIDANCE** — Read `research/evidence_heatmap.md` for your section's claims.
+
+  For each claim you write about, the heatmap specifies:
+  - **Score** and **Strength** (STRONG/MODERATE/WEAK/CRITICAL)
+  - **Warrant quality** (Sound/Reasonable/Weak/Missing)
+  - **Writing Guidance** — follow this exactly for confidence language calibration
+
+  Key rules:
+  1. **STRONG claims (score >= 6)**: Write assertively. "Our results demonstrate...", "This establishes..."
+  2. **MODERATE claims (score 3-5.9)**: Write with measured confidence. "Our findings indicate...", "Evidence supports..."
+  3. **WEAK claims (score 1-2.9)**: MUST hedge. "Preliminary evidence suggests...", "While limited, available data points to..."
+     - Add an explicit limitation acknowledgment within the same paragraph
+  4. **CRITICAL claims (score < 1)**: Frame as hypothesis or open question ONLY. "We hypothesize that...", "An open question is whether..."
+     - If this claim is not central to the thesis, consider omitting it entirely
+  5. **Missing warrant**: Do NOT write the claim until you can articulate WHY the evidence supports it. If you cannot, flag as a structural gap.
+
+  Do NOT inflate confidence beyond what the evidence score supports. A WEAK claim written with STRONG language is worse than omitting the claim entirely — it will be caught by QA and flagged as an overclaim.
 - **Argumentation** — for each major claim in your section, ensure the paragraph contains:
   1. The **CLAIM** stated clearly
   2. **EVIDENCE** supporting it (with citations)
@@ -381,6 +399,10 @@ Phase 4:
 ```
 
 **Parallel agent requirements**: Each Phase 1 agent is fully self-contained. It reads research artifacts, writes to its own section of main.tex, and runs its own post-section pipeline (expansion, spot-check, evidence check, micro-research). Agents must NOT read each other's output during Phase 1 — they work from the shared research base only. The coherence reconciliation step after Phase 1 handles any cross-section inconsistencies.
+
+**Post-section evidence check**: After writing this section, re-read the claims you included. For any claim where you used stronger language than the heatmap guidance allows, either:
+- Weaken the language to match the evidence
+- Note it as a deliberate editorial choice with justification in `research/provenance.jsonl`
 
 **State tracking** — After each section's evidence check, update `.paper-state.json` under the writing stage:
 
